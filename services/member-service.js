@@ -26,24 +26,24 @@
     return Array.isArray(savedMembers) ? normalizeMembersPayload(savedMembers) : [];
   }
 
-  async function persistMembers(members, activeMemberId) {
+ function persistMembers(members, activeMemberId) {
     const normalizedMembers = normalizeMembersPayload(members);
     saveToStorage(storageKeys.members, normalizedMembers);
     storeBackupSnapshot(normalizedMembers, activeMemberId);
 
     if (window.supabaseClient) {
-        try {
-           await window.supabaseClient.from("members").delete().neq("id", "0");
-
-            await window.supabaseClient.from("members").insert(
-                normalizedMembers.map(m => ({
-                    name: m.name || "",
-                    program: m.program || ""
-                }))
-            );
-        } catch (err) {
-            console.error(err);
-        }
+        window.supabaseClient.from("members").insert(
+            normalizedMembers.map(m => ({
+                name: m.memberName || m.profile?.memberName || "",
+                program: m.goal || m.profile?.goal || ""
+            }))
+        ).then(({ error }) => {
+            if (error) {
+                console.error("Supabase hata:", error);
+            } else {
+                console.log("Supabase kaydedildi");
+            }
+        });
     }
 
     return normalizedMembers;
