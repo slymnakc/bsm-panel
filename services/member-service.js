@@ -1,6 +1,5 @@
 (function () {
   "use strict";
-
   const {
     storageKeys,
     loadFromStorage,
@@ -9,28 +8,21 @@
     normalizeFormPayload,
     storeBackupSnapshot,
   } = window.BSMStorageService;
-
   function findActiveMember(members, activeMemberId) {
-
     if (!Array.isArray(members)) {
         console.log("members ARRAY DEĞİL:", members);
         members = [];
     }
-
-  
     return (members || []).find((member) => member.id === activeMemberId) || null;
   }
-
   function loadMembers() {
     const savedMembers = loadFromStorage(storageKeys.members);
     return Array.isArray(savedMembers) ? normalizeMembersPayload(savedMembers) : [];
   }
-
  function persistMembers(members, activeMemberId) {
     const normalizedMembers = normalizeMembersPayload(members);
     saveToStorage(storageKeys.members, normalizedMembers);
     storeBackupSnapshot(normalizedMembers, activeMemberId);
-
     if (window.supabaseClient) {
         window.supabaseClient.from("members").insert(
             normalizedMembers.map(m => ({
