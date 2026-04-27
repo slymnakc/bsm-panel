@@ -11,10 +11,11 @@
   function findActiveMember(members, activeMemberId) {
     if (!Array.isArray(members)) {
         console.log("members ARRAY DEĞİL:", members);
-        members = [];
+        return null;
     }
-    return (members || []).find((member) => member.id === activeMemberId) || null;
-  }
+
+    return members.find(m => m.id === activeMemberId) || null;
+}
   function loadMembers() {
     const savedMembers = loadFromStorage(storageKeys.members);
     return Array.isArray(savedMembers) ? normalizeMembersPayload(savedMembers) : [];
