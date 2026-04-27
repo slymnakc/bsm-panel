@@ -11,6 +11,13 @@
   } = window.BSMStorageService;
 
   function findActiveMember(members, activeMemberId) {
+
+    if (!Array.isArray(members)) {
+        console.log("members ARRAY DEĞİL:", members);
+        members = [];
+    }
+
+  
     return (members || []).find((member) => member.id === activeMemberId) || null;
   }
 
