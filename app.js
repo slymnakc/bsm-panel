@@ -688,6 +688,8 @@ function setWorkspaceView(view) {
 
 
 function collectFormData() {
+  const form = document.querySelector("form");
+console.log("FORM:", form);
   const formData = new FormData(form);
   const selectedDays = dayMeta
     .filter((day) => formData.getAll("days").includes(day.value))
