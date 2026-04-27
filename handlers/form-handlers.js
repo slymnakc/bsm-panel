@@ -43,6 +43,7 @@
     } = deps;
 
     function handleSubmit(event) {
+      console.log("SUBMIT ÇALIŞTI");
       event.preventDefault();
 
       const formData = collectFormData();
