@@ -711,6 +711,17 @@
     <script src="./program-engine-v2.js"></script>
     <script src="./automation-engine.js"></script>
     <script src="./v3-insights-engine.js"></script>
-    <script src="./app.js"></script>
+    <!-- Supabase kütüphanesi -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Senin bağlantın -->
+<script>
+const supabase = window.supabase.createClient(
+  "https://fgzderdmkfmjixvqynvv.supabase.co",
+  "sb_publishable_1sB5h0Llp_6wtejE_dG7XQ_Hd7E4LP0"
+);
+console.log("Supabase bağlandı mı:", supabase);
+</script>
+<!-- SENİN SİSTEM -->
+<script src="./app.js"></script>
   </body>
 </html>
