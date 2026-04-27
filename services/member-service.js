@@ -14,7 +14,7 @@
         return null;
     }
 
-    return members.find(m => m.id === activeMemberId) || null;
+    return members.find((m) => m.id === activeMemberId) || null;
 }
   function loadMembers() {
     const savedMembers = loadFromStorage(storageKeys.members);
