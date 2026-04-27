@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bahçeşehir Spor Merkezi | Üye Performans ve Antrenman Paneli</title>
+    <meta
+      name="description"
+      content="Bahçeşehir Spor Merkezi için Türkçe, mobil uyumlu, segmental ölçüm takipli ve geniş hareket kütüphaneli üye antrenman paneli."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-backdrop" aria-hidden="true"></div>
+
+    <header class="hero">
+      <div class="hero__content">
+        <p class="eyebrow">Bahçeşehir Spor Merkezi • Performans • Ölçüm • Program</p>
+        <h1>Bahçeşehir Spor Merkezi</h1>
+        <p class="hero__lead">
+          Üyeleriniz için segmental vücut analiz sonuçlarını, ölçüm geçmişini ve kas grubu bazlı antrenman programlarını
+          tek bir premium spor merkezi panelinde yönetin.
+        </p>
+        <div class="hero__badges">
+          <span>Segmental ölçüm takibi</span>
+          <span>CrossFit ve Pilates dahil</span>
+          <span>960+ hareket kütüphanesi</span>
+        </div>
+      </div>
+
+      <div class="hero__card">
+        <p class="hero__card-label">Salon Modu</p>
+        <div class="hero__metrics">
+          <article>
+            <strong>14 Kategori</strong>
+            <span>Kas grupları, CrossFit ve Pilates</span>
+          </article>
+          <article>
+            <strong>840+ Hareket</strong>
+            <span>Her kategoride en az 60 seçenek</span>
+          </article>
+          <article>
+            <strong>2-6 Gün</strong>
+            <span>Üyelere uygulanabilir haftalık plan</span>
+          </article>
+        </div>
+      </div>
+    </header>
+
+    <nav class="studio-nav" aria-label="Çalışma ekranları">
+      <button type="button" class="is-active" data-screen-target="dashboard">Dashboard</button>
+      <button type="button" data-screen-target="builder">Üye ve Program</button>
+      <button type="button" data-screen-target="library">Hareket Kütüphanesi</button>
+      <button type="button" data-screen-target="output">Üye Çıktısı</button>
+    </nav>
+
+    <section class="dashboard-panel screen-panel" id="dashboardPanel" data-screen="dashboard">
+      <div class="dashboard-panel__header">
+        <div>
+          <p class="section-kicker">Yönetim Paneli</p>
+          <h2>Bahçeşehir Spor Merkezi Dashboard</h2>
+          <p>Üyeler, segmental ölçümler, programlar ve aktif çalışma dosyası tek ekranda takip edilir.</p>
+        </div>
+        <div class="dashboard-status">
+          <span>Yerel Studio Modu</span>
+          <strong id="dashboardToday">Bugün</strong>
+          <div class="dashboard-tools">
+            <button type="button" class="ghost-button mini-button" id="downloadBackupButton">Yedek İndir</button>
+            <button type="button" class="ghost-button mini-button" id="restoreBackupButton">Yedek Yükle</button>
+            <button type="button" class="secondary-button mini-button" id="exportMembersCsvButton">Excel (CSV)</button>
+            <button type="button" class="ghost-button mini-button" id="restoreAutoBackupButton">Oto Yedek Geri Al</button>
+            <small id="backupMeta">Oto yedek bekleniyor</small>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="backupFileInput" accept=".json,application/json" hidden />
+
+      <div class="dashboard-grid">
+        <article class="dashboard-card dashboard-card--accent">
+          <span>Toplam Üye</span>
+          <strong id="dashboardMemberCount">0</strong>
+          <small>Kayıtlı üye dosyası</small>
+        </article>
+        <article class="dashboard-card">
+          <span>Program Geçmişi</span>
+          <strong id="dashboardProgramCount">0</strong>
+          <small>Üyelere kaydedilen plan</small>
+        </article>
+        <article class="dashboard-card">
+          <span>Ölçüm Kaydı</span>
+          <strong id="dashboardMeasurementCount">0</strong>
+          <small>Kilo, yağ ve çevre ölçümü</small>
+        </article>
+        <article class="dashboard-card">
+          <span>Aktif Üye</span>
+          <strong id="dashboardActiveMember">Seçilmedi</strong>
+          <small id="dashboardActiveMemberMeta">Üye seçerek profil panelini açın</small>
+        </article>
+        <article class="dashboard-card">
+          <span>Riskli Üye</span>
+          <strong id="dashboardRiskMemberCount">0</strong>
+          <small>Koç uyarısı veya yüksek takip ihtiyacı</small>
+        </article>
+        <article class="dashboard-card">
+          <span>Ölçüm Bekleyen</span>
+          <strong id="dashboardMeasurementDueCount">0</strong>
+          <small>14 gün veya üzeri ölçüm hatırlatması</small>
+        </article>
+        <article class="dashboard-card">
+          <span>Program Revizyonu</span>
+          <strong id="dashboardProgramDueCount">0</strong>
+          <small>21 gün üzeri güncelleme önerisi</small>
+        </article>
+        <article class="dashboard-card">
+          <span>Son 7 Gün</span>
+          <strong id="dashboardLast7ActivityCount">0</strong>
+          <small>Ölçüm ve program aktivitesi</small>
+        </article>
+      </div>
+
+      <div class="dashboard-split">
+        <article class="dashboard-insight">
+          <div>
+            <p class="section-kicker">Son Aktivite</p>
+            <h3>Salon Akışı</h3>
+          </div>
+          <div id="dashboardActivity" class="activity-list"></div>
+        </article>
+        <article class="dashboard-insight dashboard-insight--dark">
+          <p class="section-kicker">Önerilen Kullanım</p>
+          <h3>1 üye seç → program oluştur → düzenle → geçmişe kaydet</h3>
+          <p>
+            Bu akışla antrenör, üyeye özel planı hızlıca oluşturup ölçüm ve program geçmişini aynı dosyada tutabilir.
+          </p>
+        </article>
+        <article class="dashboard-insight dashboard-insight--alerts">
+          <div>
+            <p class="section-kicker">Koç Uyarıları</p>
+            <h3>Akıllı Takip Merkezi</h3>
+          </div>
+          <div id="coachAlertsPanel" class="coach-alert-list"></div>
+        </article>
+        <article class="dashboard-insight dashboard-insight--v3">
+          <div>
+            <p class="section-kicker">V3 Kontrol Takvimi</p>
+            <h3>Yaklaşan Üye Kontrolleri</h3>
+          </div>
+          <div id="v3DashboardCalendar" class="v3-calendar-list"></div>
+        </article>
+        <article class="dashboard-insight dashboard-insight--tasks">
+          <div>
+            <p class="section-kicker">Günlük Koç Görevleri</p>
+            <h3>Bugün Öncelik Verilecek İşler</h3>
+          </div>
+          <div id="coachTaskPanel" class="coach-task-list"></div>
+        </article>
+        <article class="dashboard-insight dashboard-insight--quick" id="coachQuickPanel"></article>
+      </div>
+    </section>
+
+    <main class="app-shell screen-panel is-hidden" data-screen="builder">
+      <section class="panel panel--form">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Üye Antrenman Planı</p>
+            <h2>Üye ve Program Bilgileri</h2>
+          </div>
+          <div class="panel-actions">
+            <button type="button" class="secondary-button" id="fillExampleButton">Örnek Üye</button>
+            <button type="button" class="ghost-button" id="loadSavedButton">Son Kaydı Yükle</button>
+          </div>
+        </div>
+
+        <form id="plannerForm" novalidate>
+          <div class="builder-steps" aria-label="Program oluşturma adımları">
+            <span><b>1</b> Üye seç</span>
+            <span><b>2</b> Planı oluştur</span>
+            <span><b>3</b> Düzenle</span>
+            <span><b>4</b> Kaydet / PDF al</span>
+          </div>
+
+          <div class="form-grid">
+            <label class="field">
+              <span>Fitness merkezi adı</span>
+              <input type="text" id="gymName" name="gymName" value="Bahçeşehir Spor Merkezi" maxlength="60" />
+            </label>
+
+            <label class="field">
+              <span>Üye adı soyadı</span>
+              <input type="text" id="memberName" name="memberName" placeholder="Örn. Elif Yılmaz" maxlength="60" />
+            </label>
+
+            <label class="field">
+              <span>Üye no / kart no</span>
+              <input type="text" id="memberCode" name="memberCode" placeholder="Örn. FM-1024" maxlength="30" />
+            </label>
+
+            <label class="field">
+              <span>Antrenör adı</span>
+              <input type="text" id="trainerName" name="trainerName" placeholder="Örn. Mert Coach" maxlength="50" />
+            </label>
+
+            <label class="field">
+              <span>Ana hedef</span>
+              <select id="goal" name="goal" required>
+                <option value="">Seçiniz</option>
+                <option value="fat-loss">Yağ yakımı</option>
+                <option value="muscle-gain">Kas kazanımı</option>
+                <option value="strength">Kuvvet artışı</option>
+                <option value="conditioning">Kondisyon geliştirme</option>
+                <option value="maintenance">Form koruma</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Üye seviyesi</span>
+              <select id="level" name="level" required>
+                <option value="">Seçiniz</option>
+                <option value="beginner">Başlangıç</option>
+                <option value="intermediate">Orta seviye</option>
+                <option value="advanced">İleri seviye</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Program tipi</span>
+              <select id="programStyle" name="programStyle" required>
+                <option value="auto" selected>Otomatik salon split’i</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Antrenman sistemi</span>
+              <select id="trainingSystem" name="trainingSystem" required>
+                <option value="standard" selected>Standart set sistemi</option>
+                <option value="superset">Süperset</option>
+                <option value="compound-set">Compound set</option>
+                <option value="tri-set">3'lü set</option>
+                <option value="giant-set">Dev set</option>
+                <option value="circuit">İstasyon / circuit</option>
+                <option value="drop-set">Drop set vurgulu</option>
+                <option value="rest-pause">Rest-pause vurgulu</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Salon ekipman kapsamı</span>
+              <select id="equipmentScope" name="equipmentScope" required>
+                <option value="full-gym" selected>Tam donanımlı salon</option>
+                <option value="standard-gym">Standart fitness merkezi</option>
+                <option value="machines-only">Makine ve cable ağırlıklı</option>
+                <option value="free-weights">Serbest ağırlık ağırlıklı</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Seans süresi</span>
+              <select id="duration" name="duration" required>
+                <option value="30">30 dakika</option>
+                <option value="45">45 dakika</option>
+                <option value="60" selected>60 dakika</option>
+                <option value="75">75 dakika</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Öncelikli kas grubu</span>
+              <select id="priorityMuscle" name="priorityMuscle">
+                <option value="balanced" selected>Dengeli dağılım</option>
+              </select>
+            </label>
+          </div>
+
+          <fieldset class="choice-block">
+            <legend>Üyenin haftalık uygun günleri</legend>
+            <p class="help-text">En az 2, en fazla 6 gün seçin. Program bu günlere göre salon split’i oluşturur.</p>
+            <div class="day-grid">
+              <label><input type="checkbox" name="days" value="monday" /> <span>Pazartesi</span></label>
+              <label><input type="checkbox" name="days" value="tuesday" /> <span>Salı</span></label>
+              <label><input type="checkbox" name="days" value="wednesday" /> <span>Çarşamba</span></label>
+              <label><input type="checkbox" name="days" value="thursday" /> <span>Perşembe</span></label>
+              <label><input type="checkbox" name="days" value="friday" /> <span>Cuma</span></label>
+              <label><input type="checkbox" name="days" value="saturday" /> <span>Cumartesi</span></label>
+              <label><input type="checkbox" name="days" value="sunday" /> <span>Pazar</span></label>
+            </div>
+          </fieldset>
+
+          <fieldset class="choice-block">
+            <legend>Kardiyo ekleme seviyesi</legend>
+            <div class="segmented-control">
+              <label>
+                <input type="radio" name="cardioPreference" value="low" />
+                <span>Minimum</span>
+              </label>
+              <label>
+                <input type="radio" name="cardioPreference" value="balanced" checked />
+                <span>Dengeli</span>
+              </label>
+              <label>
+                <input type="radio" name="cardioPreference" value="high" />
+                <span>Yüksek</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="choice-block">
+            <legend>Sağlık / uygulama uyarıları</legend>
+            <p class="help-text">Varsa işaretleyin. Hareket seçimi daha güvenli alternatiflere kaydırılır.</p>
+            <div class="restriction-grid">
+              <label><input type="checkbox" name="restrictions" value="knee" /> <span>Diz hassasiyeti</span></label>
+              <label><input type="checkbox" name="restrictions" value="back" /> <span>Bel hassasiyeti</span></label>
+              <label><input type="checkbox" name="restrictions" value="shoulder" /> <span>Omuz hassasiyeti</span></label>
+              <label><input type="checkbox" name="restrictions" value="low-impact" /> <span>Düşük etkili çalışma</span></label>
+            </div>
+          </fieldset>
+
+          <label class="field field--full">
+            <span>Antrenör notu</span>
+            <textarea
+              id="notes"
+              name="notes"
+              rows="4"
+              maxlength="360"
+              placeholder="Örn. Üye ilk ay adaptasyon programında. Squat derinliği kontrollü, omuz press hareketleri hafif başlatılacak."
+            ></textarea>
+          </label>
+
+          <div class="form-footer">
+            <p id="formStatus" class="status-message" aria-live="polite"></p>
+            <div class="form-footer__actions">
+              <button type="button" class="ghost-button" id="newMemberButton">Yeni Üye</button>
+              <button type="button" class="secondary-button" id="saveMemberButton">Üyeyi Kaydet</button>
+              <button type="submit" class="primary-button">Üye Programını Oluştur</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <aside class="panel panel--summary">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Canlı Özet</p>
+            <h2>Salon Plan Önizleme</h2>
+          </div>
+        </div>
+
+        <div id="liveSummary" class="summary-stack"></div>
+
+        <div id="activeMemberProfile" class="profile-card"></div>
+
+        <div class="summary-note">
+          <strong>Salon kullanımı:</strong>
+          Oluşturulan plan, üyeye verilecek çıktı gibi düzenlenir. Hareketler kas gruplarına göre etiketlenir ve aynı
+          tarayıcıda saklanır.
+        </div>
+
+        <div class="member-workspace">
+          <div class="workspace-tabs" id="workspaceTabs" aria-label="Sağ panel sekmeleri">
+            <button type="button" class="is-active" data-workspace-view="members">Üyeler</button>
+            <button type="button" data-workspace-view="measurements">Ölçüm</button>
+            <button type="button" data-workspace-view="history">Geçmiş</button>
+            <button type="button" data-workspace-view="v3">V3 Koçluk</button>
+          </div>
+
+          <section class="workspace-card" data-workspace-panel="members">
+            <div class="workspace-card__header">
+              <div>
+                <p class="section-kicker">Üye Dosyaları</p>
+                <h3>Kayıtlı Üyeler</h3>
+              </div>
+              <span id="memberCount">0</span>
+            </div>
+            <label class="field compact-field">
+              <span>Üye ara</span>
+              <input type="text" id="memberSearch" placeholder="Ad, üye no veya hedef ara" />
+            </label>
+            <label class="field compact-field">
+              <span>Sıralama</span>
+              <select id="memberSort">
+                <option value="recent-update">Son güncellenen</option>
+                <option value="name-asc">İsme göre (A-Z)</option>
+                <option value="code-asc">Üye no (A-Z)</option>
+                <option value="programs-desc">Programı olanlar önce</option>
+                <option value="measurements-desc">Ölçümü olanlar önce</option>
+              </select>
+            </label>
+            <div id="memberList" class="member-list"></div>
+          </section>
+
+          <section class="workspace-card is-hidden" data-workspace-panel="measurements">
+            <div class="workspace-card__header">
+              <div>
+                <p class="section-kicker">Segmental Analiz</p>
+                <h3>Vücut Analiz Cihazı Sonuçları</h3>
+              </div>
+            </div>
+            <div class="measurement-grid">
+              <label class="field compact-field">
+                <span>Tarih</span>
+                <input type="date" id="measurementDate" />
+              </label>
+              <label class="field compact-field">
+                <span>Kilo kg</span>
+                <input type="number" id="measurementWeight" min="20" max="250" step="0.1" placeholder="72.5" />
+              </label>
+              <label class="field compact-field">
+                <span>Boy cm</span>
+                <input type="number" id="measurementHeight" min="100" max="240" step="0.1" placeholder="172" />
+              </label>
+              <div class="field compact-field birthdate-field">
+                <span>Doğum tarihi</span>
+                <div class="birthdate-grid" aria-label="Üye doğum tarihi">
+                  <input type="number" id="measurementBirthDay" min="1" max="31" step="1" placeholder="Gün" aria-label="Doğum günü" />
+                  <input type="number" id="measurementBirthMonth" min="1" max="12" step="1" placeholder="Ay" aria-label="Doğum ayı" />
+                  <input type="number" id="measurementBirthYear" min="1920" max="2026" step="1" placeholder="Yıl" aria-label="Doğum yılı" />
+                </div>
+                <small>Yaş ölçüm tarihine göre otomatik hesaplanır.</small>
+              </div>
+              <label class="field compact-field">
+                <span>Vücut yağ %</span>
+                <input type="number" id="measurementFat" min="3" max="60" step="0.1" placeholder="18.0" />
+              </label>
+              <label class="field compact-field">
+                <span>Kas kütlesi kg</span>
+                <input type="number" id="measurementMuscleMass" min="10" max="120" step="0.1" placeholder="34.2" />
+              </label>
+              <label class="field compact-field">
+                <span>Yağ kütlesi kg</span>
+                <input type="number" id="measurementFatMass" min="1" max="120" step="0.1" placeholder="13.1" />
+              </label>
+              <label class="field compact-field">
+                <span>Vücut suyu %</span>
+                <input type="number" id="measurementBodyWater" min="25" max="80" step="0.1" placeholder="56.0" />
+              </label>
+              <label class="field compact-field">
+                <span>Visceral yağ</span>
+                <input type="number" id="measurementVisceralFat" min="1" max="30" step="1" placeholder="7" />
+              </label>
+              <label class="field compact-field">
+                <span>Metabolizma hızı kcal</span>
+                <input type="number" id="measurementBmr" min="800" max="4000" step="1" placeholder="1650" />
+              </label>
+              <label class="field compact-field">
+                <span>Metabolizma yaşı</span>
+                <input type="number" id="measurementMetabolicAge" min="10" max="100" step="1" placeholder="32" />
+              </label>
+              <label class="field compact-field">
+                <span>Kemik kg</span>
+                <input type="number" id="measurementBoneMass" min="1" max="8" step="0.1" placeholder="3.0" />
+              </label>
+              <label class="field compact-field">
+                <span>Bel cm</span>
+                <input type="number" id="measurementWaist" min="40" max="200" step="0.1" placeholder="82" />
+              </label>
+              <label class="field compact-field">
+                <span>Kalça cm</span>
+                <input type="number" id="measurementHip" min="40" max="220" step="0.1" placeholder="98" />
+              </label>
+              <label class="field compact-field">
+                <span>Göğüs cm</span>
+                <input type="number" id="measurementChest" min="40" max="220" step="0.1" placeholder="96" />
+              </label>
+            </div>
+
+            <details class="segmental-details" open>
+              <summary>Segmental kas ve yağ dağılımı</summary>
+              <div class="segmental-grid">
+                <label class="field compact-field">
+                  <span>Sağ kol kas kg</span>
+                  <input type="number" id="segmentRightArmMuscle" min="0" max="30" step="0.1" placeholder="3.2" />
+                </label>
+                <label class="field compact-field">
+                  <span>Sol kol kas kg</span>
+                  <input type="number" id="segmentLeftArmMuscle" min="0" max="30" step="0.1" placeholder="3.1" />
+                </label>
+                <label class="field compact-field">
+                  <span>Gövde kas kg</span>
+                  <input type="number" id="segmentTrunkMuscle" min="0" max="80" step="0.1" placeholder="26.0" />
+                </label>
+                <label class="field compact-field">
+                  <span>Sağ bacak kas kg</span>
+                  <input type="number" id="segmentRightLegMuscle" min="0" max="50" step="0.1" placeholder="9.8" />
+                </label>
+                <label class="field compact-field">
+                  <span>Sol bacak kas kg</span>
+                  <input type="number" id="segmentLeftLegMuscle" min="0" max="50" step="0.1" placeholder="9.6" />
+                </label>
+                <label class="field compact-field">
+                  <span>Sağ kol yağ kg</span>
+                  <input type="number" id="segmentRightArmFat" min="0" max="30" step="0.1" placeholder="1.1" />
+                </label>
+                <label class="field compact-field">
+                  <span>Sol kol yağ kg</span>
+                  <input type="number" id="segmentLeftArmFat" min="0" max="30" step="0.1" placeholder="1.2" />
+                </label>
+                <label class="field compact-field">
+                  <span>Gövde yağ kg</span>
+                  <input type="number" id="segmentTrunkFat" min="0" max="80" step="0.1" placeholder="7.4" />
+                </label>
+                <label class="field compact-field">
+                  <span>Sağ bacak yağ kg</span>
+                  <input type="number" id="segmentRightLegFat" min="0" max="50" step="0.1" placeholder="2.1" />
+                </label>
+                <label class="field compact-field">
+                  <span>Sol bacak yağ kg</span>
+                  <input type="number" id="segmentLeftLegFat" min="0" max="50" step="0.1" placeholder="2.2" />
+                </label>
+              </div>
+            </details>
+            <details class="segmental-details" open>
+              <summary>Segmental kas direnci dağılımı (ohm)</summary>
+              <div class="segmental-grid">
+                <label class="field compact-field">
+                  <span>Sağ kol direnç</span>
+                  <input type="number" id="segmentRightArmResistance" min="100" max="1200" step="1" placeholder="420" />
+                </label>
+                <label class="field compact-field">
+                  <span>Sol kol direnç</span>
+                  <input type="number" id="segmentLeftArmResistance" min="100" max="1200" step="1" placeholder="430" />
+                </label>
+                <label class="field compact-field">
+                  <span>Gövde direnç</span>
+                  <input type="number" id="segmentTrunkResistance" min="50" max="900" step="1" placeholder="290" />
+                </label>
+                <label class="field compact-field">
+                  <span>Sağ bacak direnç</span>
+                  <input type="number" id="segmentRightLegResistance" min="100" max="1200" step="1" placeholder="360" />
+                </label>
+                <label class="field compact-field">
+                  <span>Sol bacak direnç</span>
+                  <input type="number" id="segmentLeftLegResistance" min="100" max="1200" step="1" placeholder="368" />
+                </label>
+              </div>
+            </details>
+            <label class="field compact-field">
+              <span>Cihaz / ölçüm notu</span>
+              <textarea id="measurementNote" rows="2" maxlength="260" placeholder="Örn. Segmental analiz cihazı çıktısı girildi, sağ-sol bacak kas farkı takip edilecek."></textarea>
+            </label>
+            <button type="button" class="secondary-button workspace-button" id="saveMeasurementButton">Ölçümü Kaydet</button>
+            <div id="bodyAnalysisReport" class="analysis-report"></div>
+            <div id="measurementHistory" class="history-list"></div>
+          </section>
+
+          <section class="workspace-card is-hidden" data-workspace-panel="history">
+            <div class="workspace-card__header">
+              <div>
+                <p class="section-kicker">Program Geçmişi</p>
+                <h3>Üye Planları</h3>
+              </div>
+            </div>
+            <div id="programHistory" class="history-list"></div>
+          </section>
+
+          <section class="workspace-card workspace-card--v3 is-hidden" data-workspace-panel="v3">
+            <div class="workspace-card__header">
+              <div>
+                <p class="section-kicker">V3 Koçluk Dosyası</p>
+                <h3>Gelişim, Revizyon ve Kontrol</h3>
+              </div>
+            </div>
+            <div id="professionalMemberFile" class="professional-member-file"></div>
+            <div id="v3MemberDossier" class="v3-dossier-grid"></div>
+            <div id="v3TrendCharts" class="v3-chart-grid"></div>
+            <div id="v3RevisionPanel" class="v3-revision-panel"></div>
+            <div id="v3ControlCalendar" class="v3-calendar-list"></div>
+          </section>
+        </div>
+      </aside>
+    </main>
+
+    <section class="library-panel screen-panel is-hidden" id="libraryPanel" data-screen="library">
+      <div class="results__header">
+        <div>
+          <p class="section-kicker">Hareket Kütüphanesi</p>
+          <h2>Kas Gruplarına Göre Egzersizler</h2>
+        </div>
+        <div class="library-count" id="libraryCount">0 hareket</div>
+      </div>
+
+      <div class="library-toolbar">
+        <label class="field">
+          <span>Hareket ara</span>
+          <input type="text" id="exerciseSearch" placeholder="Örn. bench press, leg press, plank" />
+        </label>
+        <label class="field">
+          <span>Kas grubu</span>
+          <select id="libraryGroupFilter">
+            <option value="all">Tüm kas grupları</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Ekipman</span>
+          <select id="libraryEquipmentFilter">
+            <option value="all">Tüm ekipmanlar</option>
+          </select>
+        </label>
+      </div>
+      <div class="library-search-actions">
+        <button type="button" class="secondary-button" id="findExerciseButton">Bul</button>
+        <button type="button" class="ghost-button" id="clearExerciseSearchButton">Temizle</button>
+      </div>
+
+      <div class="muscle-tabs" id="muscleGroupTabs" aria-label="Kas grubu hızlı filtreleri"></div>
+      <div class="alphabet-tabs" id="alphabetTabs" aria-label="Alfabetik hareket sekmeleri"></div>
+      <div class="library-grid" id="exerciseLibrary"></div>
+    </section>
+
+    <section id="resultsSection" class="results hidden screen-panel is-hidden" aria-live="polite" data-screen="output">
+      <div class="results__header">
+        <div>
+          <p class="section-kicker">Üyeye Uygulanacak Program</p>
+          <h2 id="resultsTitle">Hazır</h2>
+        </div>
+        <div class="panel-actions">
+          <button type="button" class="ghost-button" id="saveProgramButton">Programı Üyeye Kaydet</button>
+          <button type="button" class="secondary-button" id="copyPlanButton">Metni Kopyala</button>
+          <button type="button" class="primary-button" id="printPlanButton">Yazdır / PDF Al</button>
+        </div>
+      </div>
+
+      <div class="program-cover" id="programCover">
+        <div>
+          <p id="coverBrand">Bahçeşehir Spor Merkezi</p>
+          <h3 id="coverMember">Üye Programı</h3>
+          <span id="coverMeta">Program oluşturulduğunda salon çıktısı burada hazırlanır.</span>
+        </div>
+        <div class="cover-signature">
+          <span>Antrenör Onayı</span>
+          <strong id="coverTrainer">-</strong>
+        </div>
+      </div>
+
+      <div class="results__grid">
+        <section class="result-card">
+          <h3>Üye Program Kartı</h3>
+          <div id="programOverview" class="metric-grid"></div>
+        </section>
+
+        <section class="result-card">
+          <h3>Antrenör Notu</h3>
+          <div id="coachNote" class="coach-note"></div>
+        </section>
+
+        <section class="result-card result-card--wide">
+          <h3>AI Analiz ve Koç Raporu</h3>
+          <div id="aiReportSummary" class="ai-report-grid"></div>
+        </section>
+
+        <section class="result-card">
+          <h3>Sonraki Kontrol Önerisi</h3>
+          <div id="nextControlReport" class="coach-note"></div>
+        </section>
+
+        <section class="result-card">
+          <h3>Dikkat Edilecek Uyarılar</h3>
+          <div id="outputWarnings" class="warning-list"></div>
+        </section>
+
+        <section class="result-card result-card--wide">
+          <h3>Kas Grubu Kapsamı</h3>
+          <div id="muscleCoverage" class="coverage-grid"></div>
+        </section>
+
+        <section class="result-card result-card--wide">
+          <h3>Haftalık Üye Antrenman Planı</h3>
+          <div id="weeklyPlan" class="weekly-plan"></div>
+        </section>
+
+        <section class="result-card">
+          <h3>4 Haftalık Takip</h3>
+          <div id="progressionPlan" class="timeline"></div>
+        </section>
+
+        <section class="result-card">
+          <h3>Uygulama Kuralları</h3>
+          <div id="guidanceBlock" class="guidance-list"></div>
+        </section>
+      </div>
+    </section>
+
+    <script src="./data/options.js"></script>
+    <script src="./data/labels.js"></script>
+    <script src="./data/presets.js"></script>
+    <script src="./data/exercises.js"></script>
+    <script src="./helpers/core-utils.js"></script>
+    <script src="./helpers/label-utils.js"></script>
+    <script src="./data-migrations.js"></script>
+    <script src="./services/storage-service.js"></script>
+    <script src="./services/member-service.js"></script>
+    <script src="./services/dashboard-service.js"></script>
+    <script src="./services/validation-service.js"></script>
+    <script src="./services/program-content-service.js"></script>
+    <script src="./services/program-member-service.js"></script>
+    <script src="./services/program-structure-service.js"></script>
+    <script src="./services/program-summary-service.js"></script>
+    <script src="./services/program-assembly-service.js"></script>
+    <script src="./services/output-model-service.js"></script>
+    <script src="./services/session-exercise-service.js"></script>
+    <script src="./services/session-assembly-service.js"></script>
+    <script src="./services/session-support-service.js"></script>
+    <script src="./ui/dashboard-ui.js"></script>
+    <script src="./ui/alerts-ui.js"></script>
+    <script src="./ui/member-ui.js"></script>
+    <script src="./ui/library-ui.js"></script>
+    <script src="./ui/output-ui.js"></script>
+    <script src="./handlers/form-handlers.js"></script>
+    <script src="./handlers/navigation-handlers.js"></script>
+    <script src="./handlers/member-handlers.js"></script>
+    <script src="./handlers/output-handlers.js"></script>
+    <script src="./analysis-engine.js"></script>
+    <script src="./program-engine-v2.js"></script>
+    <script src="./automation-engine.js"></script>
+    <script src="./v3-insights-engine.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
