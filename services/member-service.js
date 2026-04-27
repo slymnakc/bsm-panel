@@ -24,11 +24,11 @@
     saveToStorage(storageKeys.members, normalizedMembers);
     storeBackupSnapshot(normalizedMembers, activeMemberId);
 
-    if (window.supabase) {
+    if (window.supabaseClient) {
         try {
-            await supabase.from("members").delete().neq("id", "0");
+           await window.supabaseClient.from("members").delete().neq("id", "0");
 
-            await supabase.from("members").insert(
+            await window.supabaseClient.from("members").insert(
                 normalizedMembers.map(m => ({
                     name: m.name || "",
                     program: m.program || ""
