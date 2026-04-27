@@ -19,12 +19,28 @@
     return Array.isArray(savedMembers) ? normalizeMembersPayload(savedMembers) : [];
   }
 
-  function persistMembers(members, activeMemberId) {
+  async function persistMembers(members, activeMemberId) {
     const normalizedMembers = normalizeMembersPayload(members);
     saveToStorage(storageKeys.members, normalizedMembers);
     storeBackupSnapshot(normalizedMembers, activeMemberId);
+
+    if (window.supabase) {
+        try {
+            await supabase.from("members").delete().neq("id", "0");
+
+            await supabase.from("members").insert(
+                normalizedMembers.map(m => ({
+                    name: m.name || "",
+                    program: m.program || ""
+                }))
+            );
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
     return normalizedMembers;
-  }
+}
 
   function updateActiveMemberProfile(members, activeMemberId, profile) {
     const member = findActiveMember(members, activeMemberId);
