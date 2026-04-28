@@ -24,7 +24,24 @@
   }
 
   function normalizeMembersPayload(value) {
-    return window.BSMDataMigrations?.normalizeMembers ? window.BSMDataMigrations.normalizeMembers(value) : value;
+    const members = extractMemberArrayPayload(value);
+    return window.BSMDataMigrations?.normalizeMembers ? window.BSMDataMigrations.normalizeMembers(members) : members;
+  }
+
+  function extractMemberArrayPayload(value) {
+    if (Array.isArray(value)) {
+      return value;
+    }
+
+    if (value && Array.isArray(value.data)) {
+      return value.data;
+    }
+
+    if (value && Array.isArray(value.members)) {
+      return value.members;
+    }
+
+    return [];
   }
 
   function normalizeBackupHistoryPayload(value) {

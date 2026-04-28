@@ -2,10 +2,17 @@
   "use strict";
 
   function buildProgramSectionsModel(program, deps) {
-    const { getMuscleLabel, weeklyPlanHtml } = deps;
+    const { getMuscleLabel, getDayLabel, labelMaps, weeklyPlanHtml } = deps;
+    const rawData = program.rawData || {};
+    const overview = [
+      ["Üye adı", rawData.memberName || findOverviewValue(program, "Üye") || "Belirtilmedi"],
+      ["Hedef", labelMaps?.goal?.[rawData.goal] || findOverviewValue(program, "Hedef") || "Belirtilmedi"],
+      ["Seviye", labelMaps?.level?.[rawData.level] || findOverviewValue(program, "Seviye") || "Belirtilmedi"],
+      ["Haftalık antrenman günleri", formatTrainingDays(rawData.days, getDayLabel)],
+    ];
 
     return {
-      overview: (program.overview || []).map(([label, value]) => ({ label, value })),
+      overview: overview.map(([label, value]) => ({ label, value })),
       coachNote: program.coachNote,
       createdAt: program.createdAt,
       coverage: (program.coverage || []).map((item) => ({
@@ -16,6 +23,19 @@
       progression: program.progression || [],
       guidance: program.guidance || [],
     };
+  }
+
+  function findOverviewValue(program, targetLabel) {
+    const match = (program.overview || []).find(([label]) => label === targetLabel);
+    return match?.[1] || "";
+  }
+
+  function formatTrainingDays(days, getDayLabel) {
+    if (!Array.isArray(days) || !days.length) {
+      return "Belirtilmedi";
+    }
+
+    return days.map((day) => (getDayLabel ? getDayLabel(day) : day)).join(", ");
   }
 
   function buildOutputIntelligenceModel(program) {

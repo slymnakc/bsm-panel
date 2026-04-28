@@ -81,6 +81,8 @@
   function buildWeeklyPlanHtml(model, escapeHtml, helpers) {
     const sessions = model?.sessions || [];
 
+    return sessions.map((session, sessionIndex) => renderPrintableSession(session, sessionIndex, escapeHtml, helpers)).join("");
+
     return sessions
       .map(
         (session, sessionIndex) => `
@@ -135,6 +137,104 @@
         `,
       )
       .join("");
+  }
+
+  function renderPrintableSession(session, sessionIndex, escapeHtml, helpers) {
+    return `
+      <article class="member-program-day">
+        <div class="member-program-day__header">
+          <div>
+            <span>${escapeHtml(session.dayLabel || `Gün ${sessionIndex + 1}`)}</span>
+            <h4>${escapeHtml(session.title || "Antrenman")}</h4>
+          </div>
+          <small>${escapeHtml(session.duration || "")}</small>
+        </div>
+        <p class="member-program-day__purpose">${escapeHtml(limitToOneSentence(session.purpose || session.note || "Kontrollü teknik ve düzenli tempo ile uygulanır."))}</p>
+        <div class="member-program-table">
+          <div class="member-program-table__head">
+            <span>Hareket</span>
+            <span>Set</span>
+            <span>Tekrar</span>
+            <span>Dinlenme</span>
+            <span>Uygulama notu</span>
+          </div>
+          ${renderPrintableExerciseRows(session, escapeHtml)}
+        </div>
+        <div class="member-program-support">
+          ${renderSupportLine("Isınma", (session.warmup || []).join(" • "), escapeHtml)}
+          ${renderSupportLine("Kardiyo / Bitiriş", session.cardioBlock, escapeHtml)}
+          ${renderSupportLine("Soğuma", (session.cooldown || []).join(" • "), escapeHtml)}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderPrintableExerciseRows(session, escapeHtml) {
+    return (session.exercises || [])
+      .map((exercise) => {
+        const prescription = splitPrescription(exercise.prescription);
+
+        return `
+          <div class="member-program-table__row">
+            <strong>${escapeHtml(exercise.name || "Hareket")}</strong>
+            <span data-label="Set">${escapeHtml(prescription.sets)}</span>
+            <span data-label="Tekrar">${escapeHtml(prescription.reps)}</span>
+            <span data-label="Dinlenme">${escapeHtml(exercise.rest || "-")}</span>
+            <span data-label="Not">${escapeHtml(limitToOneSentence(exercise.cue || "Kontrollü formda uygula."))}</span>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  function splitPrescription(value) {
+    const text = String(value || "").trim();
+    const setMatch = text.match(/^(.+?)\s*set\s*x\s*(.+)$/i);
+    const roundMatch = text.match(/^(.+?)\s*tur\s*x\s*(.+)$/i);
+
+    if (setMatch) {
+      return {
+        sets: setMatch[1].trim(),
+        reps: cleanRepetitionText(setMatch[2]),
+      };
+    }
+
+    if (roundMatch) {
+      return {
+        sets: `${roundMatch[1].trim()} tur`,
+        reps: cleanRepetitionText(roundMatch[2]),
+      };
+    }
+
+    return {
+      sets: "-",
+      reps: text || "-",
+    };
+  }
+
+  function cleanRepetitionText(value) {
+    return String(value || "").replace(/\s*tekrar\s*$/i, "").trim() || "-";
+  }
+
+  function renderSupportLine(label, value, escapeHtml) {
+    if (!value) {
+      return "";
+    }
+
+    return `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(limitToOneSentence(value))}</p>`;
+  }
+
+  function limitToOneSentence(value) {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+
+    if (!text) {
+      return "";
+    }
+
+    const sentenceMatch = text.match(/^.*?[.!?](?:\s|$)/);
+    const sentence = sentenceMatch ? sentenceMatch[0].trim() : text;
+
+    return sentence.length > 130 ? `${sentence.slice(0, 127).trim()}...` : sentence;
   }
 
   function renderOutputIntelligence(targets, model, escapeHtml) {

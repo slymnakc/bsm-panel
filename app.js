@@ -4,15 +4,21 @@
   normalizeFormPayload,
   normalizePlanPayload,
   normalizeMeasurementPayload,
+  normalizeMembersPayload,
   storeBackupSnapshot,
   loadBackupHistory,
   extractMembersFromBackup,
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
+console.log("APP VERSION: v1.0.1");
+
 const {
   findActiveMember: findActiveMemberRecord,
   loadMembers: loadStoredMembers,
+  loadSupabaseMembers: loadSupabaseMemberRecords,
+  mergeMemberLists,
+  cacheMembersLocally,
   persistMembers: persistStoredMembers,
   updateActiveMemberProfile: updateStoredActiveMemberProfile,
   loadActiveMemberId,
@@ -87,7 +93,14 @@ const {
 } = window.BSMSessionSupportService;
 
 const state = {
-  members: [],
+  _members: [],
+  get members() {
+    return this._members;
+  },
+  set members(value) {
+    this._members = normalizeMembersPayload(value);
+    console.log("STATE MEMBERS TYPE:", Array.isArray(this._members), this._members);
+  },
   activeMemberId: null,
   activeProgram: null,
   activeAlphabetLetter: "all",
@@ -434,10 +447,12 @@ function initialize() {
   populateStaticFilters();
   populateProgramStyleOptions();
   initializeStateFromStorage();
+  prepareOutputLayout();
   syncStartupUi();
   bindApplicationHandlers();
   hydrateInitialSession();
   setActiveScreen(inferScreenFromHash(window.location.hash), { silent: true });
+  syncMembersFromSupabase();
 }
 
 function initializeStateFromStorage() {
@@ -462,6 +477,87 @@ function syncStartupUi() {
   setWorkspaceView(state.activeWorkspaceView);
   renderLibrary();
   renderMemberWorkspace();
+}
+
+function prepareOutputLayout() {
+  const grid = resultsSection?.querySelector(".results__grid");
+
+  if (!grid || grid.querySelector(".output-detail-panel")) {
+    return;
+  }
+
+  const summaryCard = programOverview?.closest(".result-card");
+  const programCard = weeklyPlan?.closest(".result-card");
+  const detailTargets = [
+    coachNote,
+    aiReportSummary,
+    nextControlReport,
+    outputWarnings,
+    muscleCoverage,
+    progressionPlan,
+    guidanceBlock,
+  ];
+  const detailCards = detailTargets.map((target) => target?.closest(".result-card")).filter(Boolean);
+
+  summaryCard?.classList.add("output-summary-card");
+  programCard?.classList.add("output-program-card");
+  setResultCardTitle(summaryCard, "Üye Program Özeti");
+  setResultCardTitle(programCard, "Haftalık Üye Antrenman Planı");
+
+  const detailPanel = document.createElement("details");
+  detailPanel.className = "result-card result-card--wide output-detail-panel";
+  detailPanel.innerHTML = `
+    <summary>
+      <span>Detaylı Analiz</span>
+      <small>Antrenör için teknik notlar, AI değerlendirme ve takip bilgileri</small>
+    </summary>
+    <div class="output-detail-grid"></div>
+  `;
+
+  const detailGrid = detailPanel.querySelector(".output-detail-grid");
+  detailCards.forEach((card) => {
+    card.classList.add("output-detail-card");
+    detailGrid.appendChild(card);
+  });
+
+  if (programCard?.nextSibling) {
+    grid.insertBefore(detailPanel, programCard.nextSibling);
+  } else {
+    grid.appendChild(detailPanel);
+  }
+}
+
+function setResultCardTitle(card, title) {
+  const titleElement = card?.querySelector("h3");
+
+  if (titleElement) {
+    titleElement.textContent = title;
+  }
+}
+
+function syncMembersFromSupabase() {
+  loadSupabaseMemberRecords()
+    .then((supabaseMembers) => {
+      if (!supabaseMembers.length) {
+        return;
+      }
+
+      const mergedMembers = mergeMemberLists(state.members, supabaseMembers);
+
+      if (!mergedMembers.length) {
+        return;
+      }
+
+      state.activeMemberId = mergedMembers.some((member) => member.id === state.activeMemberId)
+        ? state.activeMemberId
+        : mergedMembers[0]?.id || null;
+      saveActiveMemberId(state.activeMemberId);
+      state.members = cacheMembersLocally(mergedMembers, state.activeMemberId);
+      renderMemberWorkspace();
+    })
+    .catch((error) => {
+      console.warn("Supabase members sync error", error);
+    });
 }
 
 function bindApplicationHandlers() {
@@ -688,8 +784,6 @@ function setWorkspaceView(view) {
 
 
 function collectFormData() {
-  const form = document.querySelector("form");
-console.log("FORM:", form);
   const formData = new FormData(form);
   const selectedDays = dayMeta
     .filter((day) => formData.getAll("days").includes(day.value))
@@ -2256,6 +2350,8 @@ function renderProgram(program) {
   );
   const programSectionsModel = buildProgramSectionsModelService(state.activeProgram, {
     getMuscleLabel,
+    getDayLabel,
+    labelMaps,
     weeklyPlanHtml,
   });
   renderProgramSectionsUi(
@@ -2402,6 +2498,8 @@ function getFirstLetter(value) {
 }
 
 function convertProgramToText(program) {
+  return convertMemberProgramToSimpleText(program);
+
   const overviewText = program.overview.map(([label, value]) => `${label}: ${value}`).join("\n");
   const analysis = program.aiReport || {};
   const intelligence = program.programIntelligence || {};
@@ -2498,6 +2596,91 @@ function formatSessionExercisesForText(session) {
       return `${block.label} | ${block.instruction} | Dinlenme: ${block.rest}\n${blockExercises}`;
     })
     .join("\n\n");
+}
+
+function convertMemberProgramToSimpleText(program) {
+  const rawData = program.rawData || {};
+  const overview = [
+    ["Üye adı", rawData.memberName || findProgramOverviewValue(program, "Üye") || "Belirtilmedi"],
+    ["Hedef", labelMaps.goal[rawData.goal] || findProgramOverviewValue(program, "Hedef") || "Belirtilmedi"],
+    ["Seviye", labelMaps.level[rawData.level] || findProgramOverviewValue(program, "Seviye") || "Belirtilmedi"],
+    ["Haftalık antrenman günleri", Array.isArray(rawData.days) && rawData.days.length ? rawData.days.map(getDayLabel).join(", ") : "Belirtilmedi"],
+  ]
+    .map(([label, value]) => `${label}: ${value}`)
+    .join("\n");
+  const sessionText = (program.sessions || []).map(formatSimpleSessionForText).join("\n\n");
+
+  return `${program.title}
+Oluşturulma zamanı: ${program.createdAt}
+
+ÜYE PROGRAM ÖZETİ
+${overview}
+
+HAFTALIK ANTRENMAN PLANI
+${sessionText}`;
+}
+
+function formatSimpleSessionForText(session) {
+  const exercises = (session.exercises || []).map(formatSimpleExerciseForText).join("\n");
+
+  return `${session.dayLabel} - ${session.title}
+Amaç: ${limitTextToOneSentence(session.purpose || session.note || "Kontrollü teknik ve düzenli tempo ile uygulanır.")}
+${exercises}
+Isınma: ${limitTextToOneSentence((session.warmup || []).join(" / "))}
+Kardiyo / Bitiriş: ${limitTextToOneSentence(session.cardioBlock || "")}
+Soğuma: ${limitTextToOneSentence((session.cooldown || []).join(" / "))}`;
+}
+
+function formatSimpleExerciseForText(exercise) {
+  const prescription = splitProgramPrescription(exercise.prescription);
+  return `- ${exercise.name} | Set: ${prescription.sets} | Tekrar: ${prescription.reps} | Dinlenme: ${exercise.rest || "-"} | Not: ${limitTextToOneSentence(exercise.cue || "Kontrollü formda uygula.")}`;
+}
+
+function splitProgramPrescription(value) {
+  const text = String(value || "").trim();
+  const setMatch = text.match(/^(.+?)\s*set\s*x\s*(.+)$/i);
+  const roundMatch = text.match(/^(.+?)\s*tur\s*x\s*(.+)$/i);
+
+  if (setMatch) {
+    return {
+      sets: setMatch[1].trim(),
+      reps: cleanProgramRepetition(setMatch[2]),
+    };
+  }
+
+  if (roundMatch) {
+    return {
+      sets: `${roundMatch[1].trim()} tur`,
+      reps: cleanProgramRepetition(roundMatch[2]),
+    };
+  }
+
+  return {
+    sets: "-",
+    reps: text || "-",
+  };
+}
+
+function cleanProgramRepetition(value) {
+  return String(value || "").replace(/\s*tekrar\s*$/i, "").trim() || "-";
+}
+
+function limitTextToOneSentence(value) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+
+  if (!text) {
+    return "";
+  }
+
+  const sentenceMatch = text.match(/^.*?[.!?](?:\s|$)/);
+  const sentence = sentenceMatch ? sentenceMatch[0].trim() : text;
+
+  return sentence.length > 130 ? `${sentence.slice(0, 127).trim()}...` : sentence;
+}
+
+function findProgramOverviewValue(program, targetLabel) {
+  const match = (program.overview || []).find(([label]) => label === targetLabel);
+  return match?.[1] || "";
 }
 
 function normalizeMemberSort(value) {

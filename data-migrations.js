@@ -157,6 +157,14 @@
 
   function normalizeMember(raw) {
     const member = raw && typeof raw === "object" ? raw : {};
+    const sourceProfile = member.profile || member.formData || member.rawProfile || {};
+    const profile = normalizeFormData({
+      ...sourceProfile,
+      memberName: member.memberName || member.member_name || member.name || sourceProfile.memberName,
+      memberCode: member.memberCode || member.member_code || sourceProfile.memberCode,
+      trainerName: member.trainerName || member.trainer_name || sourceProfile.trainerName,
+      goal: member.goal || member.program || sourceProfile.goal,
+    });
     const createdAt = normalizeIsoDate(member.createdAt) || new Date().toISOString();
     const measurements = Array.isArray(member.measurements)
       ? member.measurements.map((item) => normalizeMeasurement(item)).sort((a, b) => compareDates(b.date, a.date))
@@ -168,7 +176,7 @@
     return {
       id: String(member.id || makeId("member")),
       schemaVersion: TARGET_SCHEMA_VERSION,
-      profile: normalizeFormData(member.profile || member.formData || member.rawProfile),
+      profile,
       measurements,
       programs,
       createdAt,

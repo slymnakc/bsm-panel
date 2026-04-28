@@ -1,55 +1,69 @@
 # Bahçeşehir Spor Merkezi Üye Performans Paneli
 
-Bahçeşehir Spor Merkezi için Türkçe, mobil uyumlu, segmental ölçüm takipli ve geniş hareket kütüphaneli üye antrenman paneli.
+Bahçeşehir Spor Merkezi için hazırlanmış Türkçe, mobil uyumlu, Supabase bağlantılı ve Render üzerinde yayınlanabilir üye performans ve antrenman panelidir.
 
-## Yeni Profesyonel Panel Yapısı
+## Ne İşe Yarar?
 
-- Dashboard: toplam üye, program geçmişi, segmental ölçüm kaydı, aktif üye ve son aktiviteler.
-- Ekran bazlı akış: `Dashboard`, `Üye ve Program`, `Hareket Kütüphanesi`, `Üye Çıktısı`.
-- Hızlı menü: dashboard, program builder, hareket kütüphanesi ve üye çıktısına tek tıkla geçiş.
-- Aktif üye profili: hedef, seviye, son ölçüm, aktif program ve sağlık uyarıları.
-- Otomatik analiz raporu: son ölçüme göre genel skor, risk/denge notları, trend yorumu ve küçük grafik göstergeleri.
-- Premium çıktı kapağı: Bahçeşehir Spor Merkezi adı, üye adı, program özeti ve antrenör onayı.
-- Adım adım builder akışı: üye seç, program oluştur, düzenle, kaydet/PDF al.
+- Üye kaydı ve üye dosyası yönetimi
+- Segmental vücut analiz ölçümü
+- Üyeye özel antrenman programı oluşturma
+- Hareket kütüphanesi ve kas grubu filtreleme
+- AI destekli analiz, koç notları ve otomasyon uyarıları
+- Üyeye verilebilir sade program çıktısı
+- Yazdırma / PDF alma desteği
+- Supabase üyeler tablosuna veri yazma ve sayfa açılışında veri çekme
 
-## Nasıl Kullanılır?
+## Canlı Yayın
 
-1. `index.html` dosyasını tarayıcıda açın.
-2. Fitness merkezi adı varsayılan olarak `Bahçeşehir Spor Merkezi` gelir; üye adı, üye no, antrenör adı, hedef, seviye ve uygun günleri girin.
-3. `Üyeyi Kaydet` ile üye dosyası oluşturun veya kayıtlı üyelerden birini yükleyin.
-4. Program tipi seçin: otomatik salon split’i, full body, upper/lower, push/pull/legs, bölgesel hipertrofi veya makine devresi.
-5. İsterseniz öncelikli kas grubu ve sağlık uyarılarını işaretleyin.
-6. `Üye Programını Oluştur` butonuna basın.
-7. Oluşan program üzerinde hareket, set/tekrar, dinlenme, tempo ve uygulama notlarını düzenleyin.
-8. `Programı Üyeye Kaydet` ile planı üyenin program geçmişine ekleyin.
-9. Üyeye vermek için `Yazdır / PDF Al` ya da `Metni Kopyala` seçeneklerini kullanın.
+Canlı panel:
 
-## Özellikler
+https://bsm-panel.onrender.com/
 
-- Üye kartı, üye no ve antrenör notu
-- Bahçeşehir Spor Merkezi markalı premium arayüz ve program çıktısı
-- Profesyonel dashboard ve hızlı bölüm navigasyonu
-- Aktif üye profil paneli
-- Kayıtlı üye listesi ve üye dosyası yükleme
-- Sağ panel sekmeleri: `Üyeler`, `Ölçüm`, `Geçmiş` görünüm ayrımı
-- Segmental vücut analiz cihazı sonuçları: kilo, boy, yağ oranı, kas kütlesi, yağ kütlesi, vücut suyu, visceral yağ, metabolizma hızı, metabolizma yaşı, kemik kg
-- Segmental dağılım: sağ/sol kol, gövde ve sağ/sol bacak için kas ve yağ değerleri
-- Tüm ölçüm sonucuna göre otomatik genel değerlendirme ve gelişim yorumu
-- Üye bazlı program geçmişi
-- 14 kategori: kas grupları, kardiyo, mobilite, CrossFit ve Pilates
-- Toplam 960+ hareket; her kategoride en az 60 hareket
-- Hareket arama, Bul/Temizle sistemi, kas grubu filtresi ve ekipman filtresi
-- Alfabetik hareket sekmeleri ve her sonuç içinde A-Z sıralama
-- CrossFit kondisyon ve Pilates mat/reformer program tipi
-- Kas grubu bazlı haftalık antrenman split’i
-- Düzenlenebilir program çıktısı
-- Her hareket için hareket değiştirme, set/tekrar, dinlenme, tempo, ekipman ve uygulama notu
-- 4 haftalık takip planı
-- Mobil uyumlu profesyonel arayüz
-- Yerel tarayıcı kaydı
+## Otomatik Güncelleme Mantığı
 
-## Dosyalar
+Bu proje Render için hazırlandı. Proje GitHub reposuna bağlandıktan sonra:
 
-- `index.html`
-- `styles.css`
-- `app.js`
+1. Kodda değişiklik yapılır.
+2. Değişiklik GitHub `main` branch'ine gönderilir.
+3. Render `autoDeploy: true` ayarıyla siteyi otomatik yeniden yayınlar.
+4. Canlı sitede yeni sürüm görünür.
+
+Bu ayar [render.yaml](./render.yaml) dosyasında hazırdır.
+
+## Render Ayarı
+
+Render bu projeyi statik site olarak yayınlar:
+
+- Servis adı: `bsm-panel`
+- Runtime: `static`
+- Yayın klasörü: proje ana klasörü
+- Auto deploy: açık
+- SPA yönlendirme: tüm yollar `index.html` dosyasına yönlenir
+
+## Önemli Dosyalar
+
+- `index.html`: Ana sayfa ve ekran yapısı
+- `styles.css`: Görsel tasarım ve print/PDF düzeni
+- `app.js`: Uygulama başlangıcı ve ana akış
+- `data/`: Hareketler, seçenekler ve etiket verileri
+- `services/`: Storage, üye, program ve çıktı servisleri
+- `ui/`: Dashboard, üye, kütüphane ve çıktı render dosyaları
+- `handlers/`: Form, navigasyon, üye ve çıktı olayları
+- `analysis-engine.js`: Yerel AI analiz motoru
+- `automation-engine.js`: Yerel otomasyon ve uyarı motoru
+- `program-engine-v2.js`: Akıllı program öneri motoru
+- `v3-insights-engine.js`: V3 koçluk içgörüleri
+- `render.yaml`: Render otomatik deploy yapılandırması
+
+## Kullanım
+
+1. Paneli açın.
+2. Üye bilgilerini girin veya kayıtlı üyeyi seçin.
+3. Ölçüm bilgilerini girin.
+4. Hedef, seviye, gün ve ekipman bilgilerine göre program oluşturun.
+5. Programı üyeye kaydedin.
+6. `Üye Çıktısı` sekmesinden sade programı yazdırın veya PDF alın.
+
+## Not
+
+Bu proje vanilla JavaScript ile çalışır. React, Vue veya backend gerektirmez. Supabase sadece veri saklama/senkronizasyon için kullanılır.
