@@ -630,8 +630,8 @@
         </div>
       </div>
 
-      <div class="results__grid">
-        <section class="result-card">
+      <div class="results__grid output-clean-grid">
+        <section class="result-card output-summary-card">
           <h3>Üye Program Kartı</h3>
           <div id="programOverview" class="metric-grid"></div>
         </section>
@@ -711,17 +711,20 @@
     <script src="./program-engine-v2.js"></script>
     <script src="./automation-engine.js"></script>
     <script src="./v3-insights-engine.js"></script>
-    <!-- Supabase kütüphanesi -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- Senin bağlantın -->
+
 <script>
-window.supabaseClient = window.supabase.createClient(
-  "https://fgzderdmkfmjixvqynvv.supabase.co",
-  "sb_publishable_1sB5h0Llp_6wtejE_dG7XQ_Hd7E4LP0"
-);
-console.log("Supabase bağlandı mı:", window.supabaseClient);
+window.supabaseClient = null;
+window.BSMSupabaseClient = null;
+
+if (window.supabase?.createClient) {
+  window.supabaseClient = window.supabase.createClient(
+    "https://fgzderdmkfmjixvqynvv.supabase.co",
+    "sb_publishable_1sB5h0Llp_6wtejE_dG7XQ_Hd7E4LP0"
+  );
+  window.BSMSupabaseClient = window.supabaseClient;
+}
 </script>
-<!-- SENİN SİSTEM -->
-<script src="./app.js"></script>
+    <script src="./app.js"></script>
   </body>
 </html>
