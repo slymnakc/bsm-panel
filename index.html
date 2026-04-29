@@ -682,6 +682,17 @@
 
         <section class="result-card result-card--wide">
           <h3>Haftalık Üye Antrenman Planı</h3>
+          <div class="program-edit-toolbar" id="programEditToolbar">
+            <div>
+              <strong>Program düzenleme</strong>
+              <span id="programEditStatus">Düzenle modunda hareket, set, tekrar, dinlenme, tempo ve not alanlarını değiştirebilirsiniz.</span>
+            </div>
+            <div class="program-edit-toolbar__actions">
+              <button type="button" class="ghost-button" id="toggleProgramEditButton">Düzenle</button>
+              <button type="button" class="secondary-button is-hidden" id="saveProgramEditsButton">Değişiklikleri Kaydet</button>
+              <button type="button" class="ghost-button is-hidden" id="resetProgramEditsButton">Varsayılan Programa Dön</button>
+            </div>
+          </div>
           <div id="weeklyPlan" class="weekly-plan"></div>
         </section>
 

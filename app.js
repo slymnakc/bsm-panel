@@ -11,7 +11,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.2");
+console.log("APP VERSION: v1.0.3");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -116,6 +116,8 @@ const state = {
   activeWorkspaceView: "members",
   activeMemberSort: "recent-update",
   pendingTanitaMeasurement: null,
+  programEditMode: false,
+  programDefaultSnapshot: null,
 };
 
 const {
@@ -245,6 +247,11 @@ const loadSavedButton = document.querySelector("#loadSavedButton");
 const saveMemberButton = document.querySelector("#saveMemberButton");
 const newMemberButton = document.querySelector("#newMemberButton");
 const saveProgramButton = document.querySelector("#saveProgramButton");
+const toggleProgramEditButton = document.querySelector("#toggleProgramEditButton");
+const saveProgramEditsButton = document.querySelector("#saveProgramEditsButton");
+const resetProgramEditsButton = document.querySelector("#resetProgramEditsButton");
+const programEditToolbar = document.querySelector("#programEditToolbar");
+const programEditStatus = document.querySelector("#programEditStatus");
 const copyPlanButton = document.querySelector("#copyPlanButton");
 const printPlanButton = document.querySelector("#printPlanButton");
 const priorityMuscle = document.querySelector("#priorityMuscle");
@@ -393,6 +400,8 @@ const formHandlers = createFormHandlers({
   buildTempo,
   buildExerciseBlocks,
   buildMuscleCoverage,
+  applyProgramExerciseEdit,
+  validateEditableProgram,
 });
 
 const navigationHandlers = createNavigationHandlers({
@@ -415,6 +424,7 @@ const outputHandlers = createOutputHandlers({
   resultsSection,
   collectFormData,
   getCurrentProgramFromEditor,
+  validateEditableProgram,
   loadLastPlan,
   showStatus,
   convertProgramToText,
@@ -621,6 +631,9 @@ function bindApplicationHandlers() {
       saveMemberButton,
       newMemberButton,
       saveProgramButton,
+      toggleProgramEditButton,
+      saveProgramEditsButton,
+      resetProgramEditsButton,
       saveMeasurementButton,
       tanitaCsvButton,
       tanitaCsvInput,
@@ -700,7 +713,7 @@ function hydrateActiveMemberSession() {
   renderMemberWorkspace();
 
   if (activeMember.programs?.[0]?.program) {
-    renderProgram(activeMember.programs[0].program);
+    renderProgram(activeMember.programs[0].program, { savedProgramRecordId: activeMember.programs[0].id });
   }
 
   return activeMember;
@@ -2420,8 +2433,22 @@ function buildMuscleCoverage(sessions) {
   });
 }
 
-function renderProgram(program) {
+function renderProgram(program, options = {}) {
+  const previousEditMode = state.programEditMode;
+  const previousDefaultSnapshot = state.programDefaultSnapshot;
+  const previousRecordId = state.activeProgram?.savedProgramRecordId;
   state.activeProgram = cloneData(normalizePlanPayload(program));
+  normalizeEditableProgram(state.activeProgram);
+  state.activeProgram.savedProgramRecordId = options.savedProgramRecordId || program?.savedProgramRecordId || previousRecordId || null;
+
+  if (options.preserveEditState) {
+    state.programEditMode = previousEditMode;
+    state.programDefaultSnapshot = previousDefaultSnapshot || cloneData(state.activeProgram);
+  } else {
+    state.programEditMode = false;
+    state.programDefaultSnapshot = cloneData(state.activeProgram);
+  }
+
   const rawData = state.activeProgram.rawData || collectFormData();
   state.activeProgram.sessions = state.activeProgram.sessions || [];
   state.activeProgram.coverage = state.activeProgram.coverage || buildMuscleCoverage(state.activeProgram.sessions);
@@ -2438,10 +2465,11 @@ function renderProgram(program) {
   resultsTitle.textContent = state.activeProgram.title;
   renderProgramCover(state.activeProgram);
   const weeklyPlanHtml = buildWeeklyPlanHtmlUi(
-    { sessions: state.activeProgram.sessions || [] },
+    { sessions: state.activeProgram.sessions || [], editMode: state.programEditMode },
     escapeHtml,
     {
       getMuscleLabel,
+      muscleGroups,
       equipmentLabels,
       exerciseLibrary,
     },
@@ -2464,6 +2492,7 @@ function renderProgram(program) {
     programSectionsModel,
     escapeHtml,
   );
+  renderProgramEditToolbar();
   renderOutputIntelligence(state.activeProgram);
 }
 
@@ -2477,6 +2506,143 @@ function renderOutputIntelligence(program) {
     buildOutputIntelligenceModelService(program),
     escapeHtml,
   );
+}
+
+function renderProgramEditToolbar() {
+  if (!programEditToolbar) {
+    return;
+  }
+
+  const hasProgram = Boolean(state.activeProgram);
+  programEditToolbar.classList.toggle("is-hidden", !hasProgram);
+  programEditToolbar.classList.toggle("is-editing", state.programEditMode);
+
+  if (toggleProgramEditButton) {
+    toggleProgramEditButton.textContent = state.programEditMode ? "Düzenlemeyi Kapat" : "Düzenle";
+  }
+
+  saveProgramEditsButton?.classList.toggle("is-hidden", !state.programEditMode);
+  resetProgramEditsButton?.classList.toggle("is-hidden", !state.programEditMode);
+
+  if (programEditStatus) {
+    programEditStatus.textContent = state.programEditMode
+      ? "Düzenleme modu açık. Değişiklikler ekranda anında güncellenir; kalıcı kayıt için Değişiklikleri Kaydet düğmesine basın."
+      : "Düzenle modunda hareket, set, tekrar, dinlenme, tempo ve not alanlarını değiştirebilirsiniz.";
+  }
+}
+
+function normalizeEditableProgram(program) {
+  (program?.sessions || []).forEach((session) => {
+    (session.exercises || []).forEach((exercise) => {
+      const parts = splitProgramPrescription(exercise.prescription);
+      exercise.sets = exercise.sets || normalizeEditableSet(parts.sets);
+      exercise.reps = exercise.reps || String(parts.reps || "").trim() || "8-12";
+    });
+  });
+}
+
+function applyProgramExerciseEdit({ field, value, sessionIndex, exerciseIndex }) {
+  const session = state.activeProgram?.sessions?.[sessionIndex];
+  const exercise = session?.exercises?.[exerciseIndex];
+
+  if (!exercise) {
+    return { error: "Düzenlenecek hareket bulunamadı." };
+  }
+
+  if (field === "group") {
+    const replacement = getFirstExerciseForGroup(value);
+    applyExerciseReplacement(session, exerciseIndex, replacement || { ...exercise, group: value });
+    return { rerender: true };
+  }
+
+  if (field === "exerciseId") {
+    const replacement = exerciseLibrary.find((item) => item.id === value);
+
+    if (!replacement) {
+      return { error: "Seçilen hareket kütüphanede bulunamadı." };
+    }
+
+    applyExerciseReplacement(session, exerciseIndex, replacement);
+    return { rerender: true };
+  }
+
+  if (field === "sets" || field === "reps") {
+    exercise[field] = String(value || "").trim();
+    syncExercisePrescriptionFields(exercise);
+  } else if (["rest", "tempo", "cue", "name"].includes(field)) {
+    exercise[field] = String(value || "").trim();
+  }
+
+  state.activeProgram.coverage = buildMuscleCoverage(state.activeProgram.sessions);
+  saveLastPlan(state.activeProgram);
+  return { rerender: false };
+}
+
+function applyExerciseReplacement(session, exerciseIndex, replacement) {
+  const rawData = state.activeProgram.rawData || collectFormData();
+  const nextExercise = {
+    ...replacement,
+    prescription: buildPrescription(replacement, rawData, exerciseIndex),
+    rest: buildRest(replacement, rawData),
+    tempo: buildTempo(replacement, rawData),
+    alternatives:
+      window.BSMProgramEngineV2?.buildAlternatives?.(replacement, exerciseLibrary, rawData, {
+        context: state.activeProgram.programContext,
+        sessionIndex: session.sessionIndex || 0,
+        exerciseIndex,
+      }) || [],
+  };
+
+  syncExercisePrescriptionFields(nextExercise);
+  session.exercises[exerciseIndex] = nextExercise;
+  session.exerciseBlocks = buildExerciseBlocks(session.exercises, rawData);
+  session.balanceNote =
+    window.BSMProgramEngineV2?.enhanceSession?.(session, rawData, exerciseLibrary, state.activeProgram.programContext)?.balanceNote || session.balanceNote;
+  state.activeProgram.coverage = buildMuscleCoverage(state.activeProgram.sessions);
+  saveLastPlan(state.activeProgram);
+}
+
+function getFirstExerciseForGroup(group) {
+  return exerciseLibrary
+    .filter((exercise) => exercise.group === group)
+    .sort((a, b) => a.name.localeCompare(b.name, "tr"))[0];
+}
+
+function syncExercisePrescriptionFields(exercise) {
+  const parts = splitProgramPrescription(exercise.prescription);
+  exercise.sets = normalizeEditableSet(exercise.sets || parts.sets);
+  exercise.reps = String(exercise.reps || parts.reps || "").trim() || "8-12";
+  exercise.prescription = `${exercise.sets} set x ${exercise.reps}`;
+}
+
+function normalizeEditableSet(value) {
+  const numericMatch = String(value || "").match(/\d+/);
+  return numericMatch ? numericMatch[0] : "1";
+}
+
+function validateEditableProgram(program) {
+  const errors = [];
+
+  (program?.sessions || []).forEach((session, sessionIndex) => {
+    (session.exercises || []).forEach((exercise, exerciseIndex) => {
+      const label = `${session.dayLabel || `Gün ${sessionIndex + 1}`} / ${exerciseIndex + 1}. hareket`;
+      const sets = Number(exercise.sets || splitProgramPrescription(exercise.prescription).sets);
+
+      if (!String(exercise.name || "").trim()) {
+        errors.push(`${label}: Hareket adı boş olamaz.`);
+      }
+
+      if (!Number.isInteger(sets) || sets < 1 || sets > 8) {
+        errors.push(`${label}: Set değeri 1 ile 8 arasında olmalı.`);
+      }
+
+      if (!String(exercise.reps || splitProgramPrescription(exercise.prescription).reps || "").trim()) {
+        errors.push(`${label}: Tekrar alanı boş olamaz.`);
+      }
+    });
+  });
+
+  return errors[0] || "";
 }
 
 function renderProgramCover(program) {
@@ -2501,7 +2667,7 @@ function getCurrentProgramFromEditor() {
   weeklyPlan.querySelectorAll("[data-program-field]").forEach((field) => {
     const programField = field.dataset.programField;
 
-    if (programField === "exerciseId") {
+    if (programField === "exerciseId" || programField === "group") {
       return;
     }
 
@@ -2510,7 +2676,11 @@ function getCurrentProgramFromEditor() {
     const exercise = state.activeProgram.sessions?.[sessionIndex]?.exercises?.[exerciseIndex];
 
     if (exercise) {
-      exercise[programField] = field.value;
+      exercise[programField] = String(field.value || "").trim();
+
+      if (programField === "sets" || programField === "reps") {
+        syncExercisePrescriptionFields(exercise);
+      }
     }
   });
 
@@ -2676,7 +2846,8 @@ function formatSessionExercisesForText(session) {
       ? ` | Alternatifler: ${exercise.alternatives.map((alternative) => alternative.name).join(", ")}`
       : "";
 
-    return `- ${exercise.name} | ${getMuscleLabel(exercise.group)} | ${exercise.prescription} | Dinlenme: ${exercise.rest} | Tempo: ${exercise.tempo} | ${exercise.cue}${alternatives}`;
+    const prescription = getProgramExercisePrescriptionParts(exercise);
+    return `- ${exercise.name} | ${getMuscleLabel(exercise.group)} | Set: ${prescription.sets} | Tekrar: ${prescription.reps} | Dinlenme: ${exercise.rest} | Tempo: ${exercise.tempo} | ${exercise.cue}${alternatives}`;
   };
 
   if (!session.exerciseBlocks?.length) {
@@ -2730,8 +2901,17 @@ Soğuma: ${limitTextToOneSentence((session.cooldown || []).join(" / "))}`;
 }
 
 function formatSimpleExerciseForText(exercise) {
-  const prescription = splitProgramPrescription(exercise.prescription);
+  const prescription = getProgramExercisePrescriptionParts(exercise);
   return `- ${exercise.name} | Set: ${prescription.sets} | Tekrar: ${prescription.reps} | Dinlenme: ${exercise.rest || "-"} | Not: ${limitTextToOneSentence(exercise.cue || "Kontrollü formda uygula.")}`;
+}
+
+function getProgramExercisePrescriptionParts(exercise) {
+  const split = splitProgramPrescription(exercise?.prescription);
+
+  return {
+    sets: exercise?.sets || split.sets,
+    reps: exercise?.reps || split.reps,
+  };
 }
 
 function splitProgramPrescription(value) {

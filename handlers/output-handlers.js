@@ -10,6 +10,7 @@
       resultsSection,
       collectFormData,
       getCurrentProgramFromEditor,
+      validateEditableProgram,
       loadLastPlan,
       showStatus,
       convertProgramToText,
@@ -56,6 +57,21 @@
     }
 
     function handlePrintPlan() {
+      if (state.programEditMode) {
+        const currentProgram = getCurrentProgramFromEditor();
+        const validationMessage = validateEditableProgram?.(currentProgram) || "";
+
+        if (validationMessage) {
+          showStatus(validationMessage, "error");
+          return;
+        }
+
+        state.programEditMode = false;
+        renderProgram(currentProgram, { preserveEditState: true });
+        windowObject.setTimeout(() => windowObject.print(), 50);
+        return;
+      }
+
       windowObject.print();
     }
 
