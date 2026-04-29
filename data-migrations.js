@@ -27,7 +27,9 @@
     "fat",
     "muscleMass",
     "fatMass",
+    "fatFreeMass",
     "bodyWater",
+    "bmi",
     "visceralFat",
     "bmr",
     "metabolicAge",
@@ -99,6 +101,10 @@
       id: String(input.id || makeId("measurement")),
       createdAtIso: normalizeIsoDate(input.createdAtIso) || new Date().toISOString(),
       date: normalizeDateString(input.date || fallbackDate || ""),
+      time: normalizeString(input.time),
+      gender: normalizeString(input.gender),
+      source: normalizeString(input.source),
+      rawPayload: input.rawPayload && typeof input.rawPayload === "object" ? input.rawPayload : null,
       note: normalizeString(input.note),
     };
 

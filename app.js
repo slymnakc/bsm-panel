@@ -11,7 +11,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.1");
+console.log("APP VERSION: v1.0.2");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -20,6 +20,7 @@ const {
   mergeMemberLists,
   cacheMembersLocally,
   persistMembers: persistStoredMembers,
+  saveMeasurementToSupabase,
   updateActiveMemberProfile: updateStoredActiveMemberProfile,
   loadActiveMemberId,
   saveActiveMemberId,
@@ -91,6 +92,13 @@ const {
   buildCooldown: buildCooldownService,
   buildCardioBlock: buildCardioBlockService,
 } = window.BSMSessionSupportService;
+const {
+  readTanitaCsvFile,
+  parseTanitaCsv,
+  selectBestRecord: selectBestTanitaRecord,
+  buildTanitaMeasurement,
+  buildTanitaPreviewModel,
+} = window.BSMTanitaCsvService || {};
 
 const state = {
   _members: [],
@@ -107,6 +115,7 @@ const state = {
   activeScreen: "dashboard",
   activeWorkspaceView: "members",
   activeMemberSort: "recent-update",
+  pendingTanitaMeasurement: null,
 };
 
 const {
@@ -322,6 +331,11 @@ const segmentResistanceInputs = {
   rightLegResistance: document.querySelector("#segmentRightLegResistance"),
   leftLegResistance: document.querySelector("#segmentLeftLegResistance"),
 };
+const tanitaCsvButton = document.querySelector("#tanitaCsvButton");
+const tanitaCsvInput = document.querySelector("#tanitaCsvInput");
+const tanitaImportStatus = document.querySelector("#tanitaImportStatus");
+const tanitaPreview = document.querySelector("#tanitaPreview");
+const saveTanitaMeasurementButton = document.querySelector("#saveTanitaMeasurementButton");
 const saveMeasurementButton = document.querySelector("#saveMeasurementButton");
 const measurementHistory = document.querySelector("#measurementHistory");
 const bodyAnalysisReport = document.querySelector("#bodyAnalysisReport");
@@ -363,6 +377,16 @@ const formHandlers = createFormHandlers({
   readMeasurementForm,
   validateMeasurementData,
   normalizeMeasurementPayload,
+  tanitaCsvInput,
+  tanitaImportStatus,
+  saveTanitaMeasurementButton,
+  readTanitaCsvFile,
+  parseTanitaCsv,
+  selectBestTanitaRecord,
+  buildTanitaMeasurement,
+  buildTanitaPreviewModel,
+  renderTanitaPreview,
+  saveMeasurementToSupabase,
   exerciseLibrary,
   buildPrescription,
   buildRest,
@@ -535,6 +559,34 @@ function setResultCardTitle(card, title) {
   }
 }
 
+function renderTanitaPreview(model) {
+  if (!tanitaPreview) {
+    return;
+  }
+
+  if (!model) {
+    tanitaPreview.innerHTML = "<p>CSV yüklendiğinde okunan kilo, yağ, kas, segmental dağılım ve direnç değerleri burada önizlenir.</p>";
+    return;
+  }
+
+  const metricsHtml = (model.metrics || [])
+    .map(
+      ([label, value]) => `
+        <div class="tanita-preview-item">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `,
+    )
+    .join("");
+
+  tanitaPreview.innerHTML = `
+    <h5>${escapeHtml(model.title || "Tanita ölçüm önizlemesi")}</h5>
+    <div class="tanita-preview-grid">${metricsHtml}</div>
+    <p class="tanita-preview__summary">${escapeHtml(model.segmentSummary || "")}</p>
+  `;
+}
+
 function syncMembersFromSupabase() {
   loadSupabaseMemberRecords()
     .then((supabaseMembers) => {
@@ -570,6 +622,11 @@ function bindApplicationHandlers() {
       newMemberButton,
       saveProgramButton,
       saveMeasurementButton,
+      tanitaCsvButton,
+      tanitaCsvInput,
+      tanitaImportStatus,
+      tanitaPreview,
+      saveTanitaMeasurementButton,
       weeklyPlan,
     },
     formHandlers,
@@ -1716,6 +1773,10 @@ function segmentDiffPercent(a, b) {
 }
 
 function calculateBmi(measurement) {
+  if (measurement.bmi !== "" && measurement.bmi !== undefined && measurement.bmi !== null) {
+    return Number(measurement.bmi);
+  }
+
   if (!measurement.weight || !measurement.height) {
     return null;
   }
@@ -1983,6 +2044,10 @@ function formatMeasurementLine(item) {
     parts.push(`%${item.bodyWater} su`);
   }
 
+  if (item.bmi !== "" && item.bmi !== undefined) {
+    parts.push(`BMI ${item.bmi}`);
+  }
+
   if (item.visceralFat !== "" && item.visceralFat !== undefined) {
     parts.push(`Visceral ${item.visceralFat}`);
   }
@@ -2106,6 +2171,7 @@ function renderLiveSummary(data) {
 }
 
 function buildProgram(data) {
+  data = attachLatestMeasurementContext(data);
   const split = resolveSplit(data);
   const planContext = window.BSMProgramEngineV2?.createPlanContext?.(data) || null;
   const aiReport = getAnalysisForProgramData(data);
@@ -2151,6 +2217,38 @@ function buildProgram(data) {
     programContext: planContext,
     rawData: data,
   });
+}
+
+function attachLatestMeasurementContext(data) {
+  const member = buildProgramMemberRecord(data);
+  const latestMeasurement = member?.measurements?.[0] || null;
+
+  if (!latestMeasurement) {
+    return data;
+  }
+
+  return {
+    ...data,
+    latestMeasurement,
+    measurementGuidance: buildMeasurementProgramGuidance(latestMeasurement),
+  };
+}
+
+function buildMeasurementProgramGuidance(measurement) {
+  const fat = Number(measurement?.fat);
+  const visceralFat = Number(measurement?.visceralFat);
+  const weight = Number(measurement?.weight);
+  const muscleMass = Number(measurement?.muscleMass);
+  const muscleRatio = weight && muscleMass ? (muscleMass / weight) * 100 : null;
+  const armDiff = segmentDiffPercent(measurement?.segments?.rightArmMuscle, measurement?.segments?.leftArmMuscle);
+  const legDiff = segmentDiffPercent(measurement?.segments?.rightLegMuscle, measurement?.segments?.leftLegMuscle);
+
+  return {
+    fatLossSupport: Number.isFinite(fat) && fat >= 30,
+    visceralFatSupport: Number.isFinite(visceralFat) && visceralFat >= 13,
+    strengthSupport: muscleRatio !== null && muscleRatio < 38,
+    segmentalImbalance: Math.max(armDiff || 0, legDiff || 0) >= 10,
+  };
 }
 
 function getAnalysisForProgramData(data) {

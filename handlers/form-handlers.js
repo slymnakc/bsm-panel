@@ -33,6 +33,16 @@
       readMeasurementForm,
       validateMeasurementData,
       normalizeMeasurementPayload,
+      tanitaCsvInput,
+      tanitaImportStatus,
+      saveTanitaMeasurementButton,
+      readTanitaCsvFile,
+      parseTanitaCsv,
+      selectBestTanitaRecord,
+      buildTanitaMeasurement,
+      buildTanitaPreviewModel,
+      renderTanitaPreview,
+      saveMeasurementToSupabase,
       exerciseLibrary,
       buildPrescription,
       buildRest,
@@ -177,6 +187,117 @@
       showStatus("Üye ölçümü kaydedildi.", "success");
     }
 
+    function handleOpenTanitaCsvPicker() {
+      if (!parseTanitaCsv || !buildTanitaMeasurement) {
+        setTanitaImportStatus("Tanita CSV modülü yüklenemedi. Sayfayı yenileyip tekrar deneyin.", "error");
+        return;
+      }
+
+      const profile = collectFormData();
+
+      if (!state.activeMemberId && !profile.memberName && !profile.memberCode) {
+        setTanitaImportStatus("Tanita ölçümü yüklemek için önce üye seçin veya üye adı/üye no girin.", "error");
+        return;
+      }
+
+      tanitaCsvInput?.click();
+    }
+
+    function handleTanitaCsvSelected(event) {
+      const file = event.target.files?.[0];
+
+      if (!file) {
+        return;
+      }
+
+      setTanitaImportStatus("CSV okunuyor...", "");
+      state.pendingTanitaMeasurement = null;
+      setTanitaSaveEnabled(false);
+      renderTanitaPreview?.(null);
+
+      (readTanitaCsvFile ? readTanitaCsvFile(file) : file.text())
+        .then((csvText) => {
+          const result = parseTanitaCsv(csvText);
+          const record = selectBestTanitaRecord?.(result.records) || result.records?.[0] || null;
+
+          if (!record) {
+            setTanitaImportStatus(result.warnings?.[0] || "CSV içinde ölçüm verisi bulunamadı.", "error");
+            return;
+          }
+
+          const measurement = buildTanitaMeasurement(record, { makeId, getTodayInputValue });
+          state.pendingTanitaMeasurement = measurement;
+          renderTanitaPreview?.(buildTanitaPreviewModel?.(measurement));
+          setTanitaSaveEnabled(true);
+
+          const warningText = result.warnings?.length ? ` Ek bilgi: ${result.warnings.join(" ")}` : "";
+          setTanitaImportStatus(`CSV okundu. Ölçümü üyeye kaydetmeye hazır.${warningText}`, "success");
+        })
+        .catch((error) => {
+          console.error("Tanita CSV read error", error);
+          setTanitaImportStatus("CSV dosyası okunamadı. Dosya formatını kontrol edin.", "error");
+        });
+    }
+
+    function handleSaveTanitaMeasurement() {
+      const member = upsertMemberFromCurrentForm({ silent: true });
+
+      if (!member) {
+        setTanitaImportStatus("Ölçümü kaydetmek için önce üye adı veya üye no girin.", "error");
+        return;
+      }
+
+      if (!state.pendingTanitaMeasurement) {
+        setTanitaImportStatus("Kaydedilecek Tanita ölçümü yok. Önce CSV yükleyin.", "error");
+        return;
+      }
+
+      const measurementValidationMessage = validateMeasurementData(state.pendingTanitaMeasurement);
+
+      if (measurementValidationMessage) {
+        setTanitaImportStatus(measurementValidationMessage, "error");
+        return;
+      }
+
+      const normalizedMeasurement = normalizeMeasurementPayload(state.pendingTanitaMeasurement);
+      member.measurements = [normalizedMeasurement, ...(member.measurements || [])].slice(0, 40);
+      member.updatedAt = new Date().toISOString();
+      persistMembers();
+
+      if (typeof saveMeasurementToSupabase === "function") {
+        saveMeasurementToSupabase(member, normalizedMeasurement);
+      }
+
+      state.pendingTanitaMeasurement = null;
+      setTanitaSaveEnabled(false);
+      if (tanitaCsvInput) {
+        tanitaCsvInput.value = "";
+      }
+      setWorkspaceView("measurements");
+      renderMemberWorkspace();
+      showStatus("Tanita ölçümü üye geçmişine kaydedildi.", "success");
+      setTanitaImportStatus("Tanita ölçümü kaydedildi. Analiz ve koç uyarıları güncellendi.", "success");
+    }
+
+    function setTanitaImportStatus(message, stateName) {
+      if (!tanitaImportStatus) {
+        return;
+      }
+
+      tanitaImportStatus.textContent = message || "";
+      if (stateName) {
+        tanitaImportStatus.dataset.state = stateName;
+      } else {
+        delete tanitaImportStatus.dataset.state;
+      }
+    }
+
+    function setTanitaSaveEnabled(isEnabled) {
+      if (saveTanitaMeasurementButton) {
+        saveTanitaMeasurementButton.disabled = !isEnabled;
+      }
+    }
+
     function handleProgramEdit(event) {
       const field = event.target.dataset.programField;
 
@@ -238,6 +359,9 @@
       handleNewMember,
       handleSaveProgramToMember,
       handleSaveMeasurement,
+      handleOpenTanitaCsvPicker,
+      handleTanitaCsvSelected,
+      handleSaveTanitaMeasurement,
       handleProgramEdit,
       handlePrintPlan,
     };
@@ -253,6 +377,9 @@
     bindIf(elements.newMemberButton, "click", handlers.handleNewMember);
     bindIf(elements.saveProgramButton, "click", handlers.handleSaveProgramToMember);
     bindIf(elements.saveMeasurementButton, "click", handlers.handleSaveMeasurement);
+    bindIf(elements.tanitaCsvButton, "click", handlers.handleOpenTanitaCsvPicker);
+    bindIf(elements.tanitaCsvInput, "change", handlers.handleTanitaCsvSelected);
+    bindIf(elements.saveTanitaMeasurementButton, "click", handlers.handleSaveTanitaMeasurement);
     bindIf(elements.weeklyPlan, "input", handlers.handleProgramEdit);
     bindIf(elements.weeklyPlan, "change", handlers.handleProgramEdit);
   }

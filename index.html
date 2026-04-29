@@ -394,6 +394,25 @@
                 <h3>Vücut Analiz Cihazı Sonuçları</h3>
               </div>
             </div>
+            <div class="tanita-import-card">
+              <div class="tanita-import-card__header">
+                <div>
+                  <p class="section-kicker">Tanita BC-418</p>
+                  <h4>Tanita CSV Ölçüm Yükle</h4>
+                  <span>Üye seçiliyken Tanita Pro CSV çıktısını yükleyip ölçümü doğrudan üye geçmişine ekleyin.</span>
+                </div>
+                <button type="button" class="secondary-button" id="tanitaCsvButton">Tanita CSV Yükle</button>
+              </div>
+              <input type="file" id="tanitaCsvInput" accept=".csv,text/csv" hidden />
+              <p id="tanitaImportStatus" class="status-message compact-status"></p>
+              <div id="tanitaPreview" class="tanita-preview">
+                <p>CSV yüklendiğinde okunan kilo, yağ, kas, segmental dağılım ve direnç değerleri burada önizlenir.</p>
+              </div>
+              <div class="tanita-import-card__footer">
+                <small>Gelecek aşama: Tanita BC-418 -> RS-232 -> Windows bridge app -> HTTP/WebSocket -> BSM panel.</small>
+                <button type="button" class="ghost-button workspace-button" id="saveTanitaMeasurementButton" disabled>Ölçümü Üyeye Kaydet</button>
+              </div>
+            </div>
             <div class="measurement-grid">
               <label class="field compact-field">
                 <span>Tarih</span>
@@ -687,6 +706,7 @@
     <script src="./data-migrations.js"></script>
     <script src="./services/storage-service.js"></script>
     <script src="./services/member-service.js"></script>
+    <script src="./services/tanita-csv-service.js"></script>
     <script src="./services/dashboard-service.js"></script>
     <script src="./services/validation-service.js"></script>
     <script src="./services/program-content-service.js"></script>

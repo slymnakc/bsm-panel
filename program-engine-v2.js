@@ -71,6 +71,7 @@
   function scoreExercise(exercise = {}, data = {}, meta = {}) {
     const tags = exercise.tags || [];
     const restrictions = data.restrictions || [];
+    const measurementGuidance = data.measurementGuidance || {};
     const pickCount = meta.pickCount || 0;
     let score = 50;
 
@@ -118,6 +119,24 @@
 
     if (data.equipmentScope === "machines-only" && ["machine", "cable", "cardio"].includes(exercise.equipment)) {
       score += 18;
+    }
+
+    if (measurementGuidance.fatLossSupport && ["compound", "conditioning", "cardio"].includes(exercise.kind)) {
+      score += 8;
+    }
+
+    if (measurementGuidance.visceralFatSupport) {
+      if (["cardio", "conditioning"].includes(exercise.kind)) score += 8;
+      if (tags.includes("low-impact")) score += 8;
+      if (tags.includes("high-impact")) score -= 8;
+    }
+
+    if (measurementGuidance.strengthSupport && ["compound", "accessory"].includes(exercise.kind)) {
+      score += data.level === "beginner" && ["machine", "cable"].includes(exercise.equipment) ? 10 : 6;
+    }
+
+    if (measurementGuidance.segmentalImbalance && ["accessory", "core", "mobility"].includes(exercise.kind)) {
+      score += 5;
     }
 
     restrictions.forEach((restriction) => {
@@ -190,6 +209,7 @@
     const accessoryCount = countExercisesByKind(sessions, "accessory");
     const cardioCount = countExercisesByKind(sessions, "cardio") + countExercisesByKind(sessions, "conditioning");
     const mobilityCount = countExercisesByKind(sessions, "mobility") + countExercisesByKind(sessions, "core");
+    const measurementGuidance = data.measurementGuidance || {};
     const warnings = [];
 
     if (data.goal === "fat-loss" && cardioCount < Math.max(1, Math.floor((data.days || []).length / 2))) {
@@ -202,6 +222,22 @@
 
     if ((data.restrictions || []).length) {
       warnings.push("Hassasiyet bildirimi olduğu için alternatif hareket listesi kontrol edilmelidir.");
+    }
+
+    if (measurementGuidance.fatLossSupport) {
+      warnings.push("Son Tanita/ölçüm verisi yağ kaybı desteği gerektiriyor; direnç antrenmanı kardiyo/conditioning ile desteklenmeli.");
+    }
+
+    if (measurementGuidance.visceralFatSupport) {
+      warnings.push("Visceral yağ seviyesi yüksek görünüyor; düşük etkili kardiyo ve düzenli ölçüm takibi önerilir.");
+    }
+
+    if (measurementGuidance.strengthSupport) {
+      warnings.push("Kas kütlesi oranı düşük görünüyor; ana hareket + güvenli destek egzersizi dengesi korunmalı.");
+    }
+
+    if (measurementGuidance.segmentalImbalance) {
+      warnings.push("Segmental sağ-sol farkı için unilateral destek egzersizleri ve teknik kontrol önerilir.");
     }
 
     return {
