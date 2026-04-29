@@ -81,6 +81,10 @@
   function buildWeeklyPlanHtml(model, escapeHtml, helpers) {
     const sessions = model?.sessions || [];
 
+    if (model?.editMode) {
+      return sessions.map((session, sessionIndex) => renderEditableSession(session, sessionIndex, escapeHtml, helpers)).join("");
+    }
+
     return sessions.map((session, sessionIndex) => renderPrintableSession(session, sessionIndex, escapeHtml, helpers)).join("");
 
     return sessions
@@ -172,7 +176,7 @@
   function renderPrintableExerciseRows(session, escapeHtml) {
     return (session.exercises || [])
       .map((exercise) => {
-        const prescription = splitPrescription(exercise.prescription);
+        const prescription = getExercisePrescriptionParts(exercise);
 
         return `
           <div class="member-program-table__row">
@@ -185,6 +189,84 @@
         `;
       })
       .join("");
+  }
+
+  function renderEditableSession(session, sessionIndex, escapeHtml, helpers) {
+    return `
+      <article class="member-program-day member-program-day--editable">
+        <div class="member-program-day__header">
+          <div>
+            <span>${escapeHtml(session.dayLabel || `Gün ${sessionIndex + 1}`)}</span>
+            <h4>${escapeHtml(session.title || "Antrenman")}</h4>
+          </div>
+          <small>${escapeHtml(session.duration || "")}</small>
+        </div>
+        <p class="member-program-day__purpose">${escapeHtml(limitToOneSentence(session.purpose || session.note || "Kontrollü teknik ve düzenli tempo ile uygulanır."))}</p>
+        <div class="editable-exercise-grid">
+          ${(session.exercises || [])
+            .map((exercise, exerciseIndex) => renderEditableExerciseCard(exercise, sessionIndex, exerciseIndex, escapeHtml, helpers))
+            .join("")}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderEditableExerciseCard(exercise, sessionIndex, exerciseIndex, escapeHtml, helpers) {
+    const prescription = getExercisePrescriptionParts(exercise);
+
+    return `
+      <div class="editable-exercise-card">
+        <div class="editable-exercise-card__top">
+          <label class="edit-field">
+            <span>Kas grubu</span>
+            <select data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="group">
+              ${buildMuscleGroupOptions(exercise.group, escapeHtml, helpers)}
+            </select>
+          </label>
+          <label class="edit-field">
+            <span>Hareket adı</span>
+            <select data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="exerciseId">
+              ${buildExerciseSelectOptions(exercise, escapeHtml, helpers)}
+            </select>
+          </label>
+        </div>
+        <div class="editable-exercise-card__metrics">
+          <label class="edit-field">
+            <span>Set</span>
+            <input type="number" min="1" max="8" step="1" value="${escapeHtml(prescription.sets)}" data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="sets" />
+          </label>
+          <label class="edit-field">
+            <span>Tekrar</span>
+            <input type="text" value="${escapeHtml(prescription.reps)}" placeholder="8-12, 10 veya AMRAP" data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="reps" />
+          </label>
+          <label class="edit-field">
+            <span>Dinlenme</span>
+            <input type="text" value="${escapeHtml(exercise.rest || "")}" placeholder="45 sn, 60 sn veya 90 sn" data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="rest" />
+          </label>
+          <label class="edit-field">
+            <span>Tempo</span>
+            <input type="text" value="${escapeHtml(exercise.tempo || "")}" placeholder="2-0-2" data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="tempo" />
+          </label>
+        </div>
+        <label class="edit-field">
+          <span>Notlar</span>
+          <textarea rows="2" placeholder="Kısa uygulama notu" data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="cue">${escapeHtml(exercise.cue || "")}</textarea>
+        </label>
+      </div>
+    `;
+  }
+
+  function buildMuscleGroupOptions(currentGroup, escapeHtml, helpers) {
+    const muscleGroups = helpers.muscleGroups || [];
+    const options = muscleGroups.map(
+      (group) => `<option value="${escapeHtml(group.id)}" ${group.id === currentGroup ? "selected" : ""}>${escapeHtml(group.label)}</option>`,
+    );
+
+    if (currentGroup && !muscleGroups.some((group) => group.id === currentGroup)) {
+      options.unshift(`<option value="${escapeHtml(currentGroup)}" selected>${escapeHtml(helpers.getMuscleLabel(currentGroup))}</option>`);
+    }
+
+    return options.join("");
   }
 
   function splitPrescription(value) {
@@ -210,6 +292,22 @@
       sets: "-",
       reps: text || "-",
     };
+  }
+
+  function getExercisePrescriptionParts(exercise) {
+    const split = splitPrescription(exercise?.prescription);
+
+    return {
+      sets: normalizeSetValue(exercise?.sets || split.sets),
+      reps: String(exercise?.reps || split.reps || "-").trim() || "-",
+    };
+  }
+
+  function normalizeSetValue(value) {
+    const text = String(value || "").trim();
+    const numericMatch = text.match(/\d+/);
+
+    return numericMatch ? numericMatch[0] : "1";
   }
 
   function cleanRepetitionText(value) {

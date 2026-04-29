@@ -71,7 +71,7 @@
         return;
       }
 
-      renderProgram(cloneData(record.program));
+      renderProgram(cloneData(record.program), { savedProgramRecordId: record.id });
       setActiveScreen("output", { userTriggered: true, silent: true });
       showStatus("Geçmiş program yüklendi. İsterseniz düzenleyip tekrar kaydedebilirsiniz.", "success");
     }
@@ -106,7 +106,7 @@
           return;
         }
 
-        renderProgram(cloneData(latestProgram));
+        renderProgram(cloneData(latestProgram), { savedProgramRecordId: member.programs?.[0]?.id || null });
         setActiveScreen("output", { userTriggered: true, silent: true });
         return;
       }

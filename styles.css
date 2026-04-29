@@ -67,6 +67,10 @@ body {
   display: none !important;
 }
 
+.is-hidden {
+  display: none !important;
+}
+
 .hero {
   padding: 32px 0 24px;
   display: grid;
@@ -2436,6 +2440,77 @@ input[type="radio"] {
   color: var(--teal-deep);
 }
 
+.program-edit-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(29, 107, 116, 0.08), rgba(216, 173, 99, 0.12)),
+    rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.program-edit-toolbar strong,
+.program-edit-toolbar span {
+  display: block;
+}
+
+.program-edit-toolbar strong {
+  color: var(--teal-deep);
+}
+
+.program-edit-toolbar span {
+  margin-top: 3px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.program-edit-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.program-edit-toolbar.is-editing {
+  border-color: rgba(216, 173, 99, 0.42);
+  box-shadow: 0 12px 28px rgba(17, 60, 72, 0.08);
+}
+
+.member-program-day--editable {
+  background:
+    radial-gradient(circle at top right, rgba(216, 173, 99, 0.12), transparent 34%),
+    #fffdf8;
+}
+
+.editable-exercise-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.editable-exercise-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.editable-exercise-card__top {
+  display: grid;
+  gap: 10px;
+}
+
+.editable-exercise-card__metrics {
+  display: grid;
+  gap: 10px;
+}
+
 .exercise-block {
   display: grid;
   gap: 10px;
@@ -2592,6 +2667,14 @@ input[type="radio"] {
 
   .profile-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .editable-exercise-card__top {
+    grid-template-columns: 0.8fr 1.2fr;
+  }
+
+  .editable-exercise-card__metrics {
+    grid-template-columns: 0.45fr 1fr 0.8fr 0.8fr;
   }
 
   .score-strip,
@@ -2814,6 +2897,19 @@ input[type="radio"] {
     flex-direction: column;
     align-items: stretch;
   }
+
+  .program-edit-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .program-edit-toolbar__actions {
+    justify-content: stretch;
+  }
+
+  .program-edit-toolbar__actions button {
+    flex: 1;
+  }
 }
 
 @media print {
@@ -2834,6 +2930,7 @@ input[type="radio"] {
   .app-shell,
   .library-panel,
   .panel-actions,
+  .program-edit-toolbar,
   #copyPlanButton,
   #printPlanButton {
     display: none !important;

@@ -49,6 +49,8 @@
       buildTempo,
       buildExerciseBlocks,
       buildMuscleCoverage,
+      applyProgramExerciseEdit,
+      validateEditableProgram,
       windowObject = window,
     } = deps;
 
@@ -110,6 +112,8 @@
     function handleNewMember() {
       state.activeMemberId = null;
       state.activeProgram = null;
+      state.programEditMode = false;
+      state.programDefaultSnapshot = null;
       saveActiveMemberId(null);
       form.reset();
       form.querySelector("#gymName").value = "Bahçeşehir Spor Merkezi";
@@ -155,6 +159,96 @@
       setWorkspaceView("history");
       renderMemberWorkspace();
       showStatus("Düzenlenebilir program üye geçmişine kaydedildi.", "success");
+    }
+
+    function handleToggleProgramEdit() {
+      if (!state.activeProgram) {
+        showStatus("Düzenlenecek program yok. Önce program oluşturun.", "error");
+        return;
+      }
+
+      if (!state.programEditMode) {
+        state.programDefaultSnapshot = state.programDefaultSnapshot || cloneData(state.activeProgram);
+        state.programEditMode = true;
+        renderProgram(state.activeProgram, { preserveEditState: true });
+        showStatus("Program düzenleme modu açıldı.", "success");
+        return;
+      }
+
+      const currentProgram = getCurrentProgramFromEditor();
+      const validationMessage = validateEditableProgram?.(currentProgram) || "";
+
+      if (validationMessage) {
+        showStatus(validationMessage, "error");
+        return;
+      }
+
+      state.programEditMode = false;
+      saveLastPlan(currentProgram);
+      renderProgram(currentProgram, { preserveEditState: true });
+      showStatus("Düzenleme modu kapatıldı. Son hali çıktı ekranında gösteriliyor.", "success");
+    }
+
+    function handleSaveProgramEdits() {
+      const currentProgram = getCurrentProgramFromEditor();
+      const validationMessage = validateEditableProgram?.(currentProgram) || "";
+
+      if (validationMessage) {
+        showStatus(validationMessage, "error");
+        return;
+      }
+
+      const member = upsertMemberFromCurrentForm({ silent: true });
+
+      if (!member) {
+        showStatus("Düzenlenen programı kaydetmek için önce üye adı veya üye no girin.", "error");
+        return;
+      }
+
+      const recordId = state.activeProgram?.savedProgramRecordId;
+      const existingRecord = (member.programs || []).find(
+        (record) => record.id === recordId || record.program?.createdAtIso === currentProgram.createdAtIso,
+      );
+
+      if (existingRecord) {
+        existingRecord.program = cloneData(currentProgram);
+        existingRecord.savedAtIso = new Date().toISOString();
+        existingRecord.savedAt = new Date().toLocaleString("tr-TR", { dateStyle: "long", timeStyle: "short" });
+      } else {
+        member.programs = [
+          {
+            id: makeId("program"),
+            savedAtIso: new Date().toISOString(),
+            savedAt: new Date().toLocaleString("tr-TR", { dateStyle: "long", timeStyle: "short" }),
+            program: cloneData(currentProgram),
+          },
+          ...(member.programs || []),
+        ].slice(0, 25);
+      }
+
+      member.updatedAt = new Date().toISOString();
+      state.programEditMode = false;
+      state.programDefaultSnapshot = cloneData(currentProgram);
+      persistMembers();
+      renderMemberWorkspace();
+      saveLastPlan(currentProgram);
+      renderProgram(currentProgram, {
+        preserveEditState: true,
+        savedProgramRecordId: existingRecord?.id || member.programs?.[0]?.id || null,
+      });
+      showStatus("Program değişiklikleri üye dosyasına kaydedildi.", "success");
+    }
+
+    function handleResetProgramEdits() {
+      if (!state.programDefaultSnapshot) {
+        showStatus("Geri dönülecek varsayılan program bulunamadı.", "error");
+        return;
+      }
+
+      state.programEditMode = true;
+      renderProgram(cloneData(state.programDefaultSnapshot), { preserveEditState: true });
+      saveLastPlan(state.activeProgram);
+      showStatus("Program varsayılan haline döndürüldü. İsterseniz tekrar düzenleyebilirsiniz.", "success");
     }
 
     function handleSaveMeasurement() {
@@ -313,6 +407,26 @@
         return;
       }
 
+      if (typeof applyProgramExerciseEdit === "function") {
+        const result = applyProgramExerciseEdit({
+          field,
+          value: event.target.value,
+          sessionIndex,
+          exerciseIndex,
+        });
+
+        if (result?.error) {
+          showStatus(result.error, "error");
+          return;
+        }
+
+        if (result?.rerender) {
+          renderProgram(state.activeProgram, { preserveEditState: true });
+        }
+
+        return;
+      }
+
       if (field === "exerciseId") {
         const replacement = exerciseLibrary.find((item) => item.id === event.target.value);
 
@@ -358,6 +472,9 @@
       handleSaveMember,
       handleNewMember,
       handleSaveProgramToMember,
+      handleToggleProgramEdit,
+      handleSaveProgramEdits,
+      handleResetProgramEdits,
       handleSaveMeasurement,
       handleOpenTanitaCsvPicker,
       handleTanitaCsvSelected,
@@ -376,6 +493,9 @@
     bindIf(elements.saveMemberButton, "click", handlers.handleSaveMember);
     bindIf(elements.newMemberButton, "click", handlers.handleNewMember);
     bindIf(elements.saveProgramButton, "click", handlers.handleSaveProgramToMember);
+    bindIf(elements.toggleProgramEditButton, "click", handlers.handleToggleProgramEdit);
+    bindIf(elements.saveProgramEditsButton, "click", handlers.handleSaveProgramEdits);
+    bindIf(elements.resetProgramEditsButton, "click", handlers.handleResetProgramEdits);
     bindIf(elements.saveMeasurementButton, "click", handlers.handleSaveMeasurement);
     bindIf(elements.tanitaCsvButton, "click", handlers.handleOpenTanitaCsvPicker);
     bindIf(elements.tanitaCsvInput, "change", handlers.handleTanitaCsvSelected);

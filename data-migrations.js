@@ -262,6 +262,8 @@
         level: normalizeString(exercise.level),
         tags: normalizeStringArray(exercise.tags),
         cue: normalizeString(exercise.cue),
+        sets: normalizeString(exercise.sets),
+        reps: normalizeString(exercise.reps),
         prescription: normalizeString(exercise.prescription),
         rest: normalizeString(exercise.rest),
         tempo: normalizeString(exercise.tempo),
