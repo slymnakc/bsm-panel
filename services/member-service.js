@@ -77,6 +77,35 @@
     return normalizedMembers;
   }
 
+  function saveMeasurementToSupabase(member, measurement) {
+    const supabaseClient = getSupabaseClient();
+
+    if (!supabaseClient?.from) {
+      return Promise.resolve(null);
+    }
+
+    const row = buildSupabaseMeasurementRow(member, measurement);
+
+    if (!row.member_id || !row.member_name) {
+      return Promise.resolve(null);
+    }
+
+    return supabaseClient
+      .from("measurements")
+      .insert([row])
+      .then(({ error }) => {
+        if (error) {
+          console.error("Supabase measurement insert error", error);
+        }
+
+        return row;
+      })
+      .catch((error) => {
+        console.error("Supabase measurement insert error", error);
+        return null;
+      });
+  }
+
   function updateActiveMemberProfile(members, activeMemberId, profile) {
     const normalizedMembers = normalizeMembersPayload(members);
     const member = findActiveMember(normalizedMembers, activeMemberId);
@@ -132,6 +161,58 @@
         return { name, program };
       })
       .filter((row) => row.name && row.program);
+  }
+
+  function buildSupabaseMeasurementRow(member, measurement) {
+    const profile = member?.profile || {};
+    const measuredAt = buildMeasuredAt(measurement);
+
+    return {
+      member_id: normalizeSupabaseText(member?.id),
+      member_name: normalizeSupabaseText(member?.memberName || profile.memberName),
+      measured_at: measuredAt,
+      source: normalizeSupabaseText(measurement?.source) || "tanita_bc418_csv",
+      raw_payload: measurement?.rawPayload || measurement || {},
+      weight: toSupabaseNumber(measurement?.weight),
+      body_fat_percentage: toSupabaseNumber(measurement?.fat),
+      fat_mass: toSupabaseNumber(measurement?.fatMass),
+      muscle_mass: toSupabaseNumber(measurement?.muscleMass),
+      body_water: toSupabaseNumber(measurement?.bodyWater),
+      bmi: toSupabaseNumber(measurement?.bmi),
+      bmr: toSupabaseNumber(measurement?.bmr),
+      metabolic_age: toSupabaseNumber(measurement?.metabolicAge),
+      visceral_fat: toSupabaseNumber(measurement?.visceralFat),
+      bone_mass: toSupabaseNumber(measurement?.boneMass),
+      segmental: measurement?.segments || {},
+      impedance: measurement?.resistance || {},
+    };
+  }
+
+  function buildMeasuredAt(measurement) {
+    const date = normalizeSupabaseText(measurement?.date);
+    const time = normalizeSupabaseText(measurement?.time) || "12:00";
+
+    if (!date) {
+      return new Date().toISOString();
+    }
+
+    const parsed = new Date(`${date}T${time}`);
+    const fallbackParsed = new Date(date);
+
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+
+    return Number.isNaN(fallbackParsed.getTime()) ? new Date().toISOString() : fallbackParsed.toISOString();
+  }
+
+  function toSupabaseNumber(value) {
+    if (value === "" || value === null || value === undefined) {
+      return null;
+    }
+
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
   }
 
   function normalizeSupabaseText(value) {
@@ -253,6 +334,7 @@
     mergeMemberLists,
     cacheMembersLocally,
     persistMembers,
+    saveMeasurementToSupabase,
     updateActiveMemberProfile,
     loadActiveMemberId,
     saveActiveMemberId,
