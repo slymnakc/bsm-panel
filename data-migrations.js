@@ -178,6 +178,10 @@
     const programs = Array.isArray(member.programs)
       ? member.programs.map((item) => normalizeProgramRecord(item)).sort((a, b) => compareDates(b.savedAtIso || b.program?.createdAtIso, a.savedAtIso || a.program?.createdAtIso))
       : [];
+    const nutritionPlan = normalizeNutritionPlan(member.nutritionPlan);
+    const nutritionPlans = Array.isArray(member.nutritionPlans)
+      ? member.nutritionPlans.map(normalizeNutritionPlan).filter(Boolean).sort((a, b) => compareDates(b.createdAtIso, a.createdAtIso))
+      : [];
 
     return {
       id: String(member.id || makeId("member")),
@@ -185,8 +189,57 @@
       profile,
       measurements,
       programs,
+      nutritionPlan: nutritionPlan || nutritionPlans[0] || null,
+      nutritionPlans,
       createdAt,
       updatedAt: normalizeIsoDate(member.updatedAt) || createdAt,
+    };
+  }
+
+  function normalizeNutritionPlan(raw) {
+    if (!raw || typeof raw !== "object") {
+      return null;
+    }
+
+    return {
+      ...raw,
+      id: String(raw.id || makeId("nutrition")),
+      createdAtIso: normalizeIsoDate(raw.createdAtIso) || new Date().toISOString(),
+      createdAt: normalizeString(raw.createdAt),
+      memberName: normalizeString(raw.memberName),
+      goal: normalizeString(raw.goal),
+      level: normalizeString(raw.level),
+      trainingDays: toNumberOrFallback(raw.trainingDays, 0),
+      sourceSummary: raw.sourceSummary && typeof raw.sourceSummary === "object" ? raw.sourceSummary : {},
+      calories: toNumberOrFallback(raw.calories, 0),
+      macros: {
+        protein: toNumberOrFallback(raw.macros?.protein, 0),
+        carbs: toNumberOrFallback(raw.macros?.carbs, 0),
+        fat: toNumberOrFallback(raw.macros?.fat, 0),
+      },
+      intelligence: normalizeStringArray(raw.intelligence),
+      meals: Array.isArray(raw.meals)
+        ? raw.meals.map((meal, index) => ({
+            name: normalizeString(meal?.name, `Öğün ${index + 1}`),
+            foods: normalizeString(meal?.foods),
+            calories: toNumberOrFallback(meal?.calories, 0),
+            protein: toNumberOrFallback(meal?.protein, 0),
+            carbs: toNumberOrFallback(meal?.carbs, 0),
+            fat: toNumberOrFallback(meal?.fat, 0),
+          }))
+        : [],
+      supplementPreferences: raw.supplementPreferences && typeof raw.supplementPreferences === "object" ? raw.supplementPreferences : {},
+      supplements: Array.isArray(raw.supplements)
+        ? raw.supplements.map((item) => ({
+            name: normalizeString(item?.name),
+            purpose: normalizeString(item?.purpose),
+            timing: normalizeString(item?.timing),
+            note: normalizeString(item?.note),
+            foodAlternative: normalizeString(item?.foodAlternative),
+          }))
+        : [],
+      trainerNote: normalizeString(raw.trainerNote),
+      disclaimer: normalizeString(raw.disclaimer),
     };
   }
 

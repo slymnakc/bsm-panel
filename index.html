@@ -50,6 +50,7 @@
     <nav class="studio-nav" aria-label="Çalışma ekranları">
       <button type="button" class="is-active" data-screen-target="dashboard">Dashboard</button>
       <button type="button" data-screen-target="builder">Üye ve Program</button>
+      <button type="button" data-screen-target="nutrition">Beslenme</button>
       <button type="button" data-screen-target="library">Hareket Kütüphanesi</button>
       <button type="button" data-screen-target="output">Üye Çıktısı</button>
     </nav>
@@ -587,6 +588,61 @@
       </aside>
     </main>
 
+    <section class="nutrition-panel screen-panel is-hidden" id="nutritionPanel" data-screen="nutrition">
+      <div class="results__header">
+        <div>
+          <p class="section-kicker">Beslenme Modülü</p>
+          <h2>Üyeye Özel Beslenme Planı</h2>
+          <p>Aktif üyenin ölçüm, hedef ve antrenman sıklığına göre pratik, düzenlenebilir ve yazdırılabilir plan oluşturun.</p>
+        </div>
+        <div class="panel-actions">
+          <button type="button" class="secondary-button" id="generateNutritionButton">Beslenme Planı Oluştur</button>
+          <button type="button" class="ghost-button" id="saveNutritionButton">Beslenme Planını Kaydet</button>
+          <button type="button" class="primary-button" id="printNutritionButton">PDF / Yazdır</button>
+        </div>
+      </div>
+
+      <div class="nutrition-layout">
+        <aside class="nutrition-side-card">
+          <div id="nutritionMemberSummary"></div>
+          <div class="supplement-preferences">
+            <p class="section-kicker">Supplement Tercihi</p>
+            <label class="field compact-field">
+              <span>Supplement kullanımı</span>
+              <select id="supplementUse">
+                <option value="no" selected>Hayır</option>
+                <option value="yes">Evet</option>
+              </select>
+            </label>
+            <label class="field compact-field">
+              <span>Kafein hassasiyeti</span>
+              <select id="caffeineSensitive">
+                <option value="no" selected>Hayır</option>
+                <option value="yes">Evet</option>
+              </select>
+            </label>
+            <label class="field compact-field">
+              <span>Laktoz hassasiyeti</span>
+              <select id="lactoseSensitive">
+                <option value="no" selected>Hayır</option>
+                <option value="yes">Evet</option>
+              </select>
+            </label>
+            <label class="field compact-field">
+              <span>Bütçe</span>
+              <select id="supplementBudget">
+                <option value="low">Düşük</option>
+                <option value="medium" selected>Orta</option>
+                <option value="high">Yüksek</option>
+              </select>
+            </label>
+            <small>Supplementler opsiyoneldir; gıda alternatifi her zaman önceliklidir.</small>
+          </div>
+        </aside>
+        <div id="nutritionPlanEditor" class="nutrition-editor"></div>
+      </div>
+    </section>
+
     <section class="library-panel screen-panel is-hidden" id="libraryPanel" data-screen="library">
       <div class="results__header">
         <div>
@@ -696,6 +752,11 @@
           <div id="weeklyPlan" class="weekly-plan"></div>
         </section>
 
+        <section class="result-card result-card--wide">
+          <h3>Beslenme Planı</h3>
+          <div id="outputNutritionPlan" class="nutrition-output"></div>
+        </section>
+
         <section class="result-card">
           <h3>4 Haftalık Takip</h3>
           <div id="progressionPlan" class="timeline"></div>
@@ -718,6 +779,7 @@
     <script src="./services/storage-service.js"></script>
     <script src="./services/member-service.js"></script>
     <script src="./services/tanita-csv-service.js"></script>
+    <script src="./services/nutrition-service.js"></script>
     <script src="./services/dashboard-service.js"></script>
     <script src="./services/validation-service.js"></script>
     <script src="./services/program-content-service.js"></script>
@@ -734,10 +796,12 @@
     <script src="./ui/member-ui.js"></script>
     <script src="./ui/library-ui.js"></script>
     <script src="./ui/output-ui.js"></script>
+    <script src="./ui/nutrition-ui.js"></script>
     <script src="./handlers/form-handlers.js"></script>
     <script src="./handlers/navigation-handlers.js"></script>
     <script src="./handlers/member-handlers.js"></script>
     <script src="./handlers/output-handlers.js"></script>
+    <script src="./handlers/nutrition-handlers.js"></script>
     <script src="./analysis-engine.js"></script>
     <script src="./program-engine-v2.js"></script>
     <script src="./automation-engine.js"></script>
