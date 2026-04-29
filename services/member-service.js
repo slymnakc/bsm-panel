@@ -242,6 +242,8 @@
       updatedAt: source.updatedAt || source.updated_at || source.created_at || source.inserted_at || source.savedAtIso,
       measurements: Array.isArray(source.measurements) ? source.measurements : [],
       programs: Array.isArray(source.programs) ? source.programs : [],
+      nutritionPlan: source.nutritionPlan || source.nutrition_plan || null,
+      nutritionPlans: Array.isArray(source.nutritionPlans) ? source.nutritionPlans : [],
     };
   }
 

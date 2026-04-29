@@ -11,7 +11,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.3");
+console.log("APP VERSION: v1.0.4");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -93,6 +93,10 @@ const {
   buildCardioBlock: buildCardioBlockService,
 } = window.BSMSessionSupportService;
 const {
+  buildNutritionPlan,
+  normalizeNutritionPlan,
+} = window.BSMNutritionService;
+const {
   readTanitaCsvFile,
   parseTanitaCsv,
   selectBestRecord: selectBestTanitaRecord,
@@ -118,6 +122,8 @@ const state = {
   pendingTanitaMeasurement: null,
   programEditMode: false,
   programDefaultSnapshot: null,
+  activeNutritionPlan: null,
+  activeNutritionMemberId: null,
 };
 
 const {
@@ -178,10 +184,17 @@ const {
   renderProgramSections: renderProgramSectionsUi,
   renderOutputIntelligence: renderOutputIntelligenceUi,
 } = window.BSMOutputUI;
+const {
+  renderNutritionWorkspace: renderNutritionWorkspaceUi,
+  renderOutputNutritionPlan: renderOutputNutritionPlanUi,
+  collectNutritionPlanEdits,
+  collectSupplementPreferences,
+} = window.BSMNutritionUI;
 const { createFormHandlers, bindFormHandlers } = window.BSMFormHandlers;
 const { createNavigationHandlers, bindNavigationHandlers } = window.BSMNavigationHandlers;
 const { createMemberHandlers, bindMemberHandlers } = window.BSMMemberHandlers;
 const { createOutputHandlers, bindOutputHandlers } = window.BSMOutputHandlers;
+const { createNutritionHandlers, bindNutritionHandlers } = window.BSMNutritionHandlers;
 const programStyleOptionMap = Object.fromEntries(programStyleOptions.map((option) => [option.value, option]));
 const trainingSystemMap = Object.fromEntries(trainingSystemOptions.map((option) => [option.value, option]));
 
@@ -266,6 +279,12 @@ const findExerciseButton = document.querySelector("#findExerciseButton");
 const clearExerciseSearchButton = document.querySelector("#clearExerciseSearchButton");
 const studioNav = document.querySelector(".studio-nav");
 const screenPanels = [...document.querySelectorAll("[data-screen]")];
+const nutritionPanel = document.querySelector("#nutritionPanel");
+const nutritionMemberSummary = document.querySelector("#nutritionMemberSummary");
+const nutritionPlanEditor = document.querySelector("#nutritionPlanEditor");
+const generateNutritionButton = document.querySelector("#generateNutritionButton");
+const saveNutritionButton = document.querySelector("#saveNutritionButton");
+const printNutritionButton = document.querySelector("#printNutritionButton");
 const workspaceTabs = document.querySelector("#workspaceTabs");
 const workspacePanels = [...document.querySelectorAll("[data-workspace-panel]")];
 const memberSearch = document.querySelector("#memberSearch");
@@ -301,6 +320,7 @@ const coverTrainer = document.querySelector("#coverTrainer");
 const aiReportSummary = document.querySelector("#aiReportSummary");
 const nextControlReport = document.querySelector("#nextControlReport");
 const outputWarnings = document.querySelector("#outputWarnings");
+const outputNutritionPlan = document.querySelector("#outputNutritionPlan");
 const measurementDate = document.querySelector("#measurementDate");
 const measurementWeight = document.querySelector("#measurementWeight");
 const measurementHeight = document.querySelector("#measurementHeight");
@@ -448,6 +468,23 @@ const outputHandlers = createOutputHandlers({
   getDayLabel,
 });
 
+const nutritionHandlers = createNutritionHandlers({
+  state,
+  findActiveMember,
+  buildNutritionPlan,
+  normalizeNutritionPlan,
+  collectSupplementPreferences,
+  collectNutritionPlanEdits,
+  renderNutritionWorkspace,
+  renderNutritionOutput,
+  persistMembers,
+  renderMemberWorkspace,
+  showStatus,
+  makeId,
+  nutritionPanel,
+  nutritionPlanEditor,
+});
+
 const memberHandlers = createMemberHandlers({
   state,
   memberSort,
@@ -511,6 +548,7 @@ function syncStartupUi() {
   setWorkspaceView(state.activeWorkspaceView);
   renderLibrary();
   renderMemberWorkspace();
+  renderNutritionWorkspace();
 }
 
 function prepareOutputLayout() {
@@ -683,6 +721,15 @@ function bindApplicationHandlers() {
     },
     outputHandlers,
   );
+  bindNutritionHandlers(
+    {
+      generateNutritionButton,
+      saveNutritionButton,
+      printNutritionButton,
+      nutritionPlanEditor,
+    },
+    nutritionHandlers,
+  );
 }
 
 function hydrateInitialSession() {
@@ -715,6 +762,10 @@ function hydrateActiveMemberSession() {
   if (activeMember.programs?.[0]?.program) {
     renderProgram(activeMember.programs[0].program, { savedProgramRecordId: activeMember.programs[0].id });
   }
+
+  state.activeNutritionPlan = normalizeNutritionPlan(activeMember.nutritionPlan || activeMember.nutritionPlans?.[0]) || null;
+  state.activeNutritionMemberId = activeMember.id;
+  renderNutritionWorkspace();
 
   return activeMember;
 }
@@ -786,7 +837,7 @@ function populateProgramStyleOptions() {
 
 function setActiveScreen(screen, options = {}) {
   const { userTriggered = false, silent = false } = options;
-  const normalized = ["dashboard", "builder", "library", "output"].includes(screen) ? screen : "dashboard";
+  const normalized = ["dashboard", "builder", "nutrition", "library", "output"].includes(screen) ? screen : "dashboard";
 
   if (normalized === "output" && !state.activeProgram) {
     if (userTriggered && !silent) {
@@ -808,6 +859,7 @@ function setActiveScreen(screen, options = {}) {
   const hashMap = {
     dashboard: "#dashboardPanel",
     builder: "#plannerForm",
+    nutrition: "#nutritionPanel",
     library: "#libraryPanel",
     output: "#resultsSection",
   };
@@ -825,6 +877,10 @@ function inferScreenFromHash(hashValue) {
 
   if (hash.includes("librarypanel")) {
     return "library";
+  }
+
+  if (hash.includes("nutritionpanel")) {
+    return "nutrition";
   }
 
   if (hash.includes("resultssection")) {
@@ -966,11 +1022,16 @@ function loadMember(member) {
   setActiveScreen("builder", { silent: true });
 
   if (member.programs?.[0]?.program) {
-    renderProgram(cloneData(member.programs[0].program));
+    renderProgram(cloneData(member.programs[0].program), { savedProgramRecordId: member.programs[0].id });
   } else {
     resultsSection.classList.add("hidden");
     state.activeProgram = null;
   }
+
+  state.activeNutritionPlan = normalizeNutritionPlan(member.nutritionPlan || member.nutritionPlans?.[0]) || null;
+  state.activeNutritionMemberId = member.id;
+  renderNutritionWorkspace();
+  renderNutritionOutput();
 
   showStatus(`${member.profile?.memberName || "Üye"} dosyası yüklendi.`, "success");
 }
@@ -978,6 +1039,8 @@ function loadMember(member) {
 function renderMemberWorkspace() {
   renderDashboard();
   renderWorkspacePanels();
+  renderNutritionWorkspace();
+  renderNutritionOutput();
 }
 
 function renderWorkspacePanels() {
@@ -2494,6 +2557,7 @@ function renderProgram(program, options = {}) {
   );
   renderProgramEditToolbar();
   renderOutputIntelligence(state.activeProgram);
+  renderNutritionOutput();
 }
 
 function renderOutputIntelligence(program) {
@@ -2505,6 +2569,48 @@ function renderOutputIntelligence(program) {
     },
     buildOutputIntelligenceModelService(program),
     escapeHtml,
+  );
+}
+
+function renderNutritionWorkspace() {
+  const activeMember = findActiveMember();
+  const memberPlan = normalizeNutritionPlan(activeMember?.nutritionPlan || activeMember?.nutritionPlans?.[0]);
+
+  if (activeMember?.id !== state.activeNutritionMemberId) {
+    state.activeNutritionPlan = memberPlan;
+    state.activeNutritionMemberId = activeMember?.id || null;
+  } else if (!state.activeNutritionPlan && memberPlan) {
+    state.activeNutritionPlan = memberPlan;
+  }
+
+  renderNutritionWorkspaceUi(
+    {
+      nutritionMemberSummary,
+      nutritionPlanEditor,
+    },
+    {
+      member: activeMember,
+      plan: state.activeNutritionPlan || memberPlan,
+    },
+    escapeHtml,
+    {
+      labelMaps,
+    },
+  );
+}
+
+function renderNutritionOutput() {
+  const plan = getNutritionPlanForOutput();
+  renderOutputNutritionPlanUi(outputNutritionPlan, plan, labelMaps, escapeHtml);
+}
+
+function getNutritionPlanForOutput() {
+  const activeMember = findActiveMember();
+
+  return (
+    normalizeNutritionPlan(state.activeNutritionPlan) ||
+    normalizeNutritionPlan(activeMember?.nutritionPlan || activeMember?.nutritionPlans?.[0]) ||
+    null
   );
 }
 
@@ -2878,6 +2984,7 @@ function convertMemberProgramToSimpleText(program) {
     .map(([label, value]) => `${label}: ${value}`)
     .join("\n");
   const sessionText = (program.sessions || []).map(formatSimpleSessionForText).join("\n\n");
+  const nutritionText = formatNutritionPlanForText(getNutritionPlanForOutput());
 
   return `${program.title}
 Oluşturulma zamanı: ${program.createdAt}
@@ -2886,7 +2993,28 @@ Oluşturulma zamanı: ${program.createdAt}
 ${overview}
 
 HAFTALIK ANTRENMAN PLANI
-${sessionText}`;
+${sessionText}${nutritionText ? `\n\nBESLENME PLANI\n${nutritionText}` : ""}`;
+}
+
+function formatNutritionPlanForText(plan) {
+  if (!plan) {
+    return "";
+  }
+
+  const meals = (plan.meals || [])
+    .map((meal) => `- ${meal.name}: ${meal.foods} | ${meal.calories} kcal | P ${meal.protein} / K ${meal.carbs} / Y ${meal.fat}`)
+    .join("\n");
+  const supplements = (plan.supplements || []).length
+    ? `\nSupplement tercihi:\n${plan.supplements.map((item) => `- ${item.name}: ${item.purpose} Alternatif: ${item.foodAlternative}`).join("\n")}`
+    : "";
+
+  return `Üye: ${plan.memberName}
+Hedef: ${labelMaps.goal[plan.goal] || plan.goal}
+Günlük kalori: ${plan.calories} kcal
+Makrolar: Protein ${plan.macros?.protein} g | Karbonhidrat ${plan.macros?.carbs} g | Yağ ${plan.macros?.fat} g
+${meals}${supplements}
+Antrenör notu: ${plan.trainerNote || "-"}
+Not: ${plan.disclaimer || ""}`;
 }
 
 function formatSimpleSessionForText(session) {

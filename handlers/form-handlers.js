@@ -114,6 +114,8 @@
       state.activeProgram = null;
       state.programEditMode = false;
       state.programDefaultSnapshot = null;
+      state.activeNutritionPlan = null;
+      state.activeNutritionMemberId = null;
       saveActiveMemberId(null);
       form.reset();
       form.querySelector("#gymName").value = "Bahçeşehir Spor Merkezi";
