@@ -13,7 +13,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.9");
+console.log("APP VERSION: v1.0.10");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -348,6 +348,7 @@ const outputNutritionPlan = document.querySelector("#outputNutritionPlan");
 const measurementDate = document.querySelector("#measurementDate");
 const measurementWeight = document.querySelector("#measurementWeight");
 const measurementHeight = document.querySelector("#measurementHeight");
+const measurementBmi = document.querySelector("#measurementBmi");
 const measurementBirthDay = document.querySelector("#measurementBirthDay");
 const measurementBirthMonth = document.querySelector("#measurementBirthMonth");
 const measurementBirthYear = document.querySelector("#measurementBirthYear");
@@ -437,6 +438,7 @@ const formHandlers = createFormHandlers({
   buildTanitaMeasurement,
   buildTanitaPreviewModel,
   renderTanitaPreview,
+  applyTanitaMeasurementToForm,
   saveMeasurementToSupabase,
   exerciseLibrary,
   buildPrescription,
@@ -2308,6 +2310,7 @@ function readMeasurementForm() {
     date: measurementDate.value || getTodayInputValue(),
     weight: numberOrEmpty(measurementWeight.value),
     height: numberOrEmpty(measurementHeight.value),
+    bmi: numberOrEmpty(measurementBmi?.value),
     birthDay: birthDateParts.day,
     birthMonth: birthDateParts.month,
     birthYear: birthDateParts.year,
@@ -2333,6 +2336,7 @@ function readMeasurementForm() {
     [
       "weight",
       "height",
+      "bmi",
       "age",
       "birthDay",
       "birthMonth",
@@ -2360,6 +2364,7 @@ function readMeasurementForm() {
 function clearMeasurementInputs() {
   measurementWeight.value = "";
   measurementHeight.value = "";
+  if (measurementBmi) measurementBmi.value = "";
   measurementBirthDay.value = "";
   measurementBirthMonth.value = "";
   measurementBirthYear.value = "";
@@ -2381,6 +2386,71 @@ function clearMeasurementInputs() {
     input.value = "";
   });
   measurementNote.value = "";
+}
+
+function applyTanitaMeasurementToForm(measurement) {
+  const source = measurement && typeof measurement === "object" ? measurement : {};
+
+  setInputValue(measurementDate, source.date);
+  setInputValue(measurementWeight, source.weight);
+  setInputValue(measurementHeight, source.height);
+  setInputValue(measurementBmi, source.bmi);
+  setInputValue(measurementFat, source.fat);
+  setInputValue(measurementMuscleMass, source.muscleMass);
+  setInputValue(measurementFatMass, source.fatMass);
+  setInputValue(measurementBodyWater, source.bodyWater);
+  setInputValue(measurementVisceralFat, source.visceralFat);
+  setInputValue(measurementBmr, source.bmr);
+  setInputValue(measurementMetabolicAge, source.metabolicAge);
+  setInputValue(measurementBoneMass, source.boneMass);
+
+  Object.entries(source.segments || {}).forEach(([key, value]) => {
+    setInputValue(segmentInputs[key], value);
+  });
+
+  Object.entries(source.resistance || {}).forEach(([key, value]) => {
+    setInputValue(segmentResistanceInputs[key], value);
+  });
+
+  if (measurementNote && !measurementNote.value.trim() && source.note) {
+    setInputValue(measurementNote, source.note);
+  }
+
+  dispatchMeasurementInputEvents();
+  console.log("TANITA DATA APPLIED TO FORM");
+}
+
+function setInputValue(input, value) {
+  if (!input || value === "" || value === undefined || value === null) {
+    return;
+  }
+
+  input.value = String(value);
+}
+
+function dispatchMeasurementInputEvents() {
+  [
+    measurementDate,
+    measurementWeight,
+    measurementHeight,
+    measurementBmi,
+    measurementFat,
+    measurementMuscleMass,
+    measurementFatMass,
+    measurementBodyWater,
+    measurementVisceralFat,
+    measurementBmr,
+    measurementMetabolicAge,
+    measurementBoneMass,
+    ...Object.values(segmentInputs),
+    ...Object.values(segmentResistanceInputs),
+    measurementNote,
+  ]
+    .filter(Boolean)
+    .forEach((input) => {
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
 }
 
 function readBirthDateParts() {

@@ -42,6 +42,7 @@
       buildTanitaMeasurement,
       buildTanitaPreviewModel,
       renderTanitaPreview,
+      applyTanitaMeasurementToForm,
       saveMeasurementToSupabase,
       exerciseLibrary,
       buildPrescription,
@@ -267,16 +268,23 @@
         return;
       }
 
-      const measurementValidationMessage = validateMeasurementData(measurement);
+      const measurementForSave = mergePendingTanitaMeasurement(measurement);
+      const measurementValidationMessage = validateMeasurementData(measurementForSave);
 
       if (measurementValidationMessage) {
         showStatus(measurementValidationMessage, "error");
         return;
       }
 
-      member.measurements = [normalizeMeasurementPayload(measurement), ...(member.measurements || [])].slice(0, 40);
+      const normalizedMeasurement = normalizeMeasurementPayload(measurementForSave);
+      member.measurements = [normalizedMeasurement, ...(member.measurements || [])].slice(0, 40);
       member.updatedAt = new Date().toISOString();
       persistMembers();
+      if (state.pendingTanitaMeasurement && typeof saveMeasurementToSupabase === "function") {
+        saveMeasurementToSupabase(member, normalizedMeasurement);
+      }
+      state.pendingTanitaMeasurement = null;
+      setTanitaSaveEnabled(false);
       setWorkspaceView("measurements");
       clearMeasurementInputs();
       renderMemberWorkspace();
@@ -322,8 +330,12 @@
           }
 
           const measurement = buildTanitaMeasurement(record, { makeId, getTodayInputValue });
+          const parsedTanitaData = measurement;
+          console.log("TANITA PARSED DATA:", parsedTanitaData);
           state.pendingTanitaMeasurement = measurement;
           renderTanitaPreview?.(buildTanitaPreviewModel?.(measurement));
+          applyTanitaMeasurementToForm?.(measurement);
+          handleLiveUpdate();
           setTanitaSaveEnabled(true);
 
           const warningText = result.warnings?.length ? ` Ek bilgi: ${result.warnings.join(" ")}` : "";
@@ -348,14 +360,16 @@
         return;
       }
 
-      const measurementValidationMessage = validateMeasurementData(state.pendingTanitaMeasurement);
+      const formMeasurement = readMeasurementForm();
+      const measurementToSave = formMeasurement ? mergePendingTanitaMeasurement(formMeasurement) : state.pendingTanitaMeasurement;
+      const measurementValidationMessage = validateMeasurementData(measurementToSave);
 
       if (measurementValidationMessage) {
         setTanitaImportStatus(measurementValidationMessage, "error");
         return;
       }
 
-      const normalizedMeasurement = normalizeMeasurementPayload(state.pendingTanitaMeasurement);
+      const normalizedMeasurement = normalizeMeasurementPayload(measurementToSave);
       member.measurements = [normalizedMeasurement, ...(member.measurements || [])].slice(0, 40);
       member.updatedAt = new Date().toISOString();
       persistMembers();
@@ -392,6 +406,22 @@
       if (saveTanitaMeasurementButton) {
         saveTanitaMeasurementButton.disabled = !isEnabled;
       }
+    }
+
+    function mergePendingTanitaMeasurement(measurement) {
+      if (!state.pendingTanitaMeasurement) {
+        return measurement;
+      }
+
+      return {
+        ...state.pendingTanitaMeasurement,
+        ...measurement,
+        source: state.pendingTanitaMeasurement.source || measurement.source,
+        rawPayload: state.pendingTanitaMeasurement.rawPayload || measurement.rawPayload,
+        time: state.pendingTanitaMeasurement.time || measurement.time,
+        gender: state.pendingTanitaMeasurement.gender || measurement.gender,
+        note: measurement.note || state.pendingTanitaMeasurement.note,
+      };
     }
 
     function handleProgramEdit(event) {
