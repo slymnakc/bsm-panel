@@ -63,6 +63,7 @@
           class="exercise-media__button"
           data-exercise-gif-open
           data-gif-url="${escapeHtml(media.gifUrl)}"
+          data-gif-fallback-url="${escapeHtml(media.fallbackGifUrl || "")}"
           data-exercise-name="${escapeHtml(media.name)}"
           data-exercise-group="${escapeHtml(media.groupLabel)}"
           aria-label="${escapeHtml(media.name)} GIF önizlemesini büyüt"
