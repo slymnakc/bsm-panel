@@ -769,6 +769,20 @@
       </div>
     </section>
 
+    <div id="exerciseGifModal" class="exercise-gif-modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="exerciseGifModalTitle">
+      <div class="exercise-gif-modal__backdrop" data-gif-modal-close></div>
+      <div class="exercise-gif-modal__dialog">
+        <button type="button" class="exercise-gif-modal__close" data-gif-modal-close aria-label="GIF penceresini kapat">×</button>
+        <div class="exercise-gif-modal__media">
+          <img id="exerciseGifModalImage" alt="" />
+        </div>
+        <div>
+          <p class="section-kicker" id="exerciseGifModalGroup">Hareket</p>
+          <h3 id="exerciseGifModalTitle">Egzersiz GIF</h3>
+        </div>
+      </div>
+    </div>
+
     <script src="./data/options.js"></script>
     <script src="./data/labels.js"></script>
     <script src="./data/presets.js"></script>
@@ -780,6 +794,7 @@
     <script src="./services/member-service.js"></script>
     <script src="./services/tanita-csv-service.js"></script>
     <script src="./services/nutrition-service.js"></script>
+    <script src="./services/exercise-media-service.js"></script>
     <script src="./services/dashboard-service.js"></script>
     <script src="./services/validation-service.js"></script>
     <script src="./services/program-content-service.js"></script>

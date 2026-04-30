@@ -162,7 +162,7 @@
             <span>Dinlenme</span>
             <span>Uygulama notu</span>
           </div>
-          ${renderPrintableExerciseRows(session, escapeHtml)}
+          ${renderPrintableExerciseRows(session, escapeHtml, helpers)}
         </div>
         <div class="member-program-support">
           ${renderSupportLine("Isınma", (session.warmup || []).join(" • "), escapeHtml)}
@@ -173,14 +173,17 @@
     `;
   }
 
-  function renderPrintableExerciseRows(session, escapeHtml) {
+  function renderPrintableExerciseRows(session, escapeHtml, helpers) {
     return (session.exercises || [])
       .map((exercise) => {
         const prescription = getExercisePrescriptionParts(exercise);
 
         return `
           <div class="member-program-table__row">
-            <strong>${escapeHtml(exercise.name || "Hareket")}</strong>
+            <div class="member-program-exercise-title">
+              ${renderExerciseMedia(helpers?.getExerciseMedia?.(exercise), escapeHtml, "exercise-media--tiny")}
+              <strong>${escapeHtml(exercise.name || "Hareket")}</strong>
+            </div>
             <span data-label="Set">${escapeHtml(prescription.sets)}</span>
             <span data-label="Tekrar">${escapeHtml(prescription.reps)}</span>
             <span data-label="Dinlenme">${escapeHtml(exercise.rest || "-")}</span>
@@ -216,6 +219,7 @@
 
     return `
       <div class="editable-exercise-card">
+        ${renderExerciseMedia(helpers?.getExerciseMedia?.(exercise), escapeHtml, "exercise-media--wide")}
         <div class="editable-exercise-card__top">
           <label class="edit-field">
             <span>Kas grubu</span>
@@ -267,6 +271,32 @@
     }
 
     return options.join("");
+  }
+
+  function renderExerciseMedia(media, escapeHtml, modifier = "") {
+    if (!media?.gifUrl) {
+      return "";
+    }
+
+    return `
+      <div class="exercise-media ${modifier}" data-exercise-media>
+        <button
+          type="button"
+          class="exercise-media__button"
+          data-exercise-gif-open
+          data-gif-url="${escapeHtml(media.gifUrl)}"
+          data-exercise-name="${escapeHtml(media.name)}"
+          data-exercise-group="${escapeHtml(media.groupLabel)}"
+          aria-label="${escapeHtml(media.name)} GIF önizlemesini büyüt"
+        >
+          <img src="${escapeHtml(media.gifUrl)}" alt="${escapeHtml(media.name)} GIF" loading="lazy" data-exercise-gif-img />
+        </button>
+        <div class="exercise-media__placeholder">
+          <strong>${escapeHtml(media.name)}</strong>
+          <span>${escapeHtml(media.groupLabel)}</span>
+        </div>
+      </div>
+    `;
   }
 
   function splitPrescription(value) {
