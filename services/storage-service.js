@@ -9,6 +9,8 @@
     activeMemberId: "formaplan-studio-active-member-id",
     memberSort: "formaplan-studio-member-sort",
     backupHistory: "formaplan-studio-backup-history",
+    customExercises: "formaplan-studio-custom-exercises",
+    hiddenExerciseIds: "formaplan-studio-hidden-exercise-ids",
   };
 
   function normalizeFormPayload(value) {
