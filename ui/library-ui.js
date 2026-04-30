@@ -29,11 +29,15 @@
                   (exercise) => `
                     <div class="library-exercise">
                       ${renderExerciseMedia(exercise.media, escapeHtml)}
-                      <strong>${escapeHtml(exercise.name)}</strong>
+                      <div class="library-exercise__top">
+                        <strong>${escapeHtml(exercise.name)}</strong>
+                        ${renderLibraryExerciseAction(exercise, escapeHtml)}
+                      </div>
                       <div class="exercise-meta">
                         <span>${escapeHtml(exercise.equipmentLabel)}</span>
                         <span>${escapeHtml(exercise.kindLabel)}</span>
                         <span>${escapeHtml(exercise.levelLabel)}</span>
+                        ${exercise.isCustom ? "<span>Özel hareket</span>" : ""}
                         <span>GIF destekli</span>
                       </div>
                       <p>${escapeHtml(exercise.cue)}</p>
@@ -64,6 +68,7 @@
           data-exercise-gif-open
           data-gif-url="${escapeHtml(media.gifUrl)}"
           data-gif-fallback-url="${escapeHtml(media.fallbackGifUrl || "")}"
+          data-gif-fallback-urls="${escapeHtml(getFallbackGifUrls(media).join("|"))}"
           data-exercise-name="${escapeHtml(media.name)}"
           data-exercise-group="${escapeHtml(media.groupLabel)}"
           aria-label="${escapeHtml(media.name)} GIF önizlemesini büyüt"
@@ -76,6 +81,33 @@
         </div>
       </div>
     `;
+  }
+
+  function renderLibraryExerciseAction(exercise, escapeHtml) {
+    if (!exercise?.id) {
+      return "";
+    }
+
+    const action = exercise.isCustom ? "remove-custom" : "hide";
+    const label = exercise.isCustom ? "Sil" : "Gizle";
+
+    return `
+      <button
+        type="button"
+        class="library-exercise__action"
+        data-exercise-library-action="${escapeHtml(action)}"
+        data-exercise-id="${escapeHtml(exercise.id)}"
+        aria-label="${escapeHtml(exercise.name)} hareketini kütüphaneden çıkar"
+      >${label}</button>
+    `;
+  }
+
+  function getFallbackGifUrls(media) {
+    if (Array.isArray(media?.fallbackGifUrls)) {
+      return media.fallbackGifUrls.filter(Boolean);
+    }
+
+    return media?.fallbackGifUrl ? [media.fallbackGifUrl] : [];
   }
 
   function syncLibraryTabs(targets, state) {

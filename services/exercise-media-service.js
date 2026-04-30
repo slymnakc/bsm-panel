@@ -7,16 +7,43 @@
     const source = exercise && typeof exercise === "object" ? exercise : {};
     const name = String(source.name || "Hareket").trim();
     const explicitGifUrl = String(source.gifUrl || "").trim();
-    const slugUrl = `${GIF_BASE_PATH}${slugifyExerciseName(name)}.gif`;
+    const slug = slugifyExerciseName(name);
+    const slugUrl = `${GIF_BASE_PATH}${slug}.gif`;
     const gifUrl = explicitGifUrl || slugUrl;
+    const fallbackGifUrls = explicitGifUrl ? [] : buildFallbackGifUrls(slug);
 
     return {
       gifUrl,
-      fallbackGifUrl: explicitGifUrl ? "" : `${slugUrl}.gif`,
+      fallbackGifUrl: fallbackGifUrls[0] || "",
+      fallbackGifUrls,
       name,
       groupLabel: groupLabel || source.group || "Kas grubu",
       isExplicit: Boolean(source.gifUrl),
     };
+  }
+
+  function buildFallbackGifUrls(slug) {
+    const doubleHyphenSlug = buildDoubleHyphenAlias(slug);
+
+    return uniqueValues([
+      `${GIF_BASE_PATH}${slug}.gif.gif`,
+      doubleHyphenSlug ? `${GIF_BASE_PATH}${doubleHyphenSlug}.gif` : "",
+      doubleHyphenSlug ? `${GIF_BASE_PATH}${doubleHyphenSlug}.gif.gif` : "",
+    ]);
+  }
+
+  function buildDoubleHyphenAlias(slug) {
+    const parts = String(slug || "").split("-").filter(Boolean);
+
+    if (parts.length < 3) {
+      return "";
+    }
+
+    return `${parts.slice(0, -1).join("-")}--${parts[parts.length - 1]}`;
+  }
+
+  function uniqueValues(values) {
+    return [...new Set(values.filter(Boolean))];
   }
 
   function slugifyExerciseName(value) {

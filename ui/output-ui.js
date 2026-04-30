@@ -286,6 +286,7 @@
           data-exercise-gif-open
           data-gif-url="${escapeHtml(media.gifUrl)}"
           data-gif-fallback-url="${escapeHtml(media.fallbackGifUrl || "")}"
+          data-gif-fallback-urls="${escapeHtml(getFallbackGifUrls(media).join("|"))}"
           data-exercise-name="${escapeHtml(media.name)}"
           data-exercise-group="${escapeHtml(media.groupLabel)}"
           aria-label="${escapeHtml(media.name)} GIF önizlemesini büyüt"
@@ -298,6 +299,14 @@
         </div>
       </div>
     `;
+  }
+
+  function getFallbackGifUrls(media) {
+    if (Array.isArray(media?.fallbackGifUrls)) {
+      return media.fallbackGifUrls.filter(Boolean);
+    }
+
+    return media?.fallbackGifUrl ? [media.fallbackGifUrl] : [];
   }
 
   function splitPrescription(value) {

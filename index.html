@@ -675,6 +675,63 @@
         <button type="button" class="ghost-button" id="clearExerciseSearchButton">Temizle</button>
       </div>
 
+      <details class="library-manager">
+        <summary>
+          <span>Hareket Ekle / Çıkar</span>
+          <small>Kendi salon hareketlerini ekle, hazır hareketleri istersen gizle.</small>
+        </summary>
+        <div class="library-manager__body">
+          <div class="library-manager__form">
+            <label class="field compact-field">
+              <span>Hareket adı</span>
+              <input type="text" id="customExerciseName" placeholder="Örn. Assisted pull-up" />
+            </label>
+            <label class="field compact-field">
+              <span>Kas grubu</span>
+              <select id="customExerciseGroup"></select>
+            </label>
+            <label class="field compact-field">
+              <span>Ekipman</span>
+              <select id="customExerciseEquipment"></select>
+            </label>
+            <label class="field compact-field">
+              <span>Hareket tipi</span>
+              <select id="customExerciseKind">
+                <option value="compound">Compound</option>
+                <option value="accessory">Accessory</option>
+                <option value="cardio">Kardiyo</option>
+                <option value="conditioning">Kondisyon</option>
+                <option value="mobility">Mobilite</option>
+                <option value="core">Core</option>
+              </select>
+            </label>
+            <label class="field compact-field">
+              <span>Seviye</span>
+              <select id="customExerciseLevel">
+                <option value="beginner">Başlangıç</option>
+                <option value="intermediate" selected>Orta</option>
+                <option value="advanced">İleri</option>
+              </select>
+            </label>
+            <label class="field compact-field">
+              <span>GIF yolu opsiyonel</span>
+              <input type="text" id="customExerciseGifUrl" placeholder="./assets/gifs/hareket-adi.gif" />
+            </label>
+            <label class="field compact-field library-manager__note">
+              <span>Kısa uygulama notu</span>
+              <textarea id="customExerciseCue" rows="2" placeholder="Teknik kaliteyi koruyarak kontrollü uygula."></textarea>
+            </label>
+          </div>
+          <div class="library-manager__actions">
+            <button type="button" class="primary-button" id="addCustomExerciseButton">Hareket Ekle</button>
+            <button type="button" class="ghost-button" id="resetCustomExerciseFormButton">Formu Temizle</button>
+            <button type="button" class="ghost-button" id="restoreHiddenExercisesButton">Gizlenenleri Geri Getir</button>
+          </div>
+          <p id="customExerciseStatus" class="status-message compact-status"></p>
+          <div id="customExerciseList" class="custom-exercise-list"></div>
+        </div>
+      </details>
+
       <div class="muscle-tabs" id="muscleGroupTabs" aria-label="Kas grubu hızlı filtreleri"></div>
       <div class="alphabet-tabs" id="alphabetTabs" aria-label="Alfabetik hareket sekmeleri"></div>
       <div class="library-grid" id="exerciseLibrary"></div>

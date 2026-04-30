@@ -1871,6 +1871,79 @@ input[type="radio"] {
   margin-top: 12px;
 }
 
+.library-manager {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(25, 51, 66, 0.1);
+}
+
+.library-manager summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 900;
+  color: var(--teal-deep);
+}
+
+.library-manager summary::-webkit-details-marker {
+  display: none;
+}
+
+.library-manager summary small {
+  color: var(--muted);
+  font-weight: 700;
+  text-align: right;
+}
+
+.library-manager__body {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.library-manager__form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.library-manager__note {
+  grid-column: 1 / -1;
+}
+
+.library-manager__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.custom-exercise-list {
+  display: grid;
+  gap: 10px;
+}
+
+.custom-exercise-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.custom-exercise-item span,
+.custom-exercise-list__hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .muscle-tabs,
 .alphabet-tabs {
   display: flex;
@@ -1962,6 +2035,30 @@ input[type="radio"] {
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.76);
   border: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.library-exercise__top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.library-exercise__action {
+  border: 1px solid rgba(25, 51, 66, 0.12);
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: var(--teal-deep);
+  background: rgba(255, 255, 255, 0.74);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.library-exercise__action:hover {
+  border-color: rgba(184, 86, 68, 0.36);
+  color: var(--coral);
 }
 
 .library-exercise strong {

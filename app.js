@@ -7,11 +7,13 @@
   normalizeMembersPayload,
   storeBackupSnapshot,
   loadBackupHistory,
+  saveToStorage,
+  loadFromStorage,
   extractMembersFromBackup,
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.6");
+console.log("APP VERSION: v1.0.8");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -127,6 +129,8 @@ const state = {
   programDefaultSnapshot: null,
   activeNutritionPlan: null,
   activeNutritionMemberId: null,
+  customExercises: [],
+  hiddenExerciseIds: [],
 };
 
 const {
@@ -142,7 +146,8 @@ const {
 } = window.BSMOptionData;
 const { labelMaps } = window.BSMLabelData;
 const { examplePreset } = window.BSMPresetData;
-const { exerciseGroups, exerciseExpansionBlueprints, exerciseLibrary } = window.BSMExerciseData;
+const { exerciseGroups, exerciseExpansionBlueprints, exerciseLibrary: baseExerciseLibrary } = window.BSMExerciseData;
+const exerciseLibrary = [...baseExerciseLibrary];
 const {
   formatDashboardDate,
   formatFileDate,
@@ -280,6 +285,18 @@ const exerciseLibraryEl = document.querySelector("#exerciseLibrary");
 const libraryCount = document.querySelector("#libraryCount");
 const findExerciseButton = document.querySelector("#findExerciseButton");
 const clearExerciseSearchButton = document.querySelector("#clearExerciseSearchButton");
+const customExerciseName = document.querySelector("#customExerciseName");
+const customExerciseGroup = document.querySelector("#customExerciseGroup");
+const customExerciseEquipment = document.querySelector("#customExerciseEquipment");
+const customExerciseKind = document.querySelector("#customExerciseKind");
+const customExerciseLevel = document.querySelector("#customExerciseLevel");
+const customExerciseGifUrl = document.querySelector("#customExerciseGifUrl");
+const customExerciseCue = document.querySelector("#customExerciseCue");
+const addCustomExerciseButton = document.querySelector("#addCustomExerciseButton");
+const resetCustomExerciseFormButton = document.querySelector("#resetCustomExerciseFormButton");
+const restoreHiddenExercisesButton = document.querySelector("#restoreHiddenExercisesButton");
+const customExerciseStatus = document.querySelector("#customExerciseStatus");
+const customExerciseList = document.querySelector("#customExerciseList");
 const exerciseGifModal = document.querySelector("#exerciseGifModal");
 const exerciseGifModalImage = document.querySelector("#exerciseGifModalImage");
 const exerciseGifModalTitle = document.querySelector("#exerciseGifModalTitle");
@@ -537,12 +554,104 @@ function initializeStateFromStorage() {
   state.members = loadMembers();
   state.activeMemberId = loadActiveMemberId();
   state.activeMemberSort = normalizeMemberSort(loadMemberSort());
+  state.customExercises = loadCustomExercises();
+  state.hiddenExerciseIds = loadHiddenExerciseIds();
+  refreshExerciseLibrary();
 
   if (state.members.length && !loadBackupHistory().length) {
     storeBackupSnapshot(state.members, state.activeMemberId);
   }
 
   saveMemberSort(state.activeMemberSort);
+}
+
+function loadCustomExercises() {
+  return normalizeCustomExercises(loadFromStorage(storageKeys.customExercises));
+}
+
+function loadHiddenExerciseIds() {
+  const ids = loadFromStorage(storageKeys.hiddenExerciseIds);
+  return Array.isArray(ids) ? [...new Set(ids.map(String).filter(Boolean))] : [];
+}
+
+function normalizeCustomExercises(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map(normalizeCustomExercise)
+    .filter(Boolean);
+}
+
+function normalizeCustomExercise(exercise) {
+  if (!exercise || typeof exercise !== "object") {
+    return null;
+  }
+
+  const name = String(exercise.name || "").trim();
+  const group = normalizeExerciseGroup(exercise.group);
+  const equipment = normalizeExerciseEquipment(exercise.equipment);
+
+  if (!name || !group) {
+    return null;
+  }
+
+  return {
+    id: String(exercise.id || makeCustomExerciseId(name, group)),
+    group,
+    name,
+    equipment,
+    kind: normalizeCustomExerciseKind(exercise.kind),
+    level: normalizeCustomExerciseLevel(exercise.level),
+    tags: Array.isArray(exercise.tags) ? exercise.tags : ["custom"],
+    cue: String(exercise.cue || "Kontrollü formda uygula.").trim(),
+    gifUrl: String(exercise.gifUrl || "").trim(),
+    isCustom: true,
+  };
+}
+
+function refreshExerciseLibrary() {
+  const hiddenIds = new Set(state.hiddenExerciseIds);
+  const mergedExercises = [...baseExerciseLibrary, ...state.customExercises].filter((exercise) => !hiddenIds.has(exercise.id));
+
+  exerciseLibrary.splice(0, exerciseLibrary.length, ...mergedExercises);
+}
+
+function persistCustomExercises() {
+  saveToStorage(storageKeys.customExercises, state.customExercises);
+}
+
+function persistHiddenExerciseIds() {
+  saveToStorage(storageKeys.hiddenExerciseIds, state.hiddenExerciseIds);
+}
+
+function makeCustomExerciseId(name, group) {
+  const slug = normalizeText(`${group}-${name}`)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `custom-${slug || makeId("exercise")}`;
+}
+
+function normalizeExerciseGroup(value) {
+  const group = String(value || "").trim();
+  return muscleGroups.some((item) => item.id === group) ? group : muscleGroups[0]?.id || "";
+}
+
+function normalizeExerciseEquipment(value) {
+  const equipment = String(value || "").trim();
+  return equipmentLabels[equipment] ? equipment : "bodyweight";
+}
+
+function normalizeCustomExerciseKind(value) {
+  const kind = String(value || "").trim();
+  return ["compound", "accessory", "cardio", "conditioning", "mobility", "core"].includes(kind) ? kind : "accessory";
+}
+
+function normalizeCustomExerciseLevel(value) {
+  const level = String(value || "").trim();
+  return ["beginner", "intermediate", "advanced"].includes(level) ? level : "intermediate";
 }
 
 function syncStartupUi() {
@@ -737,9 +846,160 @@ function bindApplicationHandlers() {
     },
     nutritionHandlers,
   );
+  addCustomExerciseButton?.addEventListener("click", handleAddCustomExercise);
+  resetCustomExerciseFormButton?.addEventListener("click", clearCustomExerciseForm);
+  restoreHiddenExercisesButton?.addEventListener("click", handleRestoreHiddenExercises);
+  exerciseLibraryEl?.addEventListener("click", handleLibraryExerciseAction);
+  customExerciseList?.addEventListener("click", handleLibraryExerciseAction);
   document.addEventListener("click", handleExerciseGifModalClick);
   document.addEventListener("error", handleExerciseGifError, true);
   document.addEventListener("keydown", handleExerciseGifModalKeydown);
+}
+
+function handleAddCustomExercise() {
+  const exercise = collectCustomExerciseForm();
+  const validationError = validateCustomExercise(exercise);
+
+  if (validationError) {
+    setCustomExerciseStatus(validationError, "error");
+    return;
+  }
+
+  state.customExercises = [...state.customExercises, exercise];
+  persistCustomExercises();
+  refreshExerciseLibrary();
+  clearCustomExerciseForm();
+  setCustomExerciseStatus(`${exercise.name} kütüphaneye eklendi.`, "success");
+  renderLibrary();
+}
+
+function handleLibraryExerciseAction(event) {
+  const button = event.target.closest("[data-exercise-library-action]");
+
+  if (!button) {
+    return;
+  }
+
+  const exerciseId = button.dataset.exerciseId;
+  const action = button.dataset.exerciseLibraryAction;
+
+  if (action === "remove-custom") {
+    removeCustomExercise(exerciseId);
+    return;
+  }
+
+  if (action === "hide") {
+    hideLibraryExercise(exerciseId);
+  }
+}
+
+function handleRestoreHiddenExercises() {
+  if (!state.hiddenExerciseIds.length) {
+    setCustomExerciseStatus("Geri getirilecek gizlenmiş hareket yok.", "neutral");
+    return;
+  }
+
+  state.hiddenExerciseIds = [];
+  persistHiddenExerciseIds();
+  refreshExerciseLibrary();
+  setCustomExerciseStatus("Gizlenen hazır hareketler tekrar kütüphaneye eklendi.", "success");
+  renderLibrary();
+}
+
+function collectCustomExerciseForm() {
+  const name = String(customExerciseName?.value || "").trim();
+  const group = normalizeExerciseGroup(customExerciseGroup?.value);
+
+  return normalizeCustomExercise({
+    id: makeUniqueCustomExerciseId(name, group),
+    name,
+    group,
+    equipment: customExerciseEquipment?.value,
+    kind: customExerciseKind?.value,
+    level: customExerciseLevel?.value,
+    cue: customExerciseCue?.value,
+    gifUrl: customExerciseGifUrl?.value,
+    tags: ["custom"],
+  });
+}
+
+function validateCustomExercise(exercise) {
+  if (!exercise?.name) {
+    return "Hareket adı boş olamaz.";
+  }
+
+  const duplicate = [...baseExerciseLibrary, ...state.customExercises].some(
+    (item) => item.group === exercise.group && normalizeText(item.name) === normalizeText(exercise.name),
+  );
+
+  if (duplicate) {
+    return "Bu kas grubunda aynı isimle bir hareket zaten var.";
+  }
+
+  return "";
+}
+
+function makeUniqueCustomExerciseId(name, group) {
+  const baseId = makeCustomExerciseId(name, group);
+  const existingIds = new Set([...baseExerciseLibrary, ...state.customExercises].map((exercise) => exercise.id));
+
+  if (!existingIds.has(baseId)) {
+    return baseId;
+  }
+
+  return `${baseId}-${Date.now().toString(36)}`;
+}
+
+function removeCustomExercise(exerciseId) {
+  const exercise = state.customExercises.find((item) => item.id === exerciseId);
+
+  if (!exercise) {
+    setCustomExerciseStatus("Silinecek özel hareket bulunamadı.", "error");
+    return;
+  }
+
+  state.customExercises = state.customExercises.filter((item) => item.id !== exerciseId);
+  persistCustomExercises();
+  refreshExerciseLibrary();
+  setCustomExerciseStatus(`${exercise.name} özel hareketlerden silindi.`, "success");
+  renderLibrary();
+}
+
+function hideLibraryExercise(exerciseId) {
+  const exercise = exerciseLibrary.find((item) => item.id === exerciseId);
+
+  if (!exercise) {
+    setCustomExerciseStatus("Gizlenecek hareket bulunamadı.", "error");
+    return;
+  }
+
+  if (exercise.isCustom) {
+    removeCustomExercise(exerciseId);
+    return;
+  }
+
+  state.hiddenExerciseIds = [...new Set([...state.hiddenExerciseIds, exerciseId])];
+  persistHiddenExerciseIds();
+  refreshExerciseLibrary();
+  setCustomExerciseStatus(`${exercise.name} hazır kütüphaneden gizlendi.`, "success");
+  renderLibrary();
+}
+
+function clearCustomExerciseForm() {
+  if (customExerciseName) customExerciseName.value = "";
+  if (customExerciseGifUrl) customExerciseGifUrl.value = "";
+  if (customExerciseCue) customExerciseCue.value = "";
+  if (customExerciseKind) customExerciseKind.value = "compound";
+  if (customExerciseLevel) customExerciseLevel.value = "intermediate";
+}
+
+function setCustomExerciseStatus(message, type = "neutral") {
+  if (!customExerciseStatus) {
+    return;
+  }
+
+  customExerciseStatus.textContent = message;
+  customExerciseStatus.dataset.state = type;
 }
 
 function handleExerciseGifModalClick(event) {
@@ -773,10 +1033,9 @@ function handleExerciseGifError(event) {
   }
 
   const openButton = image.closest("[data-exercise-gif-open]");
-  const fallbackUrl = openButton?.dataset.gifFallbackUrl;
+  const fallbackUrl = getNextExerciseGifFallbackUrl(image, openButton);
 
-  if (fallbackUrl && image.dataset.fallbackTried !== "true") {
-    image.dataset.fallbackTried = "true";
+  if (fallbackUrl) {
     image.src = fallbackUrl;
     if (openButton) {
       openButton.dataset.gifUrl = fallbackUrl;
@@ -786,6 +1045,32 @@ function handleExerciseGifError(event) {
 
   image.closest("[data-exercise-media]")?.classList.add("is-missing");
   image.removeAttribute("src");
+}
+
+function getNextExerciseGifFallbackUrl(image, openButton) {
+  const fallbackUrls = getExerciseGifFallbackUrls(openButton);
+  const triedUrls = new Set(String(image.dataset.fallbackTriedUrls || "").split("|").filter(Boolean));
+  const currentUrl = image.getAttribute("src") || "";
+
+  if (currentUrl) {
+    triedUrls.add(currentUrl);
+  }
+
+  const nextUrl = fallbackUrls.find((url) => url && !triedUrls.has(url));
+
+  if (nextUrl) {
+    triedUrls.add(nextUrl);
+    image.dataset.fallbackTriedUrls = [...triedUrls].join("|");
+  }
+
+  return nextUrl || "";
+}
+
+function getExerciseGifFallbackUrls(openButton) {
+  const multiValue = String(openButton?.dataset.gifFallbackUrls || "").split("|").filter(Boolean);
+  const singleValue = openButton?.dataset.gifFallbackUrl ? [openButton.dataset.gifFallbackUrl] : [];
+
+  return [...new Set([...multiValue, ...singleValue])];
 }
 
 function handleExerciseGifModalKeydown(event) {
@@ -880,6 +1165,13 @@ function populateStaticFilters() {
     libraryOption.value = group.id;
     libraryOption.textContent = group.label;
     libraryGroupFilter.appendChild(libraryOption);
+
+    if (customExerciseGroup) {
+      const customGroupOption = document.createElement("option");
+      customGroupOption.value = group.id;
+      customGroupOption.textContent = group.label;
+      customExerciseGroup.appendChild(customGroupOption);
+    }
   });
 
   Object.entries(equipmentLabels).forEach(([value, label]) => {
@@ -887,6 +1179,13 @@ function populateStaticFilters() {
     option.value = value;
     option.textContent = label;
     libraryEquipmentFilter.appendChild(option);
+
+    if (customExerciseEquipment) {
+      const customEquipmentOption = document.createElement("option");
+      customEquipmentOption.value = value;
+      customEquipmentOption.textContent = label;
+      customExerciseEquipment.appendChild(customEquipmentOption);
+    }
   });
 
   muscleGroupTabs.innerHTML = [
@@ -2915,6 +3214,8 @@ function renderLibrary() {
     })
     .sort((a, b) => a.name.localeCompare(b.name, "tr"));
 
+  renderCustomExerciseList();
+
   const groups = muscleGroups
     .map((group) => {
       const exercises = filtered.filter((exercise) => exercise.group === group.id).sort((a, b) => a.name.localeCompare(b.name, "tr"));
@@ -2930,8 +3231,10 @@ function renderLibrary() {
         exerciseCount: exercises.length,
         exercises: exercises.map((exercise) => ({
           name: exercise.name,
+          id: exercise.id,
+          isCustom: Boolean(exercise.isCustom),
           media: getExerciseMedia(exercise),
-          equipmentLabel: equipmentLabels[exercise.equipment],
+          equipmentLabel: equipmentLabels[exercise.equipment] || exercise.equipment || "Ekipman",
           kindLabel: labelExerciseKind(exercise.kind),
           levelLabel: labelExerciseLevel(exercise.level),
           cue: exercise.cue,
@@ -2961,6 +3264,40 @@ function renderLibrary() {
     },
     escapeHtml,
   );
+}
+
+function renderCustomExerciseList() {
+  if (!customExerciseList) {
+    return;
+  }
+
+  const customItemsHtml = state.customExercises
+    .map(
+      (exercise) => `
+        <div class="custom-exercise-item">
+          <div>
+            <strong>${escapeHtml(exercise.name)}</strong>
+            <span>${escapeHtml(getMuscleLabel(exercise.group))} • ${escapeHtml(equipmentLabels[exercise.equipment] || exercise.equipment)}</span>
+          </div>
+          <button
+            type="button"
+            class="library-exercise__action"
+            data-exercise-library-action="remove-custom"
+            data-exercise-id="${escapeHtml(exercise.id)}"
+          >Sil</button>
+        </div>
+      `,
+    )
+    .join("");
+
+  const hiddenInfo = state.hiddenExerciseIds.length
+    ? `<p class="custom-exercise-list__hint">${state.hiddenExerciseIds.length} hazır hareket gizlendi. İstersen "Gizlenenleri Geri Getir" ile tamamını açabilirsin.</p>`
+    : "";
+
+  customExerciseList.innerHTML =
+    customItemsHtml || hiddenInfo
+      ? `${customItemsHtml}${hiddenInfo}`
+      : `<p class="custom-exercise-list__hint">Henüz özel hareket eklenmedi. Eklediğin hareketler burada listelenecek.</p>`;
 }
 
 function getFirstLetter(value) {

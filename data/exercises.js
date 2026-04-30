@@ -3,7 +3,7 @@
   function titleCase(value) {
     return String(value)
       .split(" ")
-      .map((part) => part.charAt(0).toLocaleUpperCase("tr-TR") + part.slice(1))
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ");
   }
 const exerciseGroups = [
@@ -206,6 +206,18 @@ const exerciseExpansionBlueprints = {
       "Landmine chest press",
     ],
     variants: ["barbell", "dumbbell", "machine", "cable", "smith", "tempo"],
+    familyVariants: {
+      "Bench press": ["barbell", "dumbbell", "smith", "pause rep", "tempo", "close grip"],
+      "Incline press": ["barbell", "dumbbell", "machine", "smith", "tempo", "neutral grip"],
+      "Decline press": ["barbell", "dumbbell", "machine", "smith", "tempo", "pause rep"],
+      "Chest fly": ["dumbbell", "machine", "cable", "incline dumbbell", "decline dumbbell", "tempo"],
+      "Cable fly": ["standing", "low-to-high", "high-to-low", "single-arm", "kneeling", "seated"],
+      "Push-up": ["incline", "decline", "tempo", "close grip", "weighted", "band resisted"],
+      "Machine press": ["seated", "iso-lateral", "plate loaded", "neutral grip", "tempo", "single arm"],
+      "Squeeze press": ["dumbbell", "incline dumbbell", "floor dumbbell", "alternating dumbbell", "tempo", "single arm dumbbell"],
+      "Dip": ["assisted", "bodyweight", "chest focused", "tempo", "band assisted", "machine"],
+      "Landmine chest press": ["single arm", "half-kneeling", "standing", "barbell", "tempo", "split stance"],
+    },
     equipment: ["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight"],
     kinds: ["compound", "compound", "accessory", "accessory"],
     cue: "Göğüs kafesini açık tutun, omuzları öne düşürmeden kontrollü itin.",
@@ -467,12 +479,14 @@ function buildExpandedExerciseLibrary() {
     let index = 0;
 
     blueprint.families.forEach((family) => {
-      blueprint.variants.forEach((variant) => {
+      const variants = blueprint.familyVariants?.[family] || blueprint.variants;
+
+      variants.forEach((variant) => {
         expandedExercises.push({
           id: `${groupId}-expanded-${index}`,
           group: groupId,
-          name: `${titleCase(variant)} ${family}`,
-          equipment: blueprint.equipment[index % blueprint.equipment.length],
+          name: buildExpandedExerciseName(variant, family),
+          equipment: inferExerciseEquipment(variant, family, blueprint, index),
           kind: blueprint.kinds[index % blueprint.kinds.length],
           level: index % 5 === 0 ? "advanced" : index % 2 === 0 ? "intermediate" : "beginner",
           tags: blueprint.tags || [],
@@ -484,6 +498,37 @@ function buildExpandedExerciseLibrary() {
   });
 
   return [...baseExercises, ...expandedExercises];
+}
+
+function buildExpandedExerciseName(variant, family) {
+  const variantText = String(variant || "").trim();
+  const familyText = String(family || "").trim();
+
+  if (!variantText) {
+    return titleCase(familyText);
+  }
+
+  if (familyText.toLowerCase().startsWith(variantText.toLowerCase())) {
+    return titleCase(familyText);
+  }
+
+  return `${titleCase(variantText)} ${familyText}`;
+}
+
+function inferExerciseEquipment(variant, family, blueprint, index) {
+  const text = `${variant || ""} ${family || ""}`.toLowerCase();
+
+  if (text.includes("band")) return "band";
+  if (text.includes("smith")) return "smith";
+  if (text.includes("cable")) return "cable";
+  if (text.includes("dumbbell")) return "dumbbell";
+  if (text.includes("barbell") || text.includes("landmine")) return "barbell";
+  if (text.includes("machine") || text.includes("pec deck") || text.includes("assisted") || text.includes("iso-lateral") || text.includes("plate loaded")) return "machine";
+  if (text.includes("push-up") || text.includes("dip")) return "bodyweight";
+  if (text.includes("chest fly") || text.includes("squeeze press")) return "dumbbell";
+  if (text.includes("bench press") || text.includes("incline press") || text.includes("decline press")) return "barbell";
+
+  return blueprint.equipment[index % blueprint.equipment.length];
 }
   window.BSMExerciseData = {
     exerciseGroups,
