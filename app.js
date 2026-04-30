@@ -13,7 +13,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.8");
+console.log("APP VERSION: v1.0.9");
 
 const {
   findActiveMember: findActiveMemberRecord,
