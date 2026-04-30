@@ -1956,6 +1956,8 @@ input[type="radio"] {
 }
 
 .library-exercise {
+  display: grid;
+  gap: 10px;
   padding: 14px;
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.76);
@@ -1987,6 +1989,166 @@ input[type="radio"] {
   color: var(--teal-deep);
   font-size: 0.84rem;
   font-weight: 700;
+}
+
+.exercise-media {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  min-height: 118px;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(216, 173, 99, 0.24), transparent 38%),
+    linear-gradient(145deg, rgba(8, 43, 53, 0.1), rgba(29, 107, 116, 0.08));
+  border: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.exercise-media__button {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  cursor: zoom-in;
+  background: transparent;
+}
+
+.exercise-media__button img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.exercise-media__placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  padding: 12px;
+  text-align: center;
+}
+
+.exercise-media__placeholder strong,
+.exercise-media__placeholder span {
+  display: block;
+}
+
+.exercise-media__placeholder strong {
+  color: var(--teal-deep);
+  font-family: var(--font-display);
+}
+
+.exercise-media__placeholder span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.exercise-media.is-missing .exercise-media__button,
+.exercise-media.is-missing img {
+  display: none;
+}
+
+.exercise-media--tiny {
+  width: 54px;
+  min-width: 54px;
+  height: 54px;
+  min-height: 54px;
+  border-radius: 14px;
+}
+
+.exercise-media--tiny .exercise-media__placeholder {
+  padding: 6px;
+}
+
+.exercise-media--tiny .exercise-media__placeholder strong {
+  display: none;
+}
+
+.exercise-media--tiny .exercise-media__placeholder span {
+  font-size: 0.72rem;
+}
+
+.exercise-media--wide {
+  min-height: 160px;
+}
+
+.member-program-exercise-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.member-program-exercise-title strong {
+  min-width: 0;
+}
+
+.exercise-gif-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.exercise-gif-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 18, 23, 0.68);
+  backdrop-filter: blur(6px);
+}
+
+.exercise-gif-modal__dialog {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: var(--radius-xl);
+  background: var(--surface-strong);
+  border: 1px solid rgba(255, 250, 243, 0.42);
+  box-shadow: 0 28px 80px rgba(5, 18, 23, 0.36);
+}
+
+.exercise-gif-modal__media {
+  overflow: hidden;
+  border-radius: 20px;
+  background: rgba(8, 43, 53, 0.08);
+}
+
+.exercise-gif-modal__media img {
+  display: block;
+  width: 100%;
+  max-height: 68vh;
+  object-fit: contain;
+}
+
+.exercise-gif-modal__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--teal-deep);
+  background: rgba(255, 250, 243, 0.92);
+  cursor: pointer;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+body.modal-open {
+  overflow: hidden;
 }
 
 .empty-state {
@@ -3166,6 +3328,8 @@ input[type="radio"] {
   .library-panel,
   .panel-actions,
   .program-edit-toolbar,
+  .exercise-media,
+  .exercise-gif-modal,
   #copyPlanButton,
   #printPlanButton {
     display: none !important;

@@ -28,12 +28,13 @@
                 .map(
                   (exercise) => `
                     <div class="library-exercise">
+                      ${renderExerciseMedia(exercise.media, escapeHtml)}
                       <strong>${escapeHtml(exercise.name)}</strong>
                       <div class="exercise-meta">
                         <span>${escapeHtml(exercise.equipmentLabel)}</span>
                         <span>${escapeHtml(exercise.kindLabel)}</span>
                         <span>${escapeHtml(exercise.levelLabel)}</span>
-                        <span>V3 medya alanı hazır</span>
+                        <span>GIF destekli</span>
                       </div>
                       <p>${escapeHtml(exercise.cue)}</p>
                     </div>
@@ -48,6 +49,32 @@
 
     exerciseLibraryEl.innerHTML =
       groupedHtml || `<div class="empty-state">Bu filtrelerle hareket bulunamadı. Arama metnini veya filtreleri değiştirebilirsiniz.</div>`;
+  }
+
+  function renderExerciseMedia(media, escapeHtml) {
+    if (!media?.gifUrl) {
+      return "";
+    }
+
+    return `
+      <div class="exercise-media" data-exercise-media>
+        <button
+          type="button"
+          class="exercise-media__button"
+          data-exercise-gif-open
+          data-gif-url="${escapeHtml(media.gifUrl)}"
+          data-exercise-name="${escapeHtml(media.name)}"
+          data-exercise-group="${escapeHtml(media.groupLabel)}"
+          aria-label="${escapeHtml(media.name)} GIF önizlemesini büyüt"
+        >
+          <img src="${escapeHtml(media.gifUrl)}" alt="${escapeHtml(media.name)} GIF" loading="lazy" data-exercise-gif-img />
+        </button>
+        <div class="exercise-media__placeholder">
+          <strong>${escapeHtml(media.name)}</strong>
+          <span>${escapeHtml(media.groupLabel)}</span>
+        </div>
+      </div>
+    `;
   }
 
   function syncLibraryTabs(targets, state) {

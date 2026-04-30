@@ -311,6 +311,7 @@
         name: normalizeString(exercise.name),
         group: normalizeString(exercise.group),
         equipment: normalizeString(exercise.equipment),
+        gifUrl: normalizeString(exercise.gifUrl),
         kind: normalizeString(exercise.kind),
         level: normalizeString(exercise.level),
         tags: normalizeStringArray(exercise.tags),

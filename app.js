@@ -11,7 +11,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.4");
+console.log("APP VERSION: v1.0.5");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -96,6 +96,9 @@ const {
   buildNutritionPlan,
   normalizeNutritionPlan,
 } = window.BSMNutritionService;
+const {
+  buildExerciseMedia,
+} = window.BSMExerciseMediaService;
 const {
   readTanitaCsvFile,
   parseTanitaCsv,
@@ -277,6 +280,10 @@ const exerciseLibraryEl = document.querySelector("#exerciseLibrary");
 const libraryCount = document.querySelector("#libraryCount");
 const findExerciseButton = document.querySelector("#findExerciseButton");
 const clearExerciseSearchButton = document.querySelector("#clearExerciseSearchButton");
+const exerciseGifModal = document.querySelector("#exerciseGifModal");
+const exerciseGifModalImage = document.querySelector("#exerciseGifModalImage");
+const exerciseGifModalTitle = document.querySelector("#exerciseGifModalTitle");
+const exerciseGifModalGroup = document.querySelector("#exerciseGifModalGroup");
 const studioNav = document.querySelector(".studio-nav");
 const screenPanels = [...document.querySelectorAll("[data-screen]")];
 const nutritionPanel = document.querySelector("#nutritionPanel");
@@ -730,6 +737,78 @@ function bindApplicationHandlers() {
     },
     nutritionHandlers,
   );
+  document.addEventListener("click", handleExerciseGifModalClick);
+  document.addEventListener("error", handleExerciseGifError, true);
+  document.addEventListener("keydown", handleExerciseGifModalKeydown);
+}
+
+function handleExerciseGifModalClick(event) {
+  const openButton = event.target.closest("[data-exercise-gif-open]");
+
+  if (openButton) {
+    const mediaCard = openButton.closest("[data-exercise-media]");
+
+    if (mediaCard?.classList.contains("is-missing")) {
+      return;
+    }
+
+    openExerciseGifModal({
+      gifUrl: openButton.dataset.gifUrl,
+      name: openButton.dataset.exerciseName,
+      group: openButton.dataset.exerciseGroup,
+    });
+    return;
+  }
+
+  if (event.target.closest("[data-gif-modal-close]")) {
+    closeExerciseGifModal();
+  }
+}
+
+function handleExerciseGifError(event) {
+  const image = event.target;
+
+  if (!image?.matches?.("[data-exercise-gif-img]")) {
+    return;
+  }
+
+  image.closest("[data-exercise-media]")?.classList.add("is-missing");
+  image.removeAttribute("src");
+}
+
+function handleExerciseGifModalKeydown(event) {
+  if (event.key === "Escape" && !exerciseGifModal?.classList.contains("is-hidden")) {
+    closeExerciseGifModal();
+  }
+}
+
+function openExerciseGifModal({ gifUrl, name, group }) {
+  if (!exerciseGifModal || !exerciseGifModalImage || !gifUrl) {
+    return;
+  }
+
+  exerciseGifModalImage.src = gifUrl;
+  exerciseGifModalImage.alt = `${name || "Egzersiz"} GIF`;
+  if (exerciseGifModalTitle) {
+    exerciseGifModalTitle.textContent = name || "Egzersiz GIF";
+  }
+  if (exerciseGifModalGroup) {
+    exerciseGifModalGroup.textContent = group || "Hareket";
+  }
+  exerciseGifModal.classList.remove("is-hidden");
+  document.body.classList.add("modal-open");
+}
+
+function closeExerciseGifModal() {
+  if (!exerciseGifModal) {
+    return;
+  }
+
+  exerciseGifModal.classList.add("is-hidden");
+  document.body.classList.remove("modal-open");
+  if (exerciseGifModalImage) {
+    exerciseGifModalImage.removeAttribute("src");
+  }
 }
 
 function hydrateInitialSession() {
@@ -2532,6 +2611,7 @@ function renderProgram(program, options = {}) {
     escapeHtml,
     {
       getMuscleLabel,
+      getExerciseMedia,
       muscleGroups,
       equipmentLabels,
       exerciseLibrary,
@@ -2612,6 +2692,10 @@ function getNutritionPlanForOutput() {
     normalizeNutritionPlan(activeMember?.nutritionPlan || activeMember?.nutritionPlans?.[0]) ||
     null
   );
+}
+
+function getExerciseMedia(exercise) {
+  return buildExerciseMedia?.(exercise, getMuscleLabel(exercise?.group)) || null;
 }
 
 function renderProgramEditToolbar() {
@@ -2834,6 +2918,7 @@ function renderLibrary() {
         exerciseCount: exercises.length,
         exercises: exercises.map((exercise) => ({
           name: exercise.name,
+          media: getExerciseMedia(exercise),
           equipmentLabel: equipmentLabels[exercise.equipment],
           kindLabel: labelExerciseKind(exercise.kind),
           levelLabel: labelExerciseLevel(exercise.level),
