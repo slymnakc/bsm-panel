@@ -178,6 +178,7 @@
     const makeId = typeof options.makeId === "function" ? options.makeId : fallbackMakeId;
     const today = typeof options.getTodayInputValue === "function" ? options.getTodayInputValue() : toDateInputValue(new Date());
     const date = normalizeDateValue(source.date) || today;
+    const estimatedBirthDate = estimateBirthDateFromAge(source.age, date);
 
     return {
       id: makeId("measurement"),
@@ -189,10 +190,10 @@
       rawPayload: source.rawPayload || source,
       weight: numberOrEmpty(source.weight),
       height: numberOrEmpty(source.height),
-      birthDay: "",
-      birthMonth: "",
-      birthYear: "",
-      birthDate: "",
+      birthDay: estimatedBirthDate.day,
+      birthMonth: estimatedBirthDate.month,
+      birthYear: estimatedBirthDate.year,
+      birthDate: estimatedBirthDate.birthDate,
       age: numberOrEmpty(source.age),
       fat: numberOrEmpty(source.bodyFatPercentage),
       fatMass: numberOrEmpty(source.fatMass),
@@ -227,6 +228,26 @@
         leftLegResistance: numberOrEmpty(source.impedanceLeftLeg || source.leftLegResistance),
       },
       note: "Tanita BC-418 CSV import ölçümü.",
+    };
+  }
+
+  function estimateBirthDateFromAge(ageValue, referenceDateValue) {
+    const age = numberOrEmpty(ageValue);
+    const referenceDate = parseInputDate(referenceDateValue);
+
+    if (age === "" || !referenceDate) {
+      return { day: "", month: "", year: "", birthDate: "" };
+    }
+
+    const year = referenceDate.getFullYear() - Number(age);
+    const month = referenceDate.getMonth() + 1;
+    const day = referenceDate.getDate();
+
+    return {
+      day,
+      month,
+      year,
+      birthDate: formatDateParts(year, month, day),
     };
   }
 
@@ -768,6 +789,19 @@
 
   function normalizeTextValue(value) {
     return String(value || "").trim();
+  }
+
+  function parseInputDate(value) {
+    const normalizedDate = normalizeDateValue(value);
+
+    if (!normalizedDate) {
+      return null;
+    }
+
+    const [year, month, day] = normalizedDate.split("-").map(Number);
+    const parsed = new Date(year, month - 1, day);
+
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   function normalizeDateValue(value) {

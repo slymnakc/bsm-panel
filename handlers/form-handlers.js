@@ -420,8 +420,17 @@
         rawPayload: state.pendingTanitaMeasurement.rawPayload || measurement.rawPayload,
         time: state.pendingTanitaMeasurement.time || measurement.time,
         gender: state.pendingTanitaMeasurement.gender || measurement.gender,
+        birthDay: firstFilledValue(measurement.birthDay, state.pendingTanitaMeasurement.birthDay),
+        birthMonth: firstFilledValue(measurement.birthMonth, state.pendingTanitaMeasurement.birthMonth),
+        birthYear: firstFilledValue(measurement.birthYear, state.pendingTanitaMeasurement.birthYear),
+        birthDate: firstFilledValue(measurement.birthDate, state.pendingTanitaMeasurement.birthDate),
+        age: firstFilledValue(measurement.age, state.pendingTanitaMeasurement.age),
         note: measurement.note || state.pendingTanitaMeasurement.note,
       };
+    }
+
+    function firstFilledValue(primary, fallback) {
+      return primary === "" || primary === undefined || primary === null ? fallback : primary;
     }
 
     function handleProgramEdit(event) {

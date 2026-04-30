@@ -13,7 +13,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.10");
+console.log("APP VERSION: v1.0.11");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -2395,6 +2395,9 @@ function applyTanitaMeasurementToForm(measurement) {
   setInputValue(measurementWeight, source.weight);
   setInputValue(measurementHeight, source.height);
   setInputValue(measurementBmi, source.bmi);
+  setInputValue(measurementBirthDay, source.birthDay);
+  setInputValue(measurementBirthMonth, source.birthMonth);
+  setInputValue(measurementBirthYear, source.birthYear);
   setInputValue(measurementFat, source.fat);
   setInputValue(measurementMuscleMass, source.muscleMass);
   setInputValue(measurementFatMass, source.fatMass);
@@ -2434,6 +2437,9 @@ function dispatchMeasurementInputEvents() {
     measurementWeight,
     measurementHeight,
     measurementBmi,
+    measurementBirthDay,
+    measurementBirthMonth,
+    measurementBirthYear,
     measurementFat,
     measurementMuscleMass,
     measurementFatMass,
