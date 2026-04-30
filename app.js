@@ -13,7 +13,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.11");
+console.log("APP VERSION: v1.0.12");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -119,6 +119,8 @@ const state = {
     console.log("STATE MEMBERS TYPE:", Array.isArray(this._members), this._members);
   },
   activeMemberId: null,
+  activeMember: null,
+  latestMeasurement: null,
   activeProgram: null,
   activeAlphabetLetter: "all",
   activeScreen: "dashboard",
@@ -439,6 +441,8 @@ const formHandlers = createFormHandlers({
   buildTanitaPreviewModel,
   renderTanitaPreview,
   applyTanitaMeasurementToForm,
+  applyMeasurementToAppState,
+  triggerMeasurementRecalculation,
   saveMeasurementToSupabase,
   exerciseLibrary,
   buildPrescription,
@@ -555,6 +559,7 @@ function initialize() {
 function initializeStateFromStorage() {
   state.members = loadMembers();
   state.activeMemberId = loadActiveMemberId();
+  syncActiveMemberState();
   state.activeMemberSort = normalizeMemberSort(loadMemberSort());
   state.customExercises = loadCustomExercises();
   state.hiddenExerciseIds = loadHiddenExerciseIds();
@@ -771,6 +776,7 @@ function syncMembersFromSupabase() {
         : mergedMembers[0]?.id || null;
       saveActiveMemberId(state.activeMemberId);
       state.members = cacheMembersLocally(mergedMembers, state.activeMemberId);
+      syncActiveMemberState();
       renderMemberWorkspace();
     })
     .catch((error) => {
@@ -1397,6 +1403,8 @@ function upsertMemberFromCurrentForm(options = {}) {
   member.profile = profile;
   member.updatedAt = now;
   state.activeMemberId = member.id;
+  state.activeMember = member;
+  state.latestMeasurement = member.measurements?.[0] || state.latestMeasurement || null;
   saveActiveMemberId(member.id);
   persistMembers();
   renderMemberWorkspace();
@@ -1405,6 +1413,8 @@ function upsertMemberFromCurrentForm(options = {}) {
 
 function loadMember(member) {
   state.activeMemberId = member.id;
+  state.activeMember = member;
+  state.latestMeasurement = member.measurements?.[0] || null;
   saveActiveMemberId(member.id);
   populateForm(member.profile || {});
   clearMeasurementInputs();
@@ -2423,6 +2433,139 @@ function applyTanitaMeasurementToForm(measurement) {
   console.log("TANITA DATA APPLIED TO FORM");
 }
 
+function applyMeasurementToAppState(measurement) {
+  const normalizedMeasurement = normalizeMeasurementPayload(measurement);
+  const member = upsertMemberFromCurrentForm({ silent: true });
+  state.latestMeasurement = normalizedMeasurement;
+
+  if (!member) {
+    console.log("TANITA APPLIED TO STATE:", state.activeMember);
+    return null;
+  }
+
+  member.measurements = upsertMeasurementRecord(member.measurements, normalizedMeasurement);
+  member.profile = mergeMeasurementIntoProfile(member.profile || collectFormData(), normalizedMeasurement);
+  member.updatedAt = new Date().toISOString();
+  state.activeMember = member;
+  persistMembers();
+
+  const refreshedMember = syncActiveMemberState();
+  if (refreshedMember) {
+    refreshedMember.profile = mergeMeasurementIntoProfile(refreshedMember.profile || {}, normalizedMeasurement);
+    state.activeMember = refreshedMember;
+  }
+
+  console.log("TANITA APPLIED TO STATE:", state.activeMember);
+  return state.activeMember;
+}
+
+function triggerMeasurementRecalculation() {
+  const formData = collectFormData();
+  const activeMember = state.activeMember || syncActiveMemberState();
+  const programWasRefreshed = refreshActiveProgramFromMeasurement(formData);
+
+  renderLiveSummary(formData);
+  refreshNutritionPlanFromMeasurement(activeMember || state.activeMember);
+  renderMemberWorkspace();
+
+  if (!programWasRefreshed) {
+    renderNutritionOutput();
+  }
+
+  console.log("MEASUREMENT RECALC TRIGGERED");
+}
+
+function refreshActiveProgramFromMeasurement(formData) {
+  if (!state.activeProgram) {
+    return false;
+  }
+
+  const validationMessage = validateFormData(formData);
+
+  if (validationMessage) {
+    return false;
+  }
+
+  const refreshedProgram = buildProgram(formData);
+  renderProgram(refreshedProgram);
+  return true;
+}
+
+function refreshNutritionPlanFromMeasurement(member) {
+  if (!member || typeof buildNutritionPlan !== "function") {
+    return;
+  }
+
+  const preferences = typeof collectSupplementPreferences === "function" ? collectSupplementPreferences(nutritionPanel) : {};
+  const activeProgram = state.activeProgram || member.programs?.[0]?.program || null;
+  state.activeNutritionPlan = normalizeNutritionPlan(buildNutritionPlan(member, activeProgram, preferences, { makeId }));
+  state.activeNutritionMemberId = member.id;
+}
+
+function upsertMeasurementRecord(measurements, measurement) {
+  const record = normalizeMeasurementPayload(measurement);
+  const existingRecords = Array.isArray(measurements) ? measurements : [];
+  return [
+    record,
+    ...existingRecords.filter((item) => String(item?.id || "") !== String(record.id || "")),
+  ].slice(0, 40);
+}
+
+function mergeMeasurementIntoProfile(profile, measurement) {
+  const nextProfile = { ...(profile || {}) };
+  const bodyFatPercentage = firstFilledMeasurementValue(measurement.fat, measurement.bodyFatPercentage);
+  const fieldMap = {
+    weight: measurement.weight,
+    height: measurement.height,
+    age: measurement.age,
+    birthDay: measurement.birthDay,
+    birthMonth: measurement.birthMonth,
+    birthYear: measurement.birthYear,
+    birthDate: measurement.birthDate,
+    bodyFatPercentage,
+    fat: bodyFatPercentage,
+    fatMass: measurement.fatMass,
+    muscleMass: measurement.muscleMass,
+    bodyWater: measurement.bodyWater,
+    bmi: measurement.bmi,
+    bmr: measurement.bmr,
+    metabolicAge: measurement.metabolicAge,
+    visceralFat: measurement.visceralFat,
+    boneMass: measurement.boneMass,
+    waist: measurement.waist,
+    hip: measurement.hip,
+    chest: measurement.chest,
+  };
+
+  Object.entries(fieldMap).forEach(([key, value]) => {
+    if (isFilledMeasurementValue(value)) {
+      nextProfile[key] = value;
+    }
+  });
+
+  if (hasFilledMeasurementValues(measurement.segments)) {
+    nextProfile.segments = { ...(measurement.segments || {}) };
+  }
+
+  if (hasFilledMeasurementValues(measurement.resistance)) {
+    nextProfile.resistance = { ...(measurement.resistance || {}) };
+  }
+
+  return nextProfile;
+}
+
+function firstFilledMeasurementValue(...values) {
+  return values.find(isFilledMeasurementValue) ?? "";
+}
+
+function isFilledMeasurementValue(value) {
+  return value !== "" && value !== undefined && value !== null;
+}
+
+function hasFilledMeasurementValues(values) {
+  return Object.values(values || {}).some(isFilledMeasurementValue);
+}
+
 function setInputValue(input, value) {
   if (!input || value === "" || value === undefined || value === null) {
     return;
@@ -2660,12 +2803,20 @@ function findActiveMember() {
   return findActiveMemberRecord(state.members, state.activeMemberId);
 }
 
+function syncActiveMemberState() {
+  const activeMember = findActiveMember();
+  state.activeMember = activeMember || null;
+  state.latestMeasurement = activeMember?.measurements?.[0] || null;
+  return state.activeMember;
+}
+
 function loadMembers() {
   return loadStoredMembers();
 }
 
 function persistMembers() {
   state.members = persistStoredMembers(state.members, state.activeMemberId);
+  syncActiveMemberState();
 }
 
 function updateActiveMemberProfile(profile) {
@@ -2676,6 +2827,7 @@ function updateActiveMemberProfile(profile) {
   }
 
   state.members = nextMembers;
+  syncActiveMemberState();
   renderMemberWorkspace();
 }
 
