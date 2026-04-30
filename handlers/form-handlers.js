@@ -43,6 +43,8 @@
       buildTanitaPreviewModel,
       renderTanitaPreview,
       applyTanitaMeasurementToForm,
+      applyMeasurementToAppState,
+      triggerMeasurementRecalculation,
       saveMeasurementToSupabase,
       exerciseLibrary,
       buildPrescription,
@@ -112,6 +114,8 @@
 
     function handleNewMember() {
       state.activeMemberId = null;
+      state.activeMember = null;
+      state.latestMeasurement = null;
       state.activeProgram = null;
       state.programEditMode = false;
       state.programDefaultSnapshot = null;
@@ -277,9 +281,11 @@
       }
 
       const normalizedMeasurement = normalizeMeasurementPayload(measurementForSave);
-      member.measurements = [normalizedMeasurement, ...(member.measurements || [])].slice(0, 40);
+      member.measurements = upsertMeasurementRecord(member.measurements, normalizedMeasurement);
       member.updatedAt = new Date().toISOString();
       persistMembers();
+      applyMeasurementToAppState?.(normalizedMeasurement);
+      triggerMeasurementRecalculation?.(normalizedMeasurement);
       if (state.pendingTanitaMeasurement && typeof saveMeasurementToSupabase === "function") {
         saveMeasurementToSupabase(member, normalizedMeasurement);
       }
@@ -335,11 +341,12 @@
           state.pendingTanitaMeasurement = measurement;
           renderTanitaPreview?.(buildTanitaPreviewModel?.(measurement));
           applyTanitaMeasurementToForm?.(measurement);
-          handleLiveUpdate();
+          applyMeasurementToAppState?.(measurement);
+          triggerMeasurementRecalculation?.(measurement);
           setTanitaSaveEnabled(true);
 
           const warningText = result.warnings?.length ? ` Ek bilgi: ${result.warnings.join(" ")}` : "";
-          setTanitaImportStatus(`CSV okundu. Ölçümü üyeye kaydetmeye hazır.${warningText}`, "success");
+          setTanitaImportStatus(`CSV okundu ve aktif üye analizlerine uygulandı. Supabase kaydı için Ölçümü Üyeye Kaydet'e basabilirsiniz.${warningText}`, "success");
         })
         .catch((error) => {
           console.error("Tanita CSV read error", error);
@@ -370,9 +377,11 @@
       }
 
       const normalizedMeasurement = normalizeMeasurementPayload(measurementToSave);
-      member.measurements = [normalizedMeasurement, ...(member.measurements || [])].slice(0, 40);
+      member.measurements = upsertMeasurementRecord(member.measurements, normalizedMeasurement);
       member.updatedAt = new Date().toISOString();
       persistMembers();
+      applyMeasurementToAppState?.(normalizedMeasurement);
+      triggerMeasurementRecalculation?.(normalizedMeasurement);
 
       if (typeof saveMeasurementToSupabase === "function") {
         saveMeasurementToSupabase(member, normalizedMeasurement);
@@ -416,6 +425,8 @@
       return {
         ...state.pendingTanitaMeasurement,
         ...measurement,
+        id: state.pendingTanitaMeasurement.id || measurement.id,
+        createdAtIso: state.pendingTanitaMeasurement.createdAtIso || measurement.createdAtIso,
         source: state.pendingTanitaMeasurement.source || measurement.source,
         rawPayload: state.pendingTanitaMeasurement.rawPayload || measurement.rawPayload,
         time: state.pendingTanitaMeasurement.time || measurement.time,
@@ -431,6 +442,14 @@
 
     function firstFilledValue(primary, fallback) {
       return primary === "" || primary === undefined || primary === null ? fallback : primary;
+    }
+
+    function upsertMeasurementRecord(measurements, measurement) {
+      const records = Array.isArray(measurements) ? measurements : [];
+      return [
+        measurement,
+        ...records.filter((item) => String(item?.id || "") !== String(measurement?.id || "")),
+      ].slice(0, 40);
     }
 
     function handleProgramEdit(event) {

@@ -434,9 +434,9 @@
               <div class="field compact-field birthdate-field">
                 <span>Doğum tarihi</span>
                 <div class="birthdate-grid" aria-label="Üye doğum tarihi">
-                  <input type="number" id="measurementBirthDay" min="1" max="31" step="1" placeholder="Gün" aria-label="Doğum günü" />
-                  <input type="number" id="measurementBirthMonth" min="1" max="12" step="1" placeholder="Ay" aria-label="Doğum ayı" />
-                  <input type="number" id="measurementBirthYear" min="1920" max="2026" step="1" placeholder="Yıl" aria-label="Doğum yılı" />
+                  <input type="text" id="measurementBirthDay" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="Gün" aria-label="Doğum günü" />
+                  <input type="text" id="measurementBirthMonth" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="Ay" aria-label="Doğum ayı" />
+                  <input type="text" id="measurementBirthYear" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Yıl" aria-label="Doğum yılı" />
                 </div>
                 <small>Yaş ölçüm tarihine göre otomatik hesaplanır.</small>
               </div>
