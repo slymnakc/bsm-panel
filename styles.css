@@ -3116,6 +3116,327 @@ body.modal-open {
   font-style: normal;
 }
 
+/* UI-only refactor, logic preserved: selector names and JS bindings are untouched. */
+.hero,
+.studio-nav,
+.dashboard-panel,
+.app-shell,
+.results,
+.library-panel,
+.nutrition-panel {
+  width: min(1240px, calc(100% - 32px));
+}
+
+.hero {
+  padding: 24px 0 18px;
+}
+
+.hero__content,
+.hero__card,
+.dashboard-panel,
+.panel,
+.result-card,
+.library-panel,
+.nutrition-side-card,
+.nutrition-editor {
+  box-shadow: 0 18px 44px rgba(5, 18, 23, 0.15);
+}
+
+.hero__content,
+.hero__card,
+.dashboard-panel,
+.panel,
+.result-card,
+.library-panel,
+.nutrition-side-card,
+.nutrition-editor,
+.workspace-card,
+.dashboard-insight {
+  border-color: rgba(25, 51, 66, 0.09);
+}
+
+.studio-nav {
+  top: 12px;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 24px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.studio-nav button {
+  flex: 0 0 auto;
+  min-width: 132px;
+}
+
+.dashboard-card,
+.dashboard-insight,
+.summary-card,
+.workspace-card,
+.tanita-import-card,
+.library-exercise,
+.nutrition-meal-card,
+.nutrition-output-meals div,
+.member-program-day {
+  box-shadow: 0 12px 28px rgba(17, 60, 72, 0.07);
+}
+
+.dashboard-card {
+  min-height: 118px;
+  padding: 16px;
+}
+
+.dashboard-card strong {
+  margin: 6px 0;
+}
+
+.dashboard-tools {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#backupMeta {
+  grid-column: 1 / -1;
+}
+
+.app-shell {
+  gap: 22px;
+  align-items: start;
+}
+
+.section-heading,
+.results__header,
+.dashboard-panel__header {
+  align-items: center;
+}
+
+.section-kicker {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.builder-steps {
+  position: relative;
+  padding: 8px;
+  border-radius: 22px;
+  background: rgba(8, 43, 53, 0.055);
+}
+
+.builder-steps span {
+  min-height: 58px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.builder-steps span:first-child {
+  background: linear-gradient(135deg, rgba(216, 173, 99, 0.22), rgba(255, 255, 255, 0.86));
+}
+
+.form-grid {
+  gap: 14px;
+}
+
+.field span,
+.choice-block legend {
+  color: var(--teal-deep);
+  font-size: 0.9rem;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+  min-height: 48px;
+  border-color: rgba(25, 51, 66, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: rgba(15, 106, 101, 0.72);
+  box-shadow: 0 0 0 4px rgba(15, 106, 101, 0.13);
+}
+
+.choice-block {
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.day-grid label,
+.restriction-grid label,
+.segmented-control label {
+  min-height: 46px;
+}
+
+.form-footer {
+  padding-top: 18px;
+  border-top: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.primary-button,
+.secondary-button,
+.ghost-button {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 900;
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.ghost-button:focus-visible,
+.workspace-tabs button:focus-visible,
+.studio-nav button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(15, 106, 101, 0.18);
+}
+
+.panel--summary {
+  background:
+    radial-gradient(circle at top right, rgba(216, 173, 99, 0.13), transparent 32%),
+    rgba(255, 250, 243, 0.9);
+}
+
+.workspace-tabs {
+  position: sticky;
+  top: 84px;
+  z-index: 2;
+  backdrop-filter: blur(12px);
+}
+
+.workspace-card {
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.tanita-import-card {
+  border-color: rgba(15, 106, 101, 0.16);
+}
+
+.compact-status[data-state="success"] {
+  padding: 10px 12px;
+  border-radius: 14px;
+  color: #245c34;
+  background: rgba(165, 185, 107, 0.16);
+}
+
+.compact-status[data-state="error"] {
+  padding: 10px 12px;
+  border-radius: 14px;
+  color: #9f372d;
+  background: rgba(200, 107, 79, 0.13);
+}
+
+.tanita-preview-grid {
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+}
+
+.tanita-preview-item {
+  min-height: 72px;
+  display: grid;
+  align-content: center;
+}
+
+.segmental-details {
+  overflow: hidden;
+}
+
+.segmental-details summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.segmental-details summary::after {
+  content: "Aç / Kapat";
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.76rem;
+}
+
+.results__header {
+  position: sticky;
+  top: 84px;
+  z-index: 3;
+  margin-top: -4px;
+  padding: 14px;
+  border-radius: 22px;
+  background: rgba(255, 250, 243, 0.9);
+  border: 1px solid rgba(25, 51, 66, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.result-card {
+  background: rgba(255, 250, 243, 0.92);
+  border: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.member-program-day {
+  background: linear-gradient(180deg, #fffdf8, #fff9ee);
+}
+
+.member-program-table {
+  background: rgba(25, 51, 66, 0.06);
+}
+
+.member-program-table__row {
+  min-height: 58px;
+}
+
+.output-detail-panel summary {
+  background: rgba(8, 43, 53, 0.045);
+}
+
+.library-toolbar,
+.library-manager,
+.nutrition-layout {
+  align-items: start;
+}
+
+.library-exercise {
+  min-height: 100%;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.library-exercise:hover {
+  transform: translateY(-2px);
+  border-color: rgba(15, 106, 101, 0.22);
+  box-shadow: 0 18px 34px rgba(17, 60, 72, 0.1);
+}
+
+.exercise-media {
+  min-height: 108px;
+  background:
+    radial-gradient(circle at top right, rgba(216, 173, 99, 0.22), transparent 38%),
+    linear-gradient(145deg, rgba(8, 43, 53, 0.08), rgba(29, 107, 116, 0.06));
+}
+
+.nutrition-member-card__metrics span,
+.nutrition-macro-field,
+.nutrition-meal-card,
+.nutrition-output-meals div {
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.nutrition-macro-editor {
+  align-items: stretch;
+}
+
+.nutrition-macro-field {
+  display: grid;
+  gap: 6px;
+}
+
 @media (min-width: 760px) {
   .hero {
     grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.8fr);
@@ -3403,6 +3724,104 @@ body.modal-open {
 
   .nutrition-meal-card__macros {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* UI-only refactor, logic preserved: responsive polish only. */
+@media (min-width: 1024px) {
+  .panel--summary,
+  .nutrition-side-card {
+    position: sticky;
+    top: 86px;
+    align-self: start;
+    max-height: calc(100vh - 104px);
+    overflow: auto;
+  }
+
+  .dashboard-status {
+    min-width: 260px;
+  }
+}
+
+@media (max-width: 759px) {
+  .studio-nav {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(136px, 1fr);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+
+  .studio-nav button {
+    min-width: 0;
+    scroll-snap-align: start;
+  }
+
+  .dashboard-tools {
+    grid-template-columns: 1fr;
+  }
+
+  #backupMeta {
+    grid-column: auto;
+  }
+
+  .builder-steps {
+    padding: 6px;
+  }
+
+  .builder-steps span {
+    min-height: 50px;
+  }
+
+  .workspace-tabs {
+    position: static;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .workspace-tabs button {
+    flex: 0 0 auto;
+  }
+
+  .form-footer {
+    position: sticky;
+    bottom: 10px;
+    z-index: 4;
+    margin: 20px -4px 0;
+    padding: 12px;
+    border: 1px solid rgba(25, 51, 66, 0.08);
+    border-radius: 22px;
+    background: rgba(255, 250, 243, 0.94);
+    box-shadow: 0 16px 34px rgba(5, 18, 23, 0.16);
+    backdrop-filter: blur(14px);
+  }
+
+  .results__header {
+    position: static;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  .results__header .panel-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .member-program-table__row {
+    padding: 14px;
+  }
+
+  .tanita-preview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nutrition-macro-editor,
+  .nutrition-member-card__metrics {
+    grid-template-columns: 1fr;
   }
 }
 

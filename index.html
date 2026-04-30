@@ -47,6 +47,7 @@
       </div>
     </header>
 
+    <!-- UI-only refactor, logic preserved: data-screen-target selectors are intentionally unchanged. -->
     <nav class="studio-nav" aria-label="Çalışma ekranları">
       <button type="button" class="is-active" data-screen-target="dashboard">Dashboard</button>
       <button type="button" data-screen-target="builder">Üye ve Program</button>
@@ -173,6 +174,7 @@
         </div>
 
         <form id="plannerForm" novalidate>
+          <!-- UI-only refactor, logic preserved: this visual workflow does not change form field ids/names. -->
           <div class="builder-steps" aria-label="Program oluşturma adımları">
             <span><b>1</b> Üye seç</span>
             <span><b>2</b> Planı oluştur</span>
@@ -750,7 +752,7 @@
         <div class="panel-actions">
           <button type="button" class="ghost-button" id="saveProgramButton">Programı Üyeye Kaydet</button>
           <button type="button" class="secondary-button" id="copyPlanButton">Metni Kopyala</button>
-          <button type="button" class="primary-button" id="printPlanButton">Yazdır / PDF Al</button>
+          <button type="button" class="primary-button" id="printPlanButton">PDF Olarak İndir / Yazdır</button>
         </div>
       </div>
 

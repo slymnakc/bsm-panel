@@ -14,6 +14,7 @@
 } = window.BSMStorageService;
 
 console.log("APP VERSION: v1.0.12");
+console.log("UI VERSION: redesign-v1");
 
 const {
   findActiveMember: findActiveMemberRecord,
