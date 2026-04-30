@@ -40,6 +40,33 @@
     impedanceLeftLeg: ["left leg impedance", "left leg resistance", "sol bacak direnc", "sol bacak direnç"],
   };
 
+  const bc418ReportAliases = {
+    date: ["ölçüm tarihi", "rapor tarihi ve saati"],
+    bodyFatPercentage: ["yağ %", "yağ oranı"],
+    fatMass: ["yağ ağırlığı kg", "yağ kg"],
+    muscleMass: ["kas kg", "yumuşak kas dokusu kg", "iskeletsel kaslar kg"],
+    bodyWater: ["sıvı oranı"],
+    bmr: ["bazal metab hızı", "bazal metabolizma hızı"],
+    metabolicAge: ["metabolizma yaşı"],
+    visceralFat: ["iç yağlanma"],
+    boneMass: ["kemik mineralleri ağırlığı kg"],
+    rightArmFat: ["rightarmfat"],
+    leftArmFat: ["leftarmfat"],
+    trunkFat: ["trunkfat"],
+    rightLegFat: ["rightlegfat"],
+    leftLegFat: ["leftlegfat"],
+    rightArmMuscle: ["rightarmmuscle"],
+    leftArmMuscle: ["leftarmmuscle"],
+    trunkMuscle: ["trunkmuscle"],
+    rightLegMuscle: ["rightlegmuscle"],
+    leftLegMuscle: ["leftlegmuscle"],
+    impedanceRightArm: ["sağ kol direnç", "right arm resistance", "rightarmresistance"],
+    impedanceLeftArm: ["sol kol direnç", "left arm resistance", "leftarmresistance"],
+    impedanceTrunk: ["gövde direnç", "trunk resistance", "trunkresistance"],
+    impedanceRightLeg: ["sağ bacak direnç", "right leg resistance", "rightlegresistance"],
+    impedanceLeftLeg: ["sol bacak direnç", "left leg resistance", "leftlegresistance"],
+  };
+
   const numericFields = new Set([
     "height",
     "weight",
@@ -70,7 +97,7 @@
     "impedanceLeftLeg",
   ]);
 
-  const aliasLookup = buildAliasLookup(fieldAliases);
+  const aliasLookup = buildAliasLookup(mergeFieldAliases(fieldAliases, bc418ReportAliases));
 
   function readTanitaCsvFile(file) {
     if (!file) {
@@ -92,6 +119,21 @@
       return { headers: rows[0] || [], records: [], warnings: ["CSV içinde okunabilir ölçüm satırı bulunamadı."] };
     }
 
+    if (isBc418SegmentalReport(rows)) {
+      const headers = extractBc418ReportHeaders(rows);
+      const parsedMeasurement = parseBc418SegmentalReport(rows);
+      const records = parsedMeasurement ? [parsedMeasurement] : [];
+
+      console.log("TANITA CSV HEADERS:", headers);
+      console.log("TANITA PARSED MEASUREMENT:", parsedMeasurement);
+
+      if (!records.length) {
+        warnings.push("Tanita BC-418 raporu tanındı ancak ölçüm değeri bulunamadı.");
+      }
+
+      return { headers, records, warnings };
+    }
+
     const headers = rows[0].map((header) => String(header || "").trim());
     const mappedHeaders = headers.map(resolveFieldName);
     const records = rows
@@ -110,6 +152,9 @@
     if (!records.length) {
       warnings.push("CSV okundu ancak ölçüm değeri bulunamadı.");
     }
+
+    console.log("TANITA CSV HEADERS:", headers);
+    console.log("TANITA PARSED MEASUREMENT:", records[0] || null);
 
     return { headers, records, warnings };
   }
@@ -148,7 +193,7 @@
       birthMonth: "",
       birthYear: "",
       birthDate: "",
-      age: "",
+      age: numberOrEmpty(source.age),
       fat: numberOrEmpty(source.bodyFatPercentage),
       fatMass: numberOrEmpty(source.fatMass),
       fatFreeMass: numberOrEmpty(source.fatFreeMass),
@@ -175,11 +220,11 @@
         leftLegFat: numberOrEmpty(source.leftLegFat),
       },
       resistance: {
-        rightArmResistance: numberOrEmpty(source.impedanceRightArm),
-        leftArmResistance: numberOrEmpty(source.impedanceLeftArm),
-        trunkResistance: numberOrEmpty(source.impedanceTrunk),
-        rightLegResistance: numberOrEmpty(source.impedanceRightLeg),
-        leftLegResistance: numberOrEmpty(source.impedanceLeftLeg),
+        rightArmResistance: numberOrEmpty(source.impedanceRightArm || source.rightArmResistance),
+        leftArmResistance: numberOrEmpty(source.impedanceLeftArm || source.leftArmResistance),
+        trunkResistance: numberOrEmpty(source.impedanceTrunk || source.trunkResistance),
+        rightLegResistance: numberOrEmpty(source.impedanceRightLeg || source.rightLegResistance),
+        leftLegResistance: numberOrEmpty(source.impedanceLeftLeg || source.leftLegResistance),
       },
       note: "Tanita BC-418 CSV import ölçümü.",
     };
@@ -271,6 +316,296 @@
     return rows;
   }
 
+  function isBc418SegmentalReport(rows) {
+    const text = rows.flat().map(normalizeReportText).join(" ");
+    return text.includes("bc 418") && text.includes("segmental vucut kompozisyonu analizi");
+  }
+
+  function extractBc418ReportHeaders(rows) {
+    return uniqueValues(
+      rows
+        .flat()
+        .map((cell) => String(cell || "").trim())
+        .filter((cell) => cell && /[A-Za-zĞÜŞİÖÇğüşıöç]/.test(cell))
+        .map(cleanReportHeader),
+    );
+  }
+
+  function parseBc418SegmentalReport(rows) {
+    const headers = extractBc418ReportHeaders(rows);
+    const record = {
+      rawPayload: {
+        format: "tanita_bc418_segmental_report",
+        headers,
+        rows: rows.filter((row) => row.some(Boolean)),
+      },
+    };
+
+    parseBc418TopSummary(rows, record);
+    parseBc418SegmentalTable(rows, record);
+    parseBc418LabeledValues(rows, record);
+    parseBc418HistoryRow(rows, record);
+
+    if (!hasMeasurementValues(record)) {
+      return null;
+    }
+
+    return record;
+  }
+
+  function parseBc418TopSummary(rows, record) {
+    const labelRowIndex = rows.findIndex(
+      (row) => row.some((cell) => normalizeReportText(cell) === "adi soyadi") && row.some((cell) => normalizeReportText(cell) === "kilo"),
+    );
+
+    if (labelRowIndex < 0) {
+      applyFirstDateTime(rows, record);
+      return;
+    }
+
+    const labelRow = rows[labelRowIndex] || [];
+    const valueRow = rows[labelRowIndex + 1] || [];
+
+    labelRow.forEach((label, index) => {
+      const normalizedLabel = normalizeReportText(label);
+      const rawValue = valueRow[index];
+
+      if (!rawValue) {
+        return;
+      }
+
+      if (normalizedLabel === "adi soyadi") record.memberName = normalizeTextValue(rawValue);
+      if (normalizedLabel === "cinsiyet") record.gender = normalizeTextValue(rawValue);
+      if (normalizedLabel === "yas") record.age = parseFlexibleNumber(rawValue);
+      if (normalizedLabel === "boy") record.height = parseFlexibleNumber(rawValue);
+      if (normalizedLabel === "kilo") record.weight = parseFlexibleNumber(rawValue);
+      if (normalizedLabel === "bmi") record.bmi = parseFlexibleNumber(rawValue);
+      if (normalizedLabel === "yag") record.bodyFatPercentage = parseFlexibleNumber(rawValue);
+    });
+
+    applyFirstDateTime([valueRow, ...rows], record);
+  }
+
+  function parseBc418SegmentalTable(rows, record) {
+    const headerIndex = rows.findIndex((row) => Object.keys(buildSegmentColumnMap(row)).length >= 5);
+
+    if (headerIndex < 0) {
+      return;
+    }
+
+    const segmentColumns = buildSegmentColumnMap(rows[headerIndex]);
+    const metricRows = rows.slice(headerIndex + 1, headerIndex + 8);
+
+    metricRows.forEach((row) => {
+      const metric = resolveSegmentMetric(row);
+
+      if (!metric) {
+        return;
+      }
+
+      Object.entries(segmentColumns).forEach(([index, segment]) => {
+        const fieldName = getSegmentFieldName(segment, metric);
+        const value = parseFlexibleNumber(row[Number(index)]);
+
+        if (fieldName && value !== "") {
+          record[fieldName] = value;
+        }
+      });
+    });
+
+    if (record.muscleMass === undefined) {
+      const segmentMuscles = [
+        record.rightArmMuscle,
+        record.leftArmMuscle,
+        record.trunkMuscle,
+        record.rightLegMuscle,
+        record.leftLegMuscle,
+      ].filter((value) => value !== "" && value !== undefined);
+
+      if (segmentMuscles.length === 5) {
+        record.muscleMass = roundToOneDecimal(segmentMuscles.reduce((sum, value) => sum + Number(value), 0));
+      }
+    }
+  }
+
+  function parseBc418LabeledValues(rows, record) {
+    rows.forEach((row) => {
+      assignNumericValueByLabel(record, row, "metabolizma yasi", "metabolicAge");
+      assignNumericValueByLabel(record, row, "ic yaglanma", "visceralFat");
+      assignNumericValueByLabel(record, row, "kemik mineralleri agirligi kg", "boneMass");
+      assignNumericValueByLabel(record, row, "yag agirligi kg", "fatMass");
+      assignNumericValueByLabel(record, row, "yag orani", "bodyFatPercentage");
+      assignNumericValueByLabel(record, row, "sivi orani", "bodyWater");
+      assignNumericValueByLabel(record, row, "vucut kutle indeksi", "bmi");
+
+      const bmr = findNumericValueAfterLabel(row, (label) => label === "bmr");
+      if (bmr !== "") {
+        record.bmr = bmr;
+      }
+    });
+  }
+
+  function parseBc418HistoryRow(rows, record) {
+    const headerIndex = rows.findIndex(
+      (row) => row.some((cell) => normalizeReportText(cell) === "olcum tarihi") && row.some((cell) => normalizeReportText(cell) === "kas kg"),
+    );
+
+    if (headerIndex < 0) {
+      return;
+    }
+
+    const headerRow = rows[headerIndex] || [];
+    const valueRow = rows.slice(headerIndex + 1).find((row) => row.some((cell) => parseDateTimeParts(cell))) || [];
+
+    headerRow.forEach((header, index) => {
+      const label = normalizeReportText(header);
+      const value = valueRow[index];
+
+      if (!value) {
+        return;
+      }
+
+      if (label === "olcum tarihi") {
+        applyDateTimeValue(value, record);
+      }
+
+      if (label === "kilo") record.weight = parseFlexibleNumber(value);
+      if (label === "yag kg") record.fatMass = parseFlexibleNumber(value);
+      if (label === "kas kg") record.muscleMass = parseFlexibleNumber(value);
+      if (label === "yag disi kg") record.fatFreeMass = parseFlexibleNumber(value);
+      if (label === "yag orani") record.bodyFatPercentage = parseFlexibleNumber(value);
+    });
+  }
+
+  function buildSegmentColumnMap(row) {
+    const map = {};
+
+    row.forEach((cell, index) => {
+      const label = normalizeReportText(cell);
+      if (label === "sag bacak") map[index] = "rightLeg";
+      if (label === "sol bacak") map[index] = "leftLeg";
+      if (label === "sag kol") map[index] = "rightArm";
+      if (label === "sol kol") map[index] = "leftArm";
+      if (label === "govde") map[index] = "trunk";
+    });
+
+    return map;
+  }
+
+  function resolveSegmentMetric(row) {
+    const labels = row.map(normalizeReportText).filter(Boolean);
+    const text = labels.join(" ");
+
+    if (text.includes("empedans")) return "impedance";
+    if (text.includes("yag kg")) return "fat";
+    if (text.includes("kas kg")) return "muscle";
+    return "";
+  }
+
+  function getSegmentFieldName(segment, metric) {
+    const fields = {
+      rightArm: { fat: "rightArmFat", muscle: "rightArmMuscle", impedance: "impedanceRightArm" },
+      leftArm: { fat: "leftArmFat", muscle: "leftArmMuscle", impedance: "impedanceLeftArm" },
+      trunk: { fat: "trunkFat", muscle: "trunkMuscle", impedance: "impedanceTrunk" },
+      rightLeg: { fat: "rightLegFat", muscle: "rightLegMuscle", impedance: "impedanceRightLeg" },
+      leftLeg: { fat: "leftLegFat", muscle: "leftLegMuscle", impedance: "impedanceLeftLeg" },
+    };
+
+    return fields[segment]?.[metric] || "";
+  }
+
+  function assignNumericValueByLabel(record, row, labelText, fieldName) {
+    if (record[fieldName] !== undefined && record[fieldName] !== "") {
+      return;
+    }
+
+    const value = findNumericValueAfterLabel(row, (label) => label === labelText);
+
+    if (value !== "") {
+      record[fieldName] = value;
+    }
+  }
+
+  function findNumericValueAfterLabel(row, labelMatcher) {
+    const labelIndex = row.findIndex((cell) => labelMatcher(normalizeReportText(cell)));
+
+    if (labelIndex < 0) {
+      return "";
+    }
+
+    for (let index = labelIndex + 1; index < row.length; index += 1) {
+      if (!isCleanNumericCell(row[index])) {
+        continue;
+      }
+
+      return parseFlexibleNumber(row[index]);
+    }
+
+    return "";
+  }
+
+  function isCleanNumericCell(value) {
+    const text = String(value || "").trim();
+    return text && !/[~<>/*]/.test(text) && parseFlexibleNumber(text) !== "";
+  }
+
+  function applyFirstDateTime(rows, record) {
+    const dateTime = rows.flat().map(parseDateTimeParts).find(Boolean);
+
+    if (dateTime) {
+      record.date = dateTime.date;
+      record.time = dateTime.time || record.time || "";
+    }
+  }
+
+  function applyDateTimeValue(value, record) {
+    const dateTime = parseDateTimeParts(value);
+
+    if (dateTime) {
+      record.date = dateTime.date;
+      record.time = dateTime.time || record.time || "";
+    }
+  }
+
+  function parseDateTimeParts(value) {
+    const text = normalizeTextValue(value);
+    const match = text.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})(?:\s+(\d{1,2}:\d{2}))?/);
+
+    if (!match) {
+      return null;
+    }
+
+    return {
+      date: match[1],
+      time: match[2] || "",
+    };
+  }
+
+  function hasMeasurementValues(record) {
+    return ["weight", "height", "bodyFatPercentage", "fatMass", "muscleMass", "bmi"].some((fieldName) => record[fieldName] !== undefined && record[fieldName] !== "");
+  }
+
+  function cleanReportHeader(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function normalizeReportText(value) {
+    return normalizeTurkishText(value)
+      .replace(/%/g, " ")
+      .replace(/ω/g, " ohm ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function uniqueValues(values) {
+    return [...new Set(values.filter(Boolean))];
+  }
+
+  function roundToOneDecimal(value) {
+    return Math.round(Number(value) * 10) / 10;
+  }
+
   function decodeCsvBuffer(buffer) {
     const encodings = ["utf-8", "windows-1254", "iso-8859-9"];
     const candidates = encodings
@@ -300,8 +635,9 @@
     const rows = parseCsvRows(text);
     const headers = rows[0] || [];
     const mappedCount = headers.map(resolveFieldName).filter(Boolean).length;
+    const reportScore = isBc418SegmentalReport(rows) ? 200 : 0;
     const replacementPenalty = (text.match(/\uFFFD/g) || []).length;
-    return mappedCount * 20 - replacementPenalty;
+    return reportScore + mappedCount * 20 - replacementPenalty;
   }
 
   function detectDelimiter(text) {
@@ -353,6 +689,16 @@
     return aliasLookup.get(normalizeHeader(header)) || "";
   }
 
+  function mergeFieldAliases(...aliasGroups) {
+    return aliasGroups.reduce((merged, aliases) => {
+      Object.entries(aliases || {}).forEach(([fieldName, names]) => {
+        merged[fieldName] = [...(merged[fieldName] || []), ...(Array.isArray(names) ? names : [])];
+      });
+
+      return merged;
+    }, {});
+  }
+
   function buildAliasLookup(aliases) {
     const lookup = new Map();
 
@@ -383,6 +729,12 @@
       .replace(/ı/g, "i")
       .replace(/ö/g, "o")
       .replace(/ç/g, "c")
+      .replace(/ÄŸ/g, "g")
+      .replace(/Ã¼/g, "u")
+      .replace(/ÅŸ/g, "s")
+      .replace(/Ä±/g, "i")
+      .replace(/Ã¶/g, "o")
+      .replace(/Ã§/g, "c")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
   }
