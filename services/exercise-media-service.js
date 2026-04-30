@@ -6,10 +6,13 @@
   function buildExerciseMedia(exercise, groupLabel = "") {
     const source = exercise && typeof exercise === "object" ? exercise : {};
     const name = String(source.name || "Hareket").trim();
-    const gifUrl = String(source.gifUrl || "").trim() || `${GIF_BASE_PATH}${slugifyExerciseName(name)}.gif`;
+    const explicitGifUrl = String(source.gifUrl || "").trim();
+    const slugUrl = `${GIF_BASE_PATH}${slugifyExerciseName(name)}.gif`;
+    const gifUrl = explicitGifUrl || slugUrl;
 
     return {
       gifUrl,
+      fallbackGifUrl: explicitGifUrl ? "" : `${slugUrl}.gif`,
       name,
       groupLabel: groupLabel || source.group || "Kas grubu",
       isExplicit: Boolean(source.gifUrl),

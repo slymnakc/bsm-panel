@@ -11,7 +11,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.5");
+console.log("APP VERSION: v1.0.6");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -769,6 +769,18 @@ function handleExerciseGifError(event) {
   const image = event.target;
 
   if (!image?.matches?.("[data-exercise-gif-img]")) {
+    return;
+  }
+
+  const openButton = image.closest("[data-exercise-gif-open]");
+  const fallbackUrl = openButton?.dataset.gifFallbackUrl;
+
+  if (fallbackUrl && image.dataset.fallbackTried !== "true") {
+    image.dataset.fallbackTried = "true";
+    image.src = fallbackUrl;
+    if (openButton) {
+      openButton.dataset.gifUrl = fallbackUrl;
+    }
     return;
   }
 
