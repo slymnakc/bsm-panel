@@ -416,6 +416,14 @@
                 <button type="button" class="ghost-button workspace-button" id="saveTanitaMeasurementButton" disabled>Ölçümü Üyeye Kaydet</button>
               </div>
             </div>
+            <div class="measurement-report-entry">
+              <div>
+                <p class="section-kicker">Rapor Çıktısı</p>
+                <h4>Tanita Ölçüm Raporu</h4>
+                <span>Son kayıtlı ölçümden renkli, A4 uyumlu ve üyeye verilebilir vücut analiz raporu oluşturun.</span>
+              </div>
+              <button type="button" class="primary-button workspace-button" id="buildMeasurementReportButton">Ölçüm Raporu Oluştur</button>
+            </div>
             <div class="measurement-grid">
               <label class="field compact-field">
                 <span>Tarih</span>
@@ -829,6 +837,27 @@
           <h3>Uygulama Kuralları</h3>
           <div id="guidanceBlock" class="guidance-list"></div>
         </section>
+      </div>
+    </section>
+
+    <section id="measurementReportSection" class="measurement-report screen-panel is-hidden" aria-live="polite" data-screen="measurement-report">
+      <div class="measurement-report-toolbar">
+        <div>
+          <p class="section-kicker">Tanita Ölçüm Raporu</p>
+          <h2>Üye Vücut Analiz Çıktısı</h2>
+          <span>Bahçeşehir Spor Merkezi için renkli, A4 uyumlu ve üyeye verilebilir rapor.</span>
+        </div>
+        <div class="panel-actions">
+          <button type="button" class="ghost-button" id="measurementReportBackButton">Ölçüm Paneline Dön</button>
+          <button type="button" class="secondary-button" id="measurementReportPdfButton">PDF Olarak İndir</button>
+          <button type="button" class="primary-button" id="measurementReportPrintButton">Yazdır</button>
+        </div>
+      </div>
+      <div id="measurementReportContent" class="measurement-report-content">
+        <article class="measurement-report-empty">
+          <strong>Bu üye için ölçüm kaydı bulunamadı.</strong>
+          <span>Önce ölçüm girin veya Tanita CSV yükleyip ölçümü üyeye kaydedin.</span>
+        </article>
       </div>
     </section>
 
