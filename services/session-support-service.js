@@ -39,6 +39,10 @@
 
   function buildCardioBlock(data, groups) {
     if (data.cardioPreference === "low" && data.goal !== "fat-loss") {
+      if (data.measurementGuidance?.fatLossSupport || data.measurementGuidance?.visceralFatSupport) {
+        return "Tanita desteği: 8-12 dk düşük etkili eğimli yürüyüş veya bisiklet.";
+      }
+
       return "Opsiyonel: 6-8 dk hafif yürüyüş veya bisiklet.";
     }
 
@@ -50,6 +54,10 @@
 
     if (data.goal === "fat-loss") {
       return data.cardioPreference === "high" ? "Bitiriş: 12 dk interval kardiyo." : "Bitiriş: 10 dk eğimli yürüyüş veya bisiklet.";
+    }
+
+    if (data.measurementGuidance?.fatLossSupport || data.measurementGuidance?.visceralFatSupport) {
+      return "Tanita desteği: 10 dk düşük etkili kardiyo + nabız kontrollü bitiriş.";
     }
 
     return data.cardioPreference === "high" ? "Bitiriş: 8-10 dk kondisyon finisher." : "Bitiriş: 6-8 dk rahat tempo kardiyo.";

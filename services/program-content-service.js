@@ -64,19 +64,19 @@
         text: "Üye hareket formunu öğrenir. Ana hareketlerde RPE 6-7, izolasyonlarda kontrollü tempo kullanılır.",
       },
       {
-        title: "2. Hafta | Hacim Takibi",
-        text: "Teknik bozulmuyorsa ana hareketlerde 1-2 tekrar artırılır veya küçük ağırlık artışı yapılır.",
+        title: "2. Hafta | Ağırlık Artışı",
+        text: "Teknik bozulmuyorsa ana hareketlerde küçük ağırlık artışı veya 1-2 tekrar ekleme yapılır.",
       },
       {
-        title: "3. Hafta | Gelişim Haftası",
+        title: "3. Hafta | Hacim Artışı",
         text:
           data.goal === "strength"
-            ? "Ana kaldırışlarda yük %2,5-%5 artırılır, dinlenme süreleri kısaltılmaz."
+            ? "Ana kaldırışlarda yük korunur; destek hareketlerinde kontrollü hacim artışı yapılır."
             : "Kas kazanımı ve yağ yakımı hedefinde set kalitesi korunarak toplam hacim artırılır.",
       },
       {
-        title: "4. Hafta | Kontrol ve Güncelleme",
-        text: "Antrenör, üyenin ağrı, yorgunluk ve performans notlarına göre hareketleri günceller. Gerekirse hacim %15-20 azaltılır.",
+        title: "4. Hafta | Deload ve Kontrol",
+        text: "Yorgunluk birikimini azaltmak için hacim %15-25 düşürülür; ölçüm, ağrı ve performans notuna göre program güncellenir.",
       },
     ];
   }

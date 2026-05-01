@@ -239,8 +239,23 @@
     return {
       name,
       foods,
+      alternatives: buildMealAlternatives(name),
       macroShare: { protein: name === "Öğle" || name === "Akşam" ? 28 : name.includes("Ara") ? 12 : 20, carbs: name === "Öğle" || name === "Akşam" ? 28 : name.includes("Ara") ? 12 : 20, fat: name === "Öğle" || name === "Akşam" ? 24 : name.includes("Ara") ? 13 : 26 },
     };
+  }
+
+  function buildMealAlternatives(name) {
+    const normalized = String(name || "").toLocaleLowerCase("tr-TR");
+
+    if (normalized.includes("kahvalt")) {
+      return ["Menemen + tam buğday ekmeği", "Lor peynirli omlet", "Yoğurt + yulaf + meyve"];
+    }
+
+    if (normalized.includes("öğle") || normalized.includes("akşam")) {
+      return ["Hindi/tavuk + bulgur", "Balık + salata + patates", "Kuru baklagil + yoğurt + salata"];
+    }
+
+    return ["Meyve + yoğurt", "Kefir + kuruyemiş", "Tam buğday tost"];
   }
 
   function distributeCalories(calories) {

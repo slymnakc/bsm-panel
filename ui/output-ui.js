@@ -154,15 +154,12 @@
           <small>${escapeHtml(session.duration || "")}</small>
         </div>
         <p class="member-program-day__purpose">${escapeHtml(limitToOneSentence(session.purpose || session.note || "Kontrollü teknik ve düzenli tempo ile uygulanır."))}</p>
-        <div class="member-program-table">
-          <div class="member-program-table__head">
-            <span>Hareket</span>
-            <span>Set</span>
-            <span>Tekrar</span>
-            <span>Dinlenme</span>
-            <span>Uygulama notu</span>
-          </div>
-          ${renderPrintableExerciseRows(session, escapeHtml, helpers)}
+        <div class="member-program-day__coach-notes">
+          <div><strong>Odak</strong><span>${escapeHtml(limitToOneSentence(session.purpose || "Teknik kalite ve kontrollü tempo"))}</span></div>
+          <div><strong>Koç ipucu</strong><span>${escapeHtml(limitToOneSentence(session.balanceNote || session.note || "Form bozulmadan küçük ilerleme hedefleyin."))}</span></div>
+        </div>
+        <div class="member-program-exercise-cards">
+          ${renderPrintableExerciseCards(session, escapeHtml, helpers)}
         </div>
         <div class="member-program-support">
           ${renderSupportLine("Isınma", (session.warmup || []).join(" • "), escapeHtml)}
@@ -171,6 +168,33 @@
         </div>
       </article>
     `;
+  }
+
+  function renderPrintableExerciseCards(session, escapeHtml, helpers) {
+    return (session.exercises || [])
+      .map((exercise, index) => {
+        const prescription = getExercisePrescriptionParts(exercise);
+
+        return `
+          <article class="member-program-exercise-card">
+            <div class="member-program-exercise-card__top">
+              <span>${index + 1}</span>
+              <div>
+                <strong>${escapeHtml(exercise.name || "Hareket")}</strong>
+                <small>${escapeHtml(helpers.getMuscleLabel(exercise.group))}</small>
+              </div>
+            </div>
+            <div class="member-program-exercise-card__metrics">
+              <span><b>Set</b>${escapeHtml(prescription.sets)}</span>
+              <span><b>Tekrar</b>${escapeHtml(prescription.reps)}</span>
+              <span><b>Dinlenme</b>${escapeHtml(exercise.rest || "-")}</span>
+              <span><b>Tempo</b>${escapeHtml(exercise.tempo || "-")}</span>
+            </div>
+            <p>${escapeHtml(limitToOneSentence(exercise.cue || "Kontrollü formda uygula."))}</p>
+          </article>
+        `;
+      })
+      .join("");
   }
 
   function renderPrintableExerciseRows(session, escapeHtml, helpers) {
@@ -407,6 +431,77 @@
     }
   }
 
+  function renderTrainingReport(target, report, escapeHtml) {
+    if (!target) {
+      return;
+    }
+
+    if (!report) {
+      target.innerHTML = `
+        <article class="training-report-card training-report-card--notice">
+          <strong>Program zekası</strong>
+          <p>Program oluşturulduğunda Tanita verisi, hedef ve seviye bağlantısı burada özetlenir.</p>
+        </article>
+      `;
+      return;
+    }
+
+    target.innerHTML = `
+      <div class="training-report-block training-report-block--why">
+        ${(report.why || []).map((item) => renderTrainingReportCard(item, escapeHtml, "training-report-card--why")).join("")}
+      </div>
+      <div class="training-report-block training-report-block--adaptation">
+        ${(report.tanitaAdaptation || []).map((item) => renderTrainingReportCard(item, escapeHtml, `training-report-card--${item.status || "neutral"}`)).join("")}
+      </div>
+      <div class="training-report-block training-report-block--progression">
+        ${(report.weeklyProgression || []).map((item, index) => renderProgressionMiniCard(item, index, escapeHtml)).join("")}
+      </div>
+      <div class="training-report-block training-report-block--expected">
+        ${(report.expectedResults || []).map((item) => renderExpectedResultCard(item, escapeHtml)).join("")}
+      </div>
+      <div class="training-report-block training-report-block--cta">
+        ${(report.cta || []).map((item) => renderTrainingReportCard(item, escapeHtml, "training-report-card--cta")).join("")}
+      </div>
+      <article class="training-report-card training-report-card--notice">
+        <strong>Beslenme ayrımı</strong>
+        <p>${escapeHtml(report.nutritionNotice || "Beslenme planı uygulama içindeki Beslenme sekmesinde sunulmaktadır.")}</p>
+      </article>
+    `;
+  }
+
+  function renderTrainingReportCard(item, escapeHtml, modifier = "") {
+    return `
+      <article class="training-report-card ${modifier}">
+        <strong>${escapeHtml(item.title || "Program notu")}</strong>
+        <p>${escapeHtml(item.text || "")}</p>
+      </article>
+    `;
+  }
+
+  function renderProgressionMiniCard(item, index, escapeHtml) {
+    return `
+      <article class="training-progression-card">
+        <span>${index + 1}</span>
+        <strong>${escapeHtml(item.title || `Hafta ${index + 1}`)}</strong>
+        <p>${escapeHtml(item.text || "")}</p>
+      </article>
+    `;
+  }
+
+  function renderExpectedResultCard(item, escapeHtml) {
+    const percent = Math.max(8, Math.min(100, Number(item.percent) || 40));
+    return `
+      <article class="training-expected-card">
+        <div>
+          <span>${escapeHtml(item.label || "Beklenen gelişim")}</span>
+          <strong>${escapeHtml(item.value || "-")}</strong>
+        </div>
+        <div class="training-expected-card__bar"><i style="width: ${percent}%"></i></div>
+        <p>${escapeHtml(item.note || "")}</p>
+      </article>
+    `;
+  }
+
   function renderSessionExerciseArea(session, sessionIndex, escapeHtml, helpers) {
     if (!session.exerciseBlocks?.length) {
       return (session.exercises || [])
@@ -556,5 +651,6 @@
     renderProgramCover,
     renderProgramSections,
     renderOutputIntelligence,
+    renderTrainingReport,
   };
 })();

@@ -93,37 +93,10 @@
       return;
     }
 
-    if (!plan) {
-      target.innerHTML = `<div class="empty-state compact-empty">Bu üye için kayıtlı beslenme planı yok.</div>`;
-      return;
-    }
-
-    const goalLabel = labelMaps?.goal?.[plan.goal] || plan.goal || "Hedef";
     target.innerHTML = `
-      <article class="nutrition-output-card">
-        <div class="nutrition-output-card__header">
-          <div>
-            <strong>${escapeHtml(plan.memberName || "Üye")}</strong>
-            <span>${escapeHtml(goalLabel)} • ${escapeHtml(plan.calories)} kcal</span>
-          </div>
-          <small>Protein ${escapeHtml(plan.macros?.protein || "-")} g • Karb. ${escapeHtml(plan.macros?.carbs || "-")} g • Yağ ${escapeHtml(plan.macros?.fat || "-")} g</small>
-        </div>
-        <div class="nutrition-output-meals">
-          ${(plan.meals || [])
-            .map(
-              (meal) => `
-                <div>
-                  <strong>${escapeHtml(meal.name)}</strong>
-                  <span>${escapeHtml(meal.foods)}</span>
-                  <small>${escapeHtml(meal.calories)} kcal • P ${escapeHtml(meal.protein)} / K ${escapeHtml(meal.carbs)} / Y ${escapeHtml(meal.fat)}</small>
-                </div>
-              `,
-            )
-            .join("")}
-        </div>
-        ${renderSupplementOutput(plan.supplements || [], escapeHtml, false)}
-        ${plan.trainerNote ? `<p class="nutrition-output-note"><strong>Antrenör notu:</strong> ${escapeHtml(plan.trainerNote)}</p>` : ""}
-        <p class="nutrition-disclaimer">${escapeHtml(plan.disclaimer || "")}</p>
+      <article class="nutrition-output-card nutrition-output-card--workout-notice">
+        <strong>Beslenme planı uygulama içindeki Beslenme sekmesinde sunulmaktadır.</strong>
+        <small>Workout PDF yalnızca antrenman planı, Tanita bağlantılı program notları ve takip aksiyonlarını içerir.</small>
       </article>
     `;
   }
@@ -189,7 +162,21 @@
           ${renderMealNumber("K", "carbs", meal.carbs, index, escapeHtml)}
           ${renderMealNumber("Y", "fat", meal.fat, index, escapeHtml)}
         </div>
+        ${renderMealAlternatives(meal.alternatives || [], escapeHtml)}
       </article>
+    `;
+  }
+
+  function renderMealAlternatives(alternatives, escapeHtml) {
+    if (!alternatives.length) {
+      return "";
+    }
+
+    return `
+      <div class="nutrition-meal-alternatives">
+        <strong>Alternatif besinler</strong>
+        <span>${alternatives.map((item) => escapeHtml(item)).join(" • ")}</span>
+      </div>
     `;
   }
 

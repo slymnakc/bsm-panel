@@ -155,6 +155,7 @@
       coverage: normalizeCoverage(raw.coverage),
       aiReport: raw.aiReport && typeof raw.aiReport === "object" ? raw.aiReport : null,
       programIntelligence: raw.programIntelligence && typeof raw.programIntelligence === "object" ? raw.programIntelligence : null,
+      trainingReport: raw.trainingReport && typeof raw.trainingReport === "object" ? raw.trainingReport : null,
       v3Insights: raw.v3Insights && typeof raw.v3Insights === "object" ? raw.v3Insights : null,
       programContext: raw.programContext && typeof raw.programContext === "object" ? raw.programContext : null,
       rawData: normalizeFormData(raw.rawData),
@@ -226,6 +227,7 @@
             protein: toNumberOrFallback(meal?.protein, 0),
             carbs: toNumberOrFallback(meal?.carbs, 0),
             fat: toNumberOrFallback(meal?.fat, 0),
+            alternatives: normalizeStringArray(meal?.alternatives),
           }))
         : [],
       supplementPreferences: raw.supplementPreferences && typeof raw.supplementPreferences === "object" ? raw.supplementPreferences : {},

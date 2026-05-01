@@ -2556,12 +2556,16 @@ body.modal-open {
   order: 1;
 }
 
-.output-clean-grid > .output-program-card {
+.output-clean-grid > .output-training-card {
   order: 2;
 }
 
-.output-clean-grid > .output-detail-panel {
+.output-clean-grid > .output-program-card {
   order: 3;
+}
+
+.output-clean-grid > .output-detail-panel {
+  order: 4;
 }
 
 .output-detail-panel {
@@ -2697,6 +2701,212 @@ body.modal-open {
 
 .member-program-support strong {
   color: var(--teal-deep);
+}
+
+.training-report-grid,
+.training-report-block {
+  display: grid;
+  gap: 12px;
+}
+
+.training-report-grid {
+  grid-template-columns: 1fr;
+}
+
+.training-report-block--why,
+.training-report-block--adaptation {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.training-report-block--progression {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.training-report-block--expected {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.training-report-block--cta {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.training-report-card,
+.training-progression-card,
+.training-expected-card {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(25, 51, 66, 0.08);
+  box-shadow: 0 12px 24px rgba(5, 18, 23, 0.07);
+}
+
+.training-report-card strong,
+.training-progression-card strong,
+.training-expected-card strong {
+  color: var(--teal-deep);
+}
+
+.training-report-card p,
+.training-progression-card p,
+.training-expected-card p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.training-report-card--normal {
+  border-color: rgba(34, 197, 94, 0.24);
+}
+
+.training-report-card--warning {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: linear-gradient(180deg, rgba(255, 251, 235, 0.92), rgba(255, 255, 255, 0.9));
+}
+
+.training-report-card--neutral,
+.training-report-card--notice,
+.nutrition-output-card--workout-notice {
+  background: linear-gradient(135deg, rgba(8, 43, 53, 0.06), rgba(15, 106, 101, 0.08));
+}
+
+.training-progression-card {
+  position: relative;
+}
+
+.training-progression-card span {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--teal), var(--teal-deep));
+  font-weight: 900;
+}
+
+.training-expected-card > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.training-expected-card span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.training-expected-card__bar {
+  height: 12px;
+  margin: 10px 0 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(25, 51, 66, 0.08);
+}
+
+.training-expected-card__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--gold), var(--teal));
+}
+
+.member-program-day__coach-notes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.member-program-day__coach-notes div {
+  padding: 11px 12px;
+  border-radius: 14px;
+  background: rgba(29, 107, 116, 0.06);
+  border: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.member-program-day__coach-notes strong,
+.member-program-day__coach-notes span {
+  display: block;
+}
+
+.member-program-day__coach-notes strong {
+  color: var(--teal-deep);
+}
+
+.member-program-day__coach-notes span {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.member-program-exercise-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.member-program-exercise-card {
+  padding: 13px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(25, 51, 66, 0.08);
+  break-inside: avoid;
+}
+
+.member-program-exercise-card__top {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.member-program-exercise-card__top > span {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--teal), var(--teal-deep));
+  font-weight: 900;
+}
+
+.member-program-exercise-card__top strong,
+.member-program-exercise-card__top small {
+  display: block;
+}
+
+.member-program-exercise-card__top small {
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.member-program-exercise-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.member-program-exercise-card__metrics span {
+  padding: 7px;
+  border-radius: 10px;
+  color: var(--muted);
+  background: rgba(8, 43, 53, 0.045);
+  font-size: 0.78rem;
+}
+
+.member-program-exercise-card__metrics b {
+  display: block;
+  color: var(--teal-deep);
+}
+
+.member-program-exercise-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.42;
 }
 
 .nutrition-panel {
@@ -2888,6 +3098,20 @@ body.modal-open {
   padding: 9px 8px;
   border-radius: 12px;
   border: 1px solid rgba(25, 51, 66, 0.12);
+}
+
+.nutrition-meal-alternatives {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  color: var(--muted);
+  background: rgba(29, 107, 116, 0.06);
+}
+
+.nutrition-meal-alternatives strong {
+  color: var(--teal-deep);
 }
 
 .nutrition-supplements {
@@ -5627,7 +5851,14 @@ textarea:focus {
   }
 
   .premium-health-grid--compact,
-  .ultra-next-goal-grid--compact {
+  .ultra-next-goal-grid--compact,
+  .training-report-block--why,
+  .training-report-block--adaptation,
+  .training-report-block--progression,
+  .training-report-block--expected,
+  .training-report-block--cta,
+  .member-program-day__coach-notes,
+  .member-program-exercise-cards {
     grid-template-columns: 1fr;
   }
 
@@ -6277,6 +6508,86 @@ textarea:focus {
     padding: 12px;
   }
 
+  .training-report-grid,
+  .training-report-block {
+    gap: 5px;
+  }
+
+  .training-report-block--why,
+  .training-report-block--adaptation,
+  .training-report-block--expected,
+  .training-report-block--cta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .training-report-block--progression {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .training-report-card,
+  .training-progression-card,
+  .training-expected-card,
+  .member-program-exercise-card,
+  .member-program-day__coach-notes div,
+  .nutrition-output-card--workout-notice {
+    box-shadow: none;
+    border: 1px solid #d7d7d7;
+    background: white;
+    break-inside: avoid;
+  }
+
+  .training-report-card,
+  .training-progression-card,
+  .training-expected-card {
+    padding: 7px;
+  }
+
+  .training-report-card p,
+  .training-progression-card p,
+  .training-expected-card p {
+    font-size: 0.72rem;
+  }
+
+  .training-progression-card span {
+    width: 22px;
+    height: 22px;
+    margin-bottom: 4px;
+  }
+
+  .member-program-day__coach-notes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    margin-bottom: 6px;
+  }
+
+  .member-program-day__coach-notes div {
+    padding: 6px;
+  }
+
+  .member-program-day__coach-notes span,
+  .member-program-exercise-card p {
+    font-size: 0.72rem;
+  }
+
+  .member-program-exercise-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .member-program-exercise-card {
+    padding: 7px;
+  }
+
+  .member-program-exercise-card__metrics {
+    gap: 4px;
+    margin: 6px 0;
+  }
+
+  .member-program-exercise-card__metrics span {
+    padding: 4px;
+    font-size: 0.65rem;
+  }
+
   .program-cover {
     color: #111;
     background: white;
@@ -6299,10 +6610,18 @@ textarea:focus {
   .metric-item,
   .member-program-table__row,
   .member-program-support,
-  .nutrition-meal-card,
-  .nutrition-output-meals div,
-  .nutrition-supplements article {
+  .nutrition-output-card--workout-notice {
     background: white;
+  }
+
+  .results .nutrition-meal-card,
+  .results .nutrition-output-meals,
+  .results .nutrition-output-meals div,
+  .results .nutrition-supplements,
+  .results .nutrition-supplements article,
+  .results .nutrition-output-note,
+  .results .nutrition-disclaimer {
+    display: none !important;
   }
 
   .nutrition-side-card,
