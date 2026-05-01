@@ -286,7 +286,7 @@
       persistMembers();
       applyMeasurementToAppState?.(normalizedMeasurement);
       triggerMeasurementRecalculation?.(normalizedMeasurement);
-      if (state.pendingTanitaMeasurement && typeof saveMeasurementToSupabase === "function") {
+      if (typeof saveMeasurementToSupabase === "function") {
         saveMeasurementToSupabase(member, normalizedMeasurement);
       }
       state.pendingTanitaMeasurement = null;

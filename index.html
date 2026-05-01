@@ -36,7 +36,7 @@
             <span>Kas grupları, CrossFit ve Pilates</span>
           </article>
           <article>
-            <strong>840+ Hareket</strong>
+            <strong>960+ Hareket</strong>
             <span>Her kategoride en az 60 seçenek</span>
           </article>
           <article>
@@ -130,7 +130,7 @@
         </article>
         <article class="dashboard-insight dashboard-insight--dark">
           <p class="section-kicker">Önerilen Kullanım</p>
-          <h3>1 üye seç → program oluştur → düzenle → geçmişe kaydet</h3>
+          <h3>1 üye seç → ölçüm/Tanita gir → program oluştur → düzenle → geçmişe kaydet</h3>
           <p>
             Bu akışla antrenör, üyeye özel planı hızlıca oluşturup ölçüm ve program geçmişini aynı dosyada tutabilir.
           </p>
@@ -177,10 +177,18 @@
           <!-- UI-only refactor, logic preserved: this visual workflow does not change form field ids/names. -->
           <div class="builder-steps" aria-label="Program oluşturma adımları">
             <span><b>1</b> Üye seç</span>
-            <span><b>2</b> Planı oluştur</span>
-            <span><b>3</b> Düzenle</span>
+            <span><b>2</b> Ölçüm / Tanita</span>
+            <span><b>3</b> Planı oluştur</span>
             <span><b>4</b> Kaydet / PDF al</span>
           </div>
+
+          <!-- UI-only usability helper, logic preserved: existing form ids/names and handlers are unchanged. -->
+          <section class="workflow-assistant" id="workflowAssistant" aria-live="polite">
+            <div class="workflow-assistant__empty">
+              <strong>Akış rehberi hazırlanıyor</strong>
+              <span>Üye seçimi, ölçüm, program ve çıktı durumları burada gösterilecek.</span>
+            </div>
+          </section>
 
           <div class="form-grid">
             <label class="field">

@@ -171,7 +171,7 @@
       member_id: normalizeSupabaseText(member?.id),
       member_name: normalizeSupabaseText(member?.memberName || profile.memberName),
       measured_at: measuredAt,
-      source: normalizeSupabaseText(measurement?.source) || "tanita_bc418_csv",
+      source: normalizeSupabaseText(measurement?.source) || "manual_entry",
       raw_payload: measurement?.rawPayload || measurement || {},
       weight: toSupabaseNumber(measurement?.weight),
       body_fat_percentage: toSupabaseNumber(measurement?.fat),
