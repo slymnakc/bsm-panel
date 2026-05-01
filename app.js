@@ -79,6 +79,10 @@ const {
   buildProgramCoverModel: buildProgramCoverModelService,
 } = window.BSMOutputModelService;
 const {
+  buildTrainingReport: buildTrainingReportService,
+  nutritionNotice: trainingNutritionNotice,
+} = window.BSMTrainingOutputService || {};
+const {
   getExerciseSlotCount: getExerciseSlotCountService,
   isEquipmentAllowed: isEquipmentAllowedService,
   isExerciseAllowed: isExerciseAllowedService,
@@ -195,6 +199,7 @@ const {
   renderProgramCover: renderProgramCoverUi,
   renderProgramSections: renderProgramSectionsUi,
   renderOutputIntelligence: renderOutputIntelligenceUi,
+  renderTrainingReport: renderTrainingReportUi,
 } = window.BSMOutputUI;
 const {
   renderNutritionWorkspace: renderNutritionWorkspaceUi,
@@ -345,6 +350,7 @@ const coverBrand = document.querySelector("#coverBrand");
 const coverMember = document.querySelector("#coverMember");
 const coverMeta = document.querySelector("#coverMeta");
 const coverTrainer = document.querySelector("#coverTrainer");
+const trainingReportPanel = document.querySelector("#trainingReportPanel");
 const aiReportSummary = document.querySelector("#aiReportSummary");
 const nextControlReport = document.querySelector("#nextControlReport");
 const outputWarnings = document.querySelector("#outputWarnings");
@@ -4719,6 +4725,7 @@ function buildProgram(data) {
   const guidance = buildGuidance(data);
   const coverage = buildMuscleCoverage(sessions);
   const programIntelligence = window.BSMProgramEngineV2?.buildProgramIntelligence?.(data, sessions, aiReport) || buildFallbackProgramIntelligence(data, sessions, aiReport);
+  const trainingReport = buildTrainingReportForProgram(data, sessions, programIntelligence, aiReport);
   const v3Insights = buildV3ProgramInsights(data, aiReport);
   const createdAtIso = planContext?.generatedAtIso || new Date().toISOString();
 
@@ -4743,10 +4750,19 @@ function buildProgram(data) {
     coverage,
     aiReport,
     programIntelligence,
+    trainingReport,
     v3Insights,
     programContext: planContext,
     rawData: data,
   });
+}
+
+function buildTrainingReportForProgram(data, sessions, programIntelligence, aiReport) {
+  return buildTrainingReportService?.(data, sessions, programIntelligence, aiReport, {
+    labelMaps,
+    getTrainingSystemLabel,
+    getProgramStyleLabel,
+  }) || null;
 }
 
 function attachLatestMeasurementContext(data) {
@@ -4976,6 +4992,10 @@ function renderProgram(program, options = {}) {
     state.activeProgram.programIntelligence ||
     (window.BSMProgramEngineV2?.buildProgramIntelligence?.(rawData, state.activeProgram.sessions || [], state.activeProgram.aiReport) ||
       buildFallbackProgramIntelligence(rawData, state.activeProgram.sessions || [], state.activeProgram.aiReport));
+  const trainingReportData = rawData.latestMeasurement ? rawData : attachLatestMeasurementContext(rawData);
+  state.activeProgram.trainingReport =
+    state.activeProgram.trainingReport ||
+    buildTrainingReportForProgram(trainingReportData, state.activeProgram.sessions || [], state.activeProgram.programIntelligence, state.activeProgram.aiReport);
   state.activeProgram.v3Insights = state.activeProgram.v3Insights || buildV3ProgramInsights(rawData, state.activeProgram.aiReport);
   saveLastPlan(state.activeProgram);
   resultsSection.classList.remove("hidden");
@@ -5011,6 +5031,7 @@ function renderProgram(program, options = {}) {
     escapeHtml,
   );
   renderProgramEditToolbar();
+  renderTrainingReportUi?.(trainingReportPanel, state.activeProgram.trainingReport, escapeHtml);
   renderOutputIntelligence(state.activeProgram);
   renderNutritionOutput();
 }
@@ -5482,7 +5503,6 @@ function convertMemberProgramToSimpleText(program) {
     .map(([label, value]) => `${label}: ${value}`)
     .join("\n");
   const sessionText = (program.sessions || []).map(formatSimpleSessionForText).join("\n\n");
-  const nutritionText = formatNutritionPlanForText(getNutritionPlanForOutput());
 
   return `${program.title}
 Oluşturulma zamanı: ${program.createdAt}
@@ -5491,28 +5511,10 @@ Oluşturulma zamanı: ${program.createdAt}
 ${overview}
 
 HAFTALIK ANTRENMAN PLANI
-${sessionText}${nutritionText ? `\n\nBESLENME PLANI\n${nutritionText}` : ""}`;
-}
+${sessionText}
 
-function formatNutritionPlanForText(plan) {
-  if (!plan) {
-    return "";
-  }
-
-  const meals = (plan.meals || [])
-    .map((meal) => `- ${meal.name}: ${meal.foods} | ${meal.calories} kcal | P ${meal.protein} / K ${meal.carbs} / Y ${meal.fat}`)
-    .join("\n");
-  const supplements = (plan.supplements || []).length
-    ? `\nSupplement tercihi:\n${plan.supplements.map((item) => `- ${item.name}: ${item.purpose} Alternatif: ${item.foodAlternative}`).join("\n")}`
-    : "";
-
-  return `Üye: ${plan.memberName}
-Hedef: ${labelMaps.goal[plan.goal] || plan.goal}
-Günlük kalori: ${plan.calories} kcal
-Makrolar: Protein ${plan.macros?.protein} g | Karbonhidrat ${plan.macros?.carbs} g | Yağ ${plan.macros?.fat} g
-${meals}${supplements}
-Antrenör notu: ${plan.trainerNote || "-"}
-Not: ${plan.disclaimer || ""}`;
+BESLENME BİLGİSİ
+${trainingNutritionNotice || "Beslenme planı uygulama içindeki Beslenme sekmesinde sunulmaktadır."}`;
 }
 
 function formatSimpleSessionForText(session) {

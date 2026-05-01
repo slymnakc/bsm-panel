@@ -139,6 +139,10 @@
       score += 5;
     }
 
+    if (measurementGuidance.segmentalImbalance && isUnilateralExercise(exercise)) {
+      score += 18;
+    }
+
     restrictions.forEach((restriction) => {
       const riskyTags = cautiousTagsByRestriction[restriction] || [];
       const friendlyTags = friendlyTagsByRestriction[restriction] || [];
@@ -349,6 +353,17 @@
   function isEquipmentAllowed(exercise, equipmentScope = "full-gym") {
     const allowed = allowedEquipmentByScope[equipmentScope];
     return !allowed || allowed.includes(exercise.equipment);
+  }
+
+  function isUnilateralExercise(exercise = {}) {
+    const name = normalizeExerciseName(exercise.name);
+    return ["single", "one arm", "one-arm", "split", "lunge", "step up", "step-up", "tek kol", "tek bacak"].some((keyword) => name.includes(keyword));
+  }
+
+  function normalizeExerciseName(value) {
+    return String(value || "")
+      .toLocaleLowerCase("tr-TR")
+      .replace(/ı/g, "i");
   }
 
   function countExercisesByKind(sessions, kind) {

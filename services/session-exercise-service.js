@@ -2,16 +2,19 @@
   "use strict";
 
   function getExerciseSlotCount(data) {
+    const measurementGuidance = data?.measurementGuidance || {};
+    const volumeBonus = measurementGuidance.strengthSupport ? 1 : 0;
+
     if (data.duration <= 30) {
-      return 5;
+      return Math.min(6, 5 + volumeBonus);
     }
 
     if (data.duration <= 45) {
-      return 6;
+      return Math.min(7, 6 + volumeBonus);
     }
 
     if (data.duration <= 60) {
-      return 7;
+      return Math.min(8, 7 + volumeBonus);
     }
 
     return 8;
@@ -69,6 +72,10 @@
 
     if (data.goal === "muscle-gain") {
       return exercise.kind === "compound" ? "4 set x 6-10 tekrar" : "3-4 set x 10-15 tekrar";
+    }
+
+    if (data.measurementGuidance?.strengthSupport && ["compound", "accessory"].includes(exercise.kind)) {
+      return exercise.kind === "compound" ? "4 set x 8-12 tekrar" : "3-4 set x 10-15 tekrar";
     }
 
     if (data.goal === "fat-loss" || data.goal === "conditioning") {
@@ -197,7 +204,9 @@
       safety += 1;
     }
 
-    if (data.cardioPreference === "high" && !groups.includes("cardio") && data.duration >= 45) {
+    const needsTanitaCardio = (data.measurementGuidance?.fatLossSupport || data.measurementGuidance?.visceralFatSupport) && !groups.includes("cardio");
+
+    if ((data.cardioPreference === "high" || needsTanitaCardio) && !groups.includes("cardio") && data.duration >= 45) {
       const cardio = selectExerciseForGroup("cardio", data, usedExerciseIds, sessionIndex, 0, planContext);
       if (cardio) {
         selected.push({
