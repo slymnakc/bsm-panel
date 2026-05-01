@@ -51,6 +51,7 @@
     <nav class="studio-nav" aria-label="Çalışma ekranları">
       <button type="button" class="is-active" data-screen-target="dashboard">Dashboard</button>
       <button type="button" data-screen-target="builder">Üye ve Program</button>
+      <button type="button" data-screen-target="measurements">Ölçüm &amp; Tanita</button>
       <button type="button" data-screen-target="nutrition">Beslenme</button>
       <button type="button" data-screen-target="library">Hareket Kütüphanesi</button>
       <button type="button" data-screen-target="output">Üye Çıktısı</button>
@@ -368,10 +369,16 @@
         <div class="member-workspace">
           <div class="workspace-tabs" id="workspaceTabs" aria-label="Sağ panel sekmeleri">
             <button type="button" class="is-active" data-workspace-view="members">Üyeler</button>
-            <button type="button" data-workspace-view="measurements">Ölçüm</button>
             <button type="button" data-workspace-view="history">Geçmiş</button>
             <button type="button" data-workspace-view="v3">V3 Koçluk</button>
           </div>
+
+          <article class="workspace-card measurement-shortcut-card">
+            <p class="section-kicker">Ölçüm Modülü</p>
+            <h3>Ölçüm eklemek için Ölçüm &amp; Tanita sekmesine geçin.</h3>
+            <p>Tanita CSV, manuel ölçüm, segmental analiz ve ölçüm raporu artık ayrı profesyonel modülde tutulur.</p>
+            <button type="button" class="secondary-button workspace-button" id="openMeasurementTabButton">Ölçüm &amp; Tanita'ya Git</button>
+          </article>
 
           <section class="workspace-card" data-workspace-panel="members">
             <div class="workspace-card__header">
@@ -430,7 +437,10 @@
                 <h4>Tanita Ölçüm Raporu</h4>
                 <span>Son kayıtlı ölçümden renkli, A4 uyumlu ve üyeye verilebilir vücut analiz raporu oluşturun.</span>
               </div>
-              <button type="button" class="primary-button workspace-button" id="buildMeasurementReportButton">Ölçüm Raporu Oluştur</button>
+              <div class="measurement-report-entry__actions">
+                <button type="button" class="primary-button workspace-button" id="buildMeasurementReportButton">Ölçüm Raporu Oluştur</button>
+                <button type="button" class="secondary-button workspace-button" id="measurementTabPdfButton">PDF Olarak İndir</button>
+              </div>
             </div>
             <div class="measurement-grid">
               <label class="field compact-field">
@@ -609,6 +619,34 @@
         </div>
       </aside>
     </main>
+
+    <section class="measurement-panel screen-panel is-hidden" id="measurementsPanel" data-screen="measurements">
+      <div class="measurement-panel__header">
+        <div>
+          <p class="section-kicker">Ölçüm &amp; Tanita</p>
+          <h2>Tanita BC-418 ve Manuel Ölçüm Merkezi</h2>
+          <span>Üye seçimi korunur; Tanita CSV, manuel düzenleme, segmental analiz, ölçüm geçmişi ve rapor çıktısı bu modülde yönetilir.</span>
+        </div>
+        <div id="measurementActiveMemberCard" class="measurement-active-member-card">
+          <strong>Önce üye seçin veya yeni üye oluşturun.</strong>
+          <span>Üye ve Program sekmesinden aktif üye seçildiğinde burada görünür.</span>
+        </div>
+      </div>
+
+      <div class="measurement-flow-steps" aria-label="Ölçüm ve Tanita adımları">
+        <span><b>1</b> Üye kontrolü</span>
+        <span><b>2</b> Tanita CSV yükle</span>
+        <span><b>3</b> Ölçüm önizleme</span>
+        <span><b>4</b> Manuel düzenleme</span>
+        <span><b>5</b> Kaydet / Rapor al</span>
+      </div>
+
+      <div id="measurementTabNotice" class="measurement-tab-notice">
+        Önce üye seçin veya yeni üye oluşturun.
+      </div>
+
+      <div id="measurementTabMount" class="measurement-tab-mount"></div>
+    </section>
 
     <section class="nutrition-panel screen-panel is-hidden" id="nutritionPanel" data-screen="nutrition">
       <div class="results__header">

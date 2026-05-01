@@ -93,8 +93,7 @@
       }
 
       if (action === "open-measurements") {
-        setActiveScreen("builder", { userTriggered: true, silent: true });
-        setWorkspaceView("measurements");
+        setActiveScreen("measurements", { userTriggered: true, silent: true });
         return;
       }
 
@@ -131,15 +130,17 @@
       }
 
       loadMember(member);
-      setActiveScreen("builder", { userTriggered: true, silent: true });
-      setWorkspaceView(button.dataset.taskWorkspace || "members");
 
       if (button.dataset.taskWorkspace === "measurements") {
+        setActiveScreen("measurements", { userTriggered: true, silent: true });
         measurementDate?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-
-      if (button.dataset.taskWorkspace === "v3") {
+      } else if (button.dataset.taskWorkspace === "v3") {
+        setActiveScreen("builder", { userTriggered: true, silent: true });
+        setWorkspaceView("v3");
         professionalMemberFile?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        setActiveScreen("builder", { userTriggered: true, silent: true });
+        setWorkspaceView(button.dataset.taskWorkspace || "members");
       }
 
       showStatus(`${member.profile?.memberName || "Üye"} için görev paneli açıldı.`, "success");
@@ -155,7 +156,7 @@
       const action = button.dataset.v3Action;
 
       if (action === "open-measurement") {
-        setWorkspaceView("measurements");
+        setActiveScreen("measurements", { userTriggered: true, silent: true });
         measurementDate?.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
