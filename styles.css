@@ -6589,22 +6589,145 @@ textarea:focus {
   }
 
   .program-cover {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
     color: #111;
     background: white;
     border: 1px solid #d7d7d7;
     box-shadow: none;
-    padding: 14px;
+    margin-bottom: 6px;
+    padding: 8px 10px;
+    break-inside: avoid;
+  }
+
+  .program-cover h3 {
+    margin: 0 0 3px;
+    font-size: 1.02rem;
+    line-height: 1.15;
   }
 
   .program-cover p,
   .program-cover span {
     color: #444;
+    font-size: 0.7rem;
+    line-height: 1.25;
   }
 
   .cover-signature {
     color: #111;
     background: white;
     border: 1px solid #d7d7d7;
+    min-width: 110px;
+    padding: 6px 8px;
+  }
+
+  .cover-signature strong {
+    font-size: 0.78rem;
+  }
+
+  .results__grid.output-clean-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.34fr) minmax(0, 0.66fr);
+    gap: 6px;
+    align-items: start;
+  }
+
+  .output-clean-grid > .output-summary-card {
+    grid-column: 1;
+  }
+
+  .output-clean-grid > .output-training-card {
+    grid-column: 2;
+  }
+
+  .output-clean-grid > .output-program-card {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+  }
+
+  .output-clean-grid > .output-summary-card,
+  .output-clean-grid > .output-training-card,
+  .output-clean-grid > .output-program-card {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  .output-summary-card,
+  .output-training-card {
+    margin-bottom: 6px;
+    padding: 8px;
+  }
+
+  .output-summary-card h3,
+  .output-training-card h3 {
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+    line-height: 1.15;
+  }
+
+  .output-summary-card .metric-grid {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .output-summary-card .metric-item {
+    padding: 5px 6px;
+  }
+
+  .output-summary-card .metric-item strong,
+  .output-summary-card .metric-item span {
+    font-size: 0.62rem;
+    line-height: 1.2;
+  }
+
+  .output-training-card .training-report-grid,
+  .output-training-card .training-report-block {
+    gap: 4px;
+  }
+
+  .output-training-card .training-report-card,
+  .output-training-card .training-progression-card,
+  .output-training-card .training-expected-card {
+    border-radius: 10px;
+    padding: 5px;
+  }
+
+  .output-training-card .training-report-card strong,
+  .output-training-card .training-progression-card strong,
+  .output-training-card .training-expected-card strong {
+    font-size: 0.62rem;
+    line-height: 1.2;
+  }
+
+  .output-training-card .training-report-card p,
+  .output-training-card .training-progression-card p,
+  .output-training-card .training-expected-card p {
+    margin-top: 2px;
+    font-size: 0.55rem;
+    line-height: 1.22;
+  }
+
+  .output-training-card .training-progression-card span {
+    width: 16px;
+    height: 16px;
+    margin-bottom: 2px;
+    border-radius: 6px;
+    font-size: 0.55rem;
+  }
+
+  .output-training-card .training-expected-card > div:first-child {
+    gap: 4px;
+  }
+
+  .output-training-card .training-expected-card span {
+    font-size: 0.55rem;
+  }
+
+  .output-training-card .training-expected-card__bar {
+    height: 6px;
+    margin-top: 4px;
   }
 
   .metric-item,
