@@ -15,6 +15,7 @@
 
 console.log("APP VERSION: v1.0.12");
 console.log("UI VERSION: redesign-v1");
+console.log("TANITA REPORT VERSION: ultra-pro-v2");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -817,12 +818,18 @@ function buildMeasurementReportModel() {
   const segmentalValues = buildSegmentalReportValues(measurement);
   const impedanceValues = buildImpedanceReportValues(measurement);
   const indicators = buildHealthIndicatorValues(measurement);
+  const scoreBreakdown = buildUltraProScoreBreakdown(measurement);
   const summary = buildMeasurementExecutiveSummary(measurement, indicators, previousMeasurements);
-  const scoreCards = buildMeasurementScoreCards(measurement, indicators);
+  const scoreCards = buildMeasurementScoreCards(measurement, scoreBreakdown);
   const segmentalAnalysis = buildSegmentalAnalysisModel(measurement, segmentalValues);
+  const targetDistance = buildTargetDistanceModel(measurement);
   const trends = buildTrendReportValues(measurement, previousMeasurements);
   const interpretation = buildMeasurementCoachInterpretation(measurement, previousMeasurements);
   const coachPlan = buildMeasurementCoachPlan(measurement, previousMeasurements, segmentalAnalysis);
+  const nextGoals = buildNextMeasurementGoals(measurement, targetDistance, segmentalAnalysis);
+  summary.score = scoreBreakdown.overall.score;
+  summary.status = scoreBreakdown.overall.status;
+  summary.riskLevel = scoreBreakdown.overall.statusLabel;
 
   return {
     member,
@@ -830,15 +837,18 @@ function buildMeasurementReportModel() {
     measurement,
     previousMeasurements,
     summary,
+    scoreBreakdown,
     scoreCards,
     bodyValues,
     segmentalValues,
     segmentalAnalysis,
+    targetDistance,
     impedanceValues,
     indicators,
     trends,
     interpretation,
     coachPlan,
+    nextGoals,
   };
 }
 
@@ -858,6 +868,7 @@ function getPreviousMeasurementsForReport(member, measurement) {
 
 function buildBodyCompositionValues(measurement) {
   const weight = measurementValue(measurement.weight);
+  const fatPercent = measurementValue(measurement.fat);
   const fatMass = measurementValue(measurement.fatMass);
   const bodyWaterKg = calculateBodyWaterKg(measurement);
   const fatFreeMass = measurementValue(measurement.fatFreeMass) || (weight && fatMass ? roundReportNumber(weight - fatMass) : "");
@@ -880,6 +891,7 @@ function buildBodyCompositionValues(measurement) {
       reference: idealWeightRange ? `${formatReportValue(idealWeightRange.min, "kg")} - ${formatReportValue(idealWeightRange.max, "kg")}` : "Boy bilgisiyle hesaplanır",
       normalStart: idealWeightRange ? reportPercent(idealWeightRange.min, maxValue) : 28,
       normalEnd: idealWeightRange ? reportPercent(idealWeightRange.max, maxValue) : 62,
+      explanation: "BMI ve ideal kilo aralığıyla birlikte okunur; tek başına performans göstergesi değildir.",
     },
     {
       label: "Yağ kütlesi",
@@ -891,6 +903,19 @@ function buildBodyCompositionValues(measurement) {
       reference: "Yağ oranı ve hedefe göre takip",
       normalStart: 8,
       normalEnd: 32,
+      explanation: "Toplam yağ ağırlığını gösterir; hedefe göre kontrollü azaltım veya koruma planlanır.",
+    },
+    {
+      label: "Yağ %",
+      value: fatPercent,
+      unit: "%",
+      color: "orange",
+      percent: reportPercent(fatPercent, 60),
+      ...fatStatus,
+      reference: "Cinsiyet ve hedefe göre yorumlanır",
+      normalStart: 26,
+      normalEnd: 52,
+      explanation: "Vücut kompozisyon hedefini belirleyen ana ölçümdür.",
     },
     {
       label: "Sıvı kg",
@@ -902,6 +927,7 @@ function buildBodyCompositionValues(measurement) {
       reference: "%50 - %65 ideal takip aralığı",
       normalStart: 32,
       normalEnd: 58,
+      explanation: "Hidrasyon ve yağsız kütle kalitesi için destekleyici göstergedir.",
     },
     {
       label: "Yağsız kütle",
@@ -914,6 +940,7 @@ function buildBodyCompositionValues(measurement) {
       reference: "Kas, su ve mineral toplamı",
       normalStart: 52,
       normalEnd: 84,
+      explanation: "Kas, su ve mineral toplamı olduğu için kas koruma hedefiyle birlikte takip edilir.",
     },
     {
       label: "Kas kütlesi",
@@ -925,6 +952,7 @@ function buildBodyCompositionValues(measurement) {
       reference: "Kilo oranına göre değerlendirilir",
       normalStart: 45,
       normalEnd: 78,
+      explanation: "Direnç antrenmanı ve protein hedefi için ana takip değerlerinden biridir.",
     },
     {
       label: "Kemik kütlesi",
@@ -937,6 +965,7 @@ function buildBodyCompositionValues(measurement) {
       reference: "Cihaz ölçümü, trend olarak izlenir",
       normalStart: 6,
       normalEnd: 18,
+      explanation: "Tek ölçümden çok ölçüm trendi olarak izlenmesi daha güvenilirdir.",
     },
   ];
 }
@@ -1052,6 +1081,113 @@ function buildIndicator(label, rawValue, unit, evaluator, explanation = "", reco
   return { title: label, value, unit, explanation, recommendation, ...result };
 }
 
+function buildUltraProScoreBreakdown(measurement) {
+  const fat = calculateFatScore(measurement);
+  const muscle = calculateMuscleScore(measurement);
+  const balance = calculateBalanceScore(measurement);
+  const metabolic = calculateMetabolicScore(measurement);
+  const overall = calculateOverallScore(measurement);
+
+  return {
+    fat: buildScoreObject("Yağ Skoru", fat, "Yağ oranı ve visceral yağ birlikte değerlendirilir."),
+    muscle: buildScoreObject("Kas Skoru", muscle, "Kas kütlesinin vücut ağırlığına oranı dikkate alınır."),
+    balance: buildScoreObject("Denge Skoru", balance, "Sağ-sol segmental kas/yağ farkları üzerinden hesaplanır."),
+    metabolic: buildScoreObject("Metabolik Skor", metabolic, "BMI, visceral yağ, vücut suyu ve metabolizma yaşı birlikte okunur."),
+    overall: buildScoreObject("Genel Skor", overall, "Tüm skorların ağırlıklı ortalamasıdır."),
+  };
+}
+
+function buildScoreObject(title, score, text) {
+  const normalizedScore = Math.max(0, Math.min(100, Math.round(Number(score) || 0)));
+  const status = normalizedScore >= 82 ? "normal" : normalizedScore >= 66 ? "warning" : normalizedScore >= 1 ? "risk" : "neutral";
+  const statusLabel = normalizedScore >= 82 ? "İyi" : normalizedScore >= 66 ? "Dikkat" : normalizedScore >= 1 ? "Yüksek takip" : "Veri yok";
+
+  return {
+    title,
+    score: normalizedScore,
+    status,
+    statusLabel,
+    text,
+  };
+}
+
+function calculateFatScore(measurement) {
+  const fat = measurementValue(measurement?.fat);
+  const visceral = measurementValue(measurement?.visceralFat);
+
+  if (fat === "" && visceral === "") {
+    return 65;
+  }
+
+  const fatStatus = fat === "" ? 72 : evaluateBodyFat(fat, measurement?.gender);
+  const fatBase = fatStatus.status === "normal" ? 92 : fatStatus.status === "warning" ? 70 : 46;
+  const visceralBase = visceral === "" ? 72 : visceral <= 9 ? 94 : visceral <= 12 ? 72 : 42;
+  return Math.round(fatBase * 0.72 + visceralBase * 0.28);
+}
+
+function calculateMuscleScore(measurement) {
+  const muscle = measurementValue(measurement?.muscleMass);
+  const weight = measurementValue(measurement?.weight);
+
+  if (muscle === "" || !weight) {
+    return 65;
+  }
+
+  const ratio = (muscle / weight) * 100;
+  if (ratio >= 45) return 94;
+  if (ratio >= 40) return 84;
+  if (ratio >= 35) return 68;
+  return 48;
+}
+
+function calculateBalanceScore(measurement) {
+  const segments = measurement?.segments || {};
+  const diffs = [
+    segmentDiffPercent(segments.rightArmMuscle, segments.leftArmMuscle),
+    segmentDiffPercent(segments.rightLegMuscle, segments.leftLegMuscle),
+    segmentDiffPercent(segments.rightArmFat, segments.leftArmFat),
+    segmentDiffPercent(segments.rightLegFat, segments.leftLegFat),
+  ].filter((value) => Number.isFinite(Number(value)));
+
+  if (!diffs.length) {
+    return 65;
+  }
+
+  const maxDiff = Math.max(...diffs);
+  if (maxDiff <= 5) return 96;
+  if (maxDiff <= 10) return 84;
+  if (maxDiff <= 16) return 68;
+  return 48;
+}
+
+function calculateMetabolicScore(measurement) {
+  const visceral = measurementValue(measurement?.visceralFat);
+  const bmi = measurementValue(measurement?.bmi) || calculateBmiFromWeightHeight(measurement?.weight, measurement?.height);
+  const bodyWater = measurementValue(measurement?.bodyWater);
+  const metabolicAge = measurementValue(measurement?.metabolicAge);
+  const age = measurementValue(measurement?.age);
+  const scores = [];
+
+  if (visceral !== "") scores.push(visceral <= 9 ? 94 : visceral <= 12 ? 72 : 42);
+  if (bmi !== "") scores.push(evaluateBmi(bmi).status === "normal" ? 92 : evaluateBmi(bmi).status === "warning" ? 70 : 48);
+  if (bodyWater !== "") scores.push(evaluateBodyWater(bodyWater).status === "normal" ? 90 : evaluateBodyWater(bodyWater).status === "warning" ? 70 : 48);
+  if (metabolicAge !== "" && age !== "") scores.push(metabolicAge <= age ? 92 : metabolicAge <= age + 5 ? 72 : 48);
+
+  if (!scores.length) {
+    return 65;
+  }
+
+  return Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length);
+}
+
+function calculateOverallScore(measurement) {
+  const fat = calculateFatScore(measurement);
+  const muscle = calculateMuscleScore(measurement);
+  const balance = calculateBalanceScore(measurement);
+  const metabolic = calculateMetabolicScore(measurement);
+  return Math.round(fat * 0.28 + muscle * 0.25 + balance * 0.22 + metabolic * 0.25);
+}
+
 function buildMeasurementExecutiveSummary(measurement, indicators, previousMeasurements) {
   const riskCount = indicators.filter((item) => item.status === "risk").length;
   const warningCount = indicators.filter((item) => item.status === "warning").length;
@@ -1090,43 +1226,19 @@ function buildMeasurementExecutiveSummary(measurement, indicators, previousMeasu
   };
 }
 
-function buildMeasurementScoreCards(measurement, indicators) {
-  const findIndicator = (title) => indicators.find((item) => item.title === title) || { status: "neutral", statusLabel: "Veri yok", value: "", unit: "" };
-  const bmi = findIndicator("BMI");
-  const fat = findIndicator("Yağ oranı");
-  const muscle = findIndicator("Kas kütlesi");
-  const visceral = findIndicator("Visceral yağ");
-
+function buildMeasurementScoreCards(measurement, scoreBreakdown) {
   return [
-    {
-      title: "Kilo / BMI durumu",
-      value: formatReportValue(measurement.bmi, ""),
-      status: bmi.status,
-      statusLabel: bmi.statusLabel,
-      text: bmi.status === "normal" ? "Boy-kilo oranı referans aralıkta." : "Boy-kilo oranı kompozisyonla birlikte izlenmeli.",
-    },
-    {
-      title: "Yağ oranı durumu",
-      value: formatReportValue(measurement.fat, "%"),
-      status: fat.status,
-      statusLabel: fat.statusLabel,
-      text: fat.status === "risk" ? "Yağ oranı öncelikli takip alanı." : "Yağ oranı hedefe göre yönetilebilir.",
-    },
-    {
-      title: "Kas kütlesi durumu",
-      value: formatReportValue(measurement.muscleMass, "kg"),
-      status: muscle.status,
-      statusLabel: muscle.statusLabel,
-      text: muscle.status === "warning" ? "Kuvvet ve protein hedefi desteklenmeli." : "Kas kütlesi düzenli antrenmanla korunmalı.",
-    },
-    {
-      title: "Visceral yağ durumu",
-      value: formatReportValue(measurement.visceralFat, ""),
-      status: visceral.status,
-      statusLabel: visceral.statusLabel,
-      text: visceral.status === "normal" ? "İç yağlanma kontrol altında görünüyor." : "Kardiyo ve beslenme takibi artırılmalı.",
-    },
-  ];
+    scoreBreakdown.fat,
+    scoreBreakdown.muscle,
+    scoreBreakdown.balance,
+    scoreBreakdown.metabolic,
+  ].map((item) => ({
+    title: item.title,
+    value: `${item.score}`,
+    status: item.status,
+    statusLabel: item.statusLabel,
+    text: item.text,
+  }));
 }
 
 function buildSegmentalAnalysisModel(measurement, segmentalValues) {
@@ -1168,8 +1280,180 @@ function buildSegmentalAnalysisModel(measurement, segmentalValues) {
     armDiff,
     legDiff,
     trunkFatShare,
+    symmetryBars: buildSegmentalSymmetryBars(measurement),
+    heatmap: buildSegmentalHeatmap(measurement, armDiff, legDiff, trunkFatShare),
     interpretations,
   };
+}
+
+function buildSegmentalSymmetryBars(measurement) {
+  const segments = measurement?.segments || {};
+  return [
+    buildSymmetryBar("Kol kas simetrisi", segments.rightArmMuscle, segments.leftArmMuscle, "Sağ kol", "Sol kol", "muscle"),
+    buildSymmetryBar("Bacak kas simetrisi", segments.rightLegMuscle, segments.leftLegMuscle, "Sağ bacak", "Sol bacak", "muscle"),
+    buildSymmetryBar("Kol yağ simetrisi", segments.rightArmFat, segments.leftArmFat, "Sağ kol", "Sol kol", "fat"),
+    buildSymmetryBar("Bacak yağ simetrisi", segments.rightLegFat, segments.leftLegFat, "Sağ bacak", "Sol bacak", "fat"),
+  ];
+}
+
+function buildSymmetryBar(title, rightValue, leftValue, rightLabel, leftLabel, type) {
+  const right = measurementValue(rightValue);
+  const left = measurementValue(leftValue);
+  const total = right !== "" && left !== "" ? right + left : 0;
+  const diff = segmentDiffPercent(right, left) || 0;
+  const status = diff <= 5 ? "normal" : diff <= 12 ? "warning" : "risk";
+
+  return {
+    title,
+    rightLabel,
+    leftLabel,
+    right,
+    left,
+    type,
+    diff,
+    status,
+    rightPercent: total ? Math.round((right / total) * 100) : 50,
+    leftPercent: total ? Math.round((left / total) * 100) : 50,
+  };
+}
+
+function buildSegmentalHeatmap(measurement, armDiff, legDiff, trunkFatShare) {
+  const segments = measurement?.segments || {};
+  const trunkFat = measurementValue(segments.trunkFat);
+  const trunkMuscle = measurementValue(segments.trunkMuscle);
+  const limbMuscleValues = [segments.rightArmMuscle, segments.leftArmMuscle, segments.rightLegMuscle, segments.leftLegMuscle].map(measurementValue).filter((value) => value !== "");
+  const avgLimbMuscle = limbMuscleValues.length ? limbMuscleValues.reduce((sum, value) => sum + value, 0) / limbMuscleValues.length : "";
+  const trunkDominance = trunkMuscle !== "" && avgLimbMuscle ? trunkMuscle / avgLimbMuscle : "";
+
+  return [
+    {
+      title: "Kas denge heatmap",
+      status: Math.max(armDiff, legDiff) <= 5 ? "normal" : Math.max(armDiff, legDiff) <= 12 ? "warning" : "risk",
+      value: `${formatReportValue(Math.max(armDiff, legDiff), "%")} max fark`,
+      text: "Sağ-sol kas simetrisi",
+    },
+    {
+      title: "Yağ yoğunluğu",
+      status: trunkFatShare === "" ? "neutral" : trunkFatShare >= 48 ? "risk" : trunkFatShare >= 40 ? "warning" : "normal",
+      value: formatReportValue(trunkFatShare, "%"),
+      text: "Gövde yağ payı",
+    },
+    {
+      title: "Gövde yağ uyarısı",
+      status: trunkFat === "" ? "neutral" : trunkFatShare >= 45 ? "warning" : "normal",
+      value: formatReportValue(trunkFat, "kg"),
+      text: "Gövde yağ kütlesi",
+    },
+    {
+      title: "Alt ekstremite",
+      status: legDiff <= 5 ? "normal" : legDiff <= 12 ? "warning" : "risk",
+      value: formatReportValue(legDiff, "%"),
+      text: "Bacak kas farkı",
+    },
+    {
+      title: "Üst ekstremite",
+      status: armDiff <= 5 ? "normal" : armDiff <= 12 ? "warning" : "risk",
+      value: formatReportValue(armDiff, "%"),
+      text: "Kol kas farkı",
+    },
+    {
+      title: "Gövde dominansı",
+      status: trunkDominance !== "" && trunkDominance >= 4.5 ? "warning" : "neutral",
+      value: trunkDominance === "" ? "Veri yok" : `${roundReportNumber(trunkDominance, 1)}x`,
+      text: "Gövde / ekstremite oranı",
+    },
+  ];
+}
+
+function buildTargetDistanceModel(measurement) {
+  const idealWeightRange = calculateIdealWeightRange(measurement.height);
+  const fat = measurementValue(measurement.fat);
+  const weight = measurementValue(measurement.weight);
+  const fatMass = measurementValue(measurement.fatMass);
+  const muscleMass = measurementValue(measurement.muscleMass);
+  const isMale = normalizeText(measurement.gender).includes("bay") || normalizeText(measurement.gender).includes("erkek") || normalizeText(measurement.gender).includes("male");
+  const targetFatRange = isMale ? { min: 12, max: 20 } : { min: 18, max: 28 };
+  const targetFatMass = weight && fat > targetFatRange.max ? roundReportNumber((weight * targetFatRange.max) / 100) : "";
+  const fatMassReduction = fatMass !== "" && targetFatMass !== "" ? Math.max(0, roundReportNumber(fatMass - targetFatMass)) : "";
+
+  return {
+    idealWeightRange,
+    targetFatRange,
+    items: [
+      {
+        title: "Mevcut kilo",
+        value: formatReportValue(weight, "kg"),
+        target: idealWeightRange ? `${formatReportValue(idealWeightRange.min, "kg")} - ${formatReportValue(idealWeightRange.max, "kg")}` : "Boy verisi gerekli",
+        note: idealWeightRange ? "İdeal kilo aralığı BMI referansına göre hesaplanmıştır." : "Boy bilgisi olmadan ideal kilo hesaplanamaz.",
+      },
+      {
+        title: "Yağ oranı",
+        value: formatReportValue(fat, "%"),
+        target: `%${targetFatRange.min} - %${targetFatRange.max}`,
+        note: fat === "" ? "Yağ oranı verisi bulunamadı." : fat > targetFatRange.max ? "Yağ oranının kontrollü azaltılması hedeflenebilir." : "Yağ oranı hedef aralıkla uyumlu veya takip edilebilir düzeyde.",
+      },
+      {
+        title: "Kas kütlesi",
+        value: formatReportValue(muscleMass, "kg"),
+        target: "Koruma / kademeli artış",
+        note: "Yağ kaybı döneminde kas kütlesinin korunması önceliklidir.",
+      },
+      {
+        title: "Yağ kütlesi hedefi",
+        value: formatReportValue(fatMass, "kg"),
+        target: fatMassReduction !== "" ? `${formatReportValue(fatMassReduction, "kg")} kontrollü azaltım potansiyeli` : "Hedefe göre korunabilir",
+        note: `Mevcut yağ kütlesi ${formatReportValue(fatMass, "kg")}. Hedefe göre yağ kütlesinin kontrollü şekilde azaltılması veya korunması değerlendirilebilir.`,
+      },
+    ],
+  };
+}
+
+function buildNextMeasurementGoals(measurement, targetDistance, segmentalAnalysis) {
+  const fat = measurementValue(measurement?.fat);
+  const muscleMass = measurementValue(measurement?.muscleMass);
+  const bodyWater = measurementValue(measurement?.bodyWater);
+  const bmr = measurementValue(measurement?.bmr);
+  const hasWaistHip = measurementValue(measurement?.waist) !== "" && measurementValue(measurement?.hip) !== "";
+  const targetFatMax = targetDistance?.targetFatRange?.max || 28;
+  const balanceNeedsFollowUp = (segmentalAnalysis?.armDiff || 0) > 8 || (segmentalAnalysis?.legDiff || 0) > 8;
+
+  return [
+    {
+      title: "Yağ oranı takip",
+      status: fat === "" ? "neutral" : fat > targetFatMax ? "warning" : "normal",
+      text: fat === "" ? "Yağ oranı verisi yok; sonraki ölçümde takip edilmeli." : fat > targetFatMax ? "Yağ oranında kontrollü düşüş hedeflenebilir." : "Yağ oranı hedef aralıkla uyumlu şekilde izlenebilir.",
+    },
+    {
+      title: "Kas kütlesi koruma",
+      status: muscleMass === "" ? "neutral" : "normal",
+      text: muscleMass === "" ? "Kas kütlesi verisi yok; Tanita ölçümünde tekrar kontrol edilmeli." : "Direnç antrenmanı ve protein hedefiyle kas kütlesi korunmalı.",
+    },
+    {
+      title: "Segmental denge izleme",
+      status: balanceNeedsFollowUp ? "warning" : "normal",
+      text: balanceNeedsFollowUp ? "Sağ-sol fark için tek taraflı destekleyici çalışmalar eklenebilir." : "Sağ-sol segmental denge korunmuş görünüyor.",
+    },
+    {
+      title: "BMR bazlı beslenme planlama",
+      status: bmr === "" ? "neutral" : "normal",
+      text: bmr === "" ? "BMR yoksa kalori hedefi tahmini hesaplanır." : "Beslenme kalorisi BMR ve aktivite düzeyine göre planlanabilir.",
+    },
+    {
+      title: "Hidrasyon hedefi",
+      status: bodyWater === "" ? "neutral" : evaluateBodyWater(bodyWater).status,
+      text: bodyWater === "" ? "Vücut suyu verisi yok; ölçüm koşulları standart tutulmalı." : "Ölçüm öncesi sıvı dengesi ve antrenman zamanı standartlaştırılmalı.",
+    },
+    {
+      title: hasWaistHip ? "Bel/kalça takibi" : "Bel/kalça ölçümü ekle",
+      status: hasWaistHip ? "normal" : "neutral",
+      text: hasWaistHip ? "WHR ile merkez bölge değişimi izlenebilir." : "Bel ve kalça çevresi eklendiğinde rapor yorumu güçlenir.",
+    },
+    {
+      title: "14-21 gün sonra tekrar ölçüm",
+      status: "normal",
+      text: "Aynı saat, benzer hidrasyon ve benzer antrenman koşullarında tekrar ölçüm önerilir.",
+    },
+  ];
 }
 
 function buildMeasurementCoachPlan(measurement, previousMeasurements, segmentalAnalysis) {
@@ -1233,6 +1517,7 @@ function buildTrendReportValues(measurement, previousMeasurements) {
       buildTrendChart("Kas kütlesi", "muscleMass", "kg", timeline),
       buildTrendChart("Yağ kg", "fatMass", "kg", timeline),
       buildTrendChart("Vücut suyu", "bodyWater", "%", timeline),
+      buildTrendChart("BMI", "bmi", "", timeline),
     ],
     historyRows: tableTimeline.map((item, index) => buildMeasurementHistoryReportRow(item, tableTimeline[index + 1])),
     differences: [
@@ -1241,6 +1526,7 @@ function buildTrendReportValues(measurement, previousMeasurements) {
       buildDifferenceRow("Kas kütlesi", latest.muscleMass, rows[0]?.muscleMass, "kg"),
       buildDifferenceRow("Yağ kg", latest.fatMass, rows[0]?.fatMass, "kg"),
       buildDifferenceRow("Vücut suyu", latest.bodyWater, rows[0]?.bodyWater, "%"),
+      buildDifferenceRow("BMI", latest.bmi, rows[0]?.bmi, ""),
     ],
   };
 }
@@ -1250,19 +1536,49 @@ function buildTrendChart(label, key, unit, timeline) {
   const max = Math.max(...values, 1);
   const min = Math.min(...values, 0);
   const range = Math.max(max - min, 1);
+  const firstValue = values[0] ?? "";
+  const latestValue = values[values.length - 1] ?? "";
+  const delta = firstValue !== "" && latestValue !== "" ? roundReportNumber(latestValue - firstValue) : "";
+  const lowerIsBetter = ["fat", "fatMass", "bmi"].includes(key);
+  const direction = delta === "" || delta === 0 ? "stable" : delta > 0 ? "up" : "down";
+  const improved = delta === "" || delta === 0 ? "stable" : lowerIsBetter ? delta < 0 : delta > 0;
+  const status = improved === true ? "normal" : improved === false ? "warning" : "neutral";
+  const interpretation = delta === ""
+    ? "Trend için yeterli veri yok."
+    : delta === 0
+      ? "Değer stabil seyrediyor."
+      : improved
+        ? "Trend hedef yönünde ilerliyor."
+        : "Trend takip ve plan revizyonu gerektirebilir.";
+  const points = timeline.map((item, index) => {
+    const value = measurementValue(item?.[key]);
+    const x = timeline.length <= 1 ? 50 : (index / (timeline.length - 1)) * 100;
+    const y = value === "" ? 84 : 86 - ((value - min) / range) * 68;
+    const percent = value === "" ? 0 : Math.max(8, Math.min(100, ((value - min) / range) * 82 + 12));
+
+    return {
+      label: index === timeline.length - 1 ? "Son" : formatReportDate(item?.date),
+      value,
+      percent,
+      x: roundReportNumber(x, 1),
+      y: roundReportNumber(Math.max(12, Math.min(86, y)), 1),
+    };
+  });
+  const svgPoints = points.filter((point) => point.value !== "").map((point) => `${point.x},${point.y}`).join(" ");
+  const areaPoints = svgPoints ? `0,92 ${svgPoints} 100,92` : "";
 
   return {
     label,
     unit,
-    points: timeline.map((item, index) => {
-      const value = measurementValue(item?.[key]);
-      const percent = value === "" ? 0 : Math.max(8, Math.min(100, ((value - min) / range) * 82 + 12));
-      return {
-        label: index === timeline.length - 1 ? "Son" : formatReportDate(item?.date),
-        value,
-        percent,
-      };
-    }),
+    points,
+    svgPoints,
+    areaPoints,
+    firstValue,
+    latestValue,
+    delta,
+    direction,
+    status,
+    interpretation,
   };
 }
 
@@ -1298,6 +1614,8 @@ function buildMeasurementHistoryReportRow(current, previous) {
     muscleMassDelta: calculateReportDelta(current?.muscleMass, previous?.muscleMass),
     bodyWaterKg: calculateBodyWaterKg(current || {}),
     bodyWaterDelta: calculateReportDelta(calculateBodyWaterKg(current || {}), calculateBodyWaterKg(previous || {})),
+    bmi: current?.bmi,
+    bmiDelta: calculateReportDelta(current?.bmi, previous?.bmi),
   };
 }
 
@@ -1351,7 +1669,7 @@ function buildMeasurementCoachInterpretation(measurement, previousMeasurements) 
 
 // Premium report UI only, logic preserved.
 function buildMeasurementReportHtml(model) {
-  const { profile, measurement, bodyValues, segmentalAnalysis, impedanceValues, indicators, trends, interpretation, summary, scoreCards, coachPlan } = model;
+  const { profile, measurement, bodyValues, segmentalAnalysis, targetDistance, impedanceValues, indicators, trends, interpretation, summary, scoreCards, coachPlan, nextGoals } = model;
   const memberName = profile?.memberName || measurement.memberName || "Üye";
   const trainerName = profile?.trainerName || "Bahçeşehir Spor Merkezi";
   const measurementTime = measurement.time ? ` / ${measurement.time}` : "";
@@ -1359,23 +1677,27 @@ function buildMeasurementReportHtml(model) {
   const reportHeader = buildPremiumReportHeader(memberName, reportDateText);
 
   return `
-    <article class="measurement-report-page measurement-report-page--executive">
+    <article class="measurement-report-page measurement-report-page--executive measurement-report-page--ultra-cover">
       ${reportHeader}
-      <section class="measurement-report-profile">
-        ${buildReportProfileItem("Üye adı soyadı", memberName)}
-        ${buildReportProfileItem("Cinsiyet", measurement.gender || "-")}
-        ${buildReportProfileItem("Yaş", formatReportValue(measurement.age, ""))}
-        ${buildReportProfileItem("Boy", formatReportValue(measurement.height, "cm"))}
-        ${buildReportProfileItem("Kilo", formatReportValue(measurement.weight, "kg"))}
-        ${buildReportProfileItem("BMI", formatReportValue(measurement.bmi, ""))}
-        ${buildReportProfileItem("Yağ %", formatReportValue(measurement.fat, "%"))}
-        ${buildReportProfileItem("Ölçüm tarihi / saat", reportDateText)}
-        ${buildReportProfileItem("Hazırlayan / Antrenör", trainerName)}
-      </section>
-
-      <section class="premium-summary-layout">
-        ${buildExecutiveSummaryHtml(summary)}
-        <div class="premium-score-grid">
+      <section class="ultra-cover-grid">
+        <div class="ultra-cover-main">
+          ${buildExecutiveSummaryHtml(summary)}
+        </div>
+        <aside class="ultra-cover-profile">
+          <h3>Üye ve ölçüm bilgileri</h3>
+          <div class="measurement-report-profile measurement-report-profile--compact">
+            ${buildReportProfileItem("Üye adı soyadı", memberName)}
+            ${buildReportProfileItem("Cinsiyet", measurement.gender || "-")}
+            ${buildReportProfileItem("Yaş", formatReportValue(measurement.age, ""))}
+            ${buildReportProfileItem("Boy", formatReportValue(measurement.height, "cm"))}
+            ${buildReportProfileItem("Kilo", formatReportValue(measurement.weight, "kg"))}
+            ${buildReportProfileItem("BMI", formatReportValue(measurement.bmi, ""))}
+            ${buildReportProfileItem("Yağ %", formatReportValue(measurement.fat, "%"))}
+            ${buildReportProfileItem("Ölçüm tarihi / saat", reportDateText)}
+            ${buildReportProfileItem("Hazırlayan / Antrenör", trainerName)}
+          </div>
+        </aside>
+        <div class="premium-score-grid ultra-score-grid">
           ${scoreCards.map(buildPremiumScoreCardHtml).join("")}
         </div>
       </section>
@@ -1387,9 +1709,10 @@ function buildMeasurementReportHtml(model) {
       <div class="premium-reference-bars">
         ${bodyValues.map(buildMeasurementBarHtml).join("")}
       </div>
+      ${buildTargetDistanceHtml(targetDistance)}
       <div class="premium-reference-note">
         <strong>Okuma notu</strong>
-        <span>Renkler; yeşil normal, turuncu dikkat, kırmızı yüksek takip ihtiyacı, mavi/gri ise nötr referans değerleri gösterir. Referans bölgeler ölçümün yorumlanmasını kolaylaştırmak için görselleştirilmiştir.</span>
+        <span>Her bar mevcut değeri, referans bölgeyi ve kısa yorumu birlikte gösterir. Renkler; yeşil normal, turuncu dikkat, kırmızı yüksek takip ihtiyacı, mavi/gri ise nötr referans değerleri belirtir.</span>
       </div>
       ${buildPremiumReportFooter("Vücut Kompozisyonu")}
     </article>
@@ -1407,6 +1730,8 @@ function buildMeasurementReportHtml(model) {
           </div>
         </div>
       </div>
+      ${buildSegmentalSymmetryHtml(segmentalAnalysis.symmetryBars)}
+      ${buildSegmentalHeatmapHtml(segmentalAnalysis.heatmap)}
       <div class="premium-interpretation-grid">
         ${segmentalAnalysis.interpretations.map((text) => `<article><strong>Segmental yorum</strong><p>${escapeHtml(text)}</p></article>`).join("")}
       </div>
@@ -1437,7 +1762,7 @@ function buildMeasurementReportHtml(model) {
           ? `
             <div class="premium-history-table">
               <div class="premium-history-table__head">
-                <span>Ölçüm tarihi</span><span>Kilo / fark</span><span>Yağ kg / fark</span><span>Yağ % / fark</span><span>Kas kg / fark</span><span>Sıvı kg / fark</span>
+                <span>Ölçüm tarihi</span><span>Kilo / fark</span><span>Yağ kg / fark</span><span>Yağ % / fark</span><span>Kas kg / fark</span><span>Sıvı kg / fark</span><span>BMI / fark</span>
               </div>
               ${trends.historyRows.map(buildHistoryRowHtml).join("")}
             </div>
@@ -1472,6 +1797,7 @@ function buildMeasurementReportHtml(model) {
           ${interpretation.map(buildCoachInterpretationHtml).join("")}
         </div>
       </div>
+      ${buildNextGoalsHtml(nextGoals)}
       ${buildPremiumReportFooter("Koç Değerlendirmesi")}
     </article>
   `;
@@ -1486,9 +1812,9 @@ function buildPremiumReportHeader(memberName, reportDateText) {
         <span>Performans & Ölçüm</span>
       </div>
       <div>
-        <p class="section-kicker">Bahçeşehir Spor Merkezi</p>
-        <h1>Tanita BC-418 Bölümlendirilmiş Vücut Analizi</h1>
-        <span>${escapeHtml(memberName)} için hazırlanmış modern ve okunabilir vücut kompozisyon raporu.</span>
+        <p class="section-kicker">Bahçeşehir Spor Merkezi • Ultra Pro V2</p>
+        <h1>Tanita BC-418 Performans ve Vücut Kompozisyon Raporu</h1>
+        <span>${escapeHtml(memberName)} için hazırlanmış Ultra Pro spor performans ve vücut analizi raporu.</span>
       </div>
       <div class="measurement-report-stamp">
         <strong>${escapeHtml(reportDateText)}</strong>
@@ -1548,6 +1874,7 @@ function buildMeasurementBarHtml(item) {
         <strong>${escapeHtml(formatReportValueText(item.value, item.unit))}</strong>
         <em>${escapeHtml(item.statusLabel || "Takip")}</em>
       </div>
+      <p class="measurement-bar__note">${escapeHtml(item.explanation || "Bu değer ölçüm dosyasında bulunamadı.")}</p>
     </div>
   `;
 }
@@ -1616,6 +1943,130 @@ function buildSegmentalSilhouetteHtml(segmentalAnalysis) {
   `;
 }
 
+function buildTargetDistanceHtml(targetDistance) {
+  if (!targetDistance?.items?.length) {
+    return "";
+  }
+
+  return `
+    <section class="ultra-target-distance">
+      <div class="ultra-section-title">
+        <span>Hedefe Uzaklık</span>
+        <strong>Mevcut değerler hedef aralıklarla karşılaştırılır.</strong>
+      </div>
+      <div class="ultra-target-grid">
+        ${targetDistance.items
+          .map(
+            (item) => `
+              <article class="ultra-target-card">
+                <span>${escapeHtml(item.title)}</span>
+                <strong>${escapeHtml(item.value || "Veri yok")}</strong>
+                <em>Hedef: ${escapeHtml(item.target || "Takip")}</em>
+                <p>${escapeHtml(item.note || "Bu değer ölçüm dosyasında bulunamadı.")}</p>
+              </article>
+            `,
+          )
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
+function buildSegmentalSymmetryHtml(symmetryBars) {
+  if (!symmetryBars?.length) {
+    return "";
+  }
+
+  return `
+    <section class="ultra-symmetry-panel">
+      <div class="ultra-section-title">
+        <span>Sağ-Sol Karşılaştırma</span>
+        <strong>Fark azaldıkça segmental denge skoru güçlenir.</strong>
+      </div>
+      <div class="ultra-symmetry-grid">
+        ${symmetryBars.map(buildSymmetryBarHtml).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function buildSymmetryBarHtml(item) {
+  return `
+    <article class="ultra-symmetry-card ultra-symmetry-card--${escapeHtml(item.status)}">
+      <div>
+        <strong>${escapeHtml(item.title)}</strong>
+        <em>${escapeHtml(formatReportValue(item.diff, "%"))} fark</em>
+      </div>
+      <div class="ultra-symmetry-track">
+        <span style="width: ${item.rightPercent}%"></span>
+        <i style="width: ${item.leftPercent}%"></i>
+      </div>
+      <div class="ultra-symmetry-values">
+        <span>${escapeHtml(item.rightLabel)}: ${escapeHtml(formatReportValue(item.right, item.type === "fat" ? "kg" : "kg"))}</span>
+        <span>${escapeHtml(item.leftLabel)}: ${escapeHtml(formatReportValue(item.left, item.type === "fat" ? "kg" : "kg"))}</span>
+      </div>
+    </article>
+  `;
+}
+
+function buildSegmentalHeatmapHtml(heatmap) {
+  if (!heatmap?.length) {
+    return "";
+  }
+
+  return `
+    <section class="ultra-heatmap-panel">
+      <div class="ultra-section-title">
+        <span>Segmental Heatmap</span>
+        <strong>Kas dengesi, yağ yoğunluğu ve gövde dağılımı hızlı okunur.</strong>
+      </div>
+      <div class="ultra-heatmap-grid">
+        ${heatmap.map(buildHeatmapBadgeHtml).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function buildHeatmapBadgeHtml(item) {
+  return `
+    <article class="ultra-heatmap-badge ultra-heatmap-badge--${escapeHtml(item.status)}">
+      <span>${escapeHtml(item.title)}</span>
+      <strong>${escapeHtml(item.value || "Veri yok")}</strong>
+      <small>${escapeHtml(item.text || "Takip")}</small>
+    </article>
+  `;
+}
+
+function buildNextGoalsHtml(nextGoals) {
+  if (!nextGoals?.length) {
+    return "";
+  }
+
+  return `
+    <section class="ultra-next-goals">
+      <div class="ultra-section-title">
+        <span>Sonraki Ölçüm Hedefleri</span>
+        <strong>14-21 günlük takip döngüsü için uygulanabilir kontrol listesi.</strong>
+      </div>
+      <div class="ultra-next-goal-grid">
+        ${nextGoals
+          .map(
+            (goal) => `
+              <article class="ultra-next-goal ultra-next-goal--${escapeHtml(goal.status)}">
+                <b aria-hidden="true"></b>
+                <div>
+                  <strong>${escapeHtml(goal.title)}</strong>
+                  <p>${escapeHtml(goal.text)}</p>
+                </div>
+              </article>
+            `,
+          )
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
 function buildCoachInterpretationHtml(item) {
   return `
     <article>
@@ -1663,22 +2114,32 @@ function buildPremiumScoreCardHtml(card) {
 }
 
 function buildTrendChartHtml(chart) {
-  return `
-    <article class="measurement-trend-card">
-      <strong>${escapeHtml(chart.label)}</strong>
-      <div class="measurement-trend-bars">
+  const deltaText = chart.delta === "" ? "-" : `${chart.delta > 0 ? "+" : ""}${formatReportValue(chart.delta, chart.unit)}`;
+  const lineHtml = chart.svgPoints
+    ? `
+      <svg class="ultra-trend-svg" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(chart.label)} trend grafiği">
+        <polygon points="${escapeHtml(chart.areaPoints)}"></polygon>
+        <polyline points="${escapeHtml(chart.svgPoints)}"></polyline>
         ${chart.points
-          .map(
-            (point) => `
-              <div>
-                <i style="height: ${point.percent}%"></i>
-                <span>${escapeHtml(formatReportValue(point.value, chart.unit))}</span>
-                <small>${escapeHtml(point.label)}</small>
-              </div>
-            `,
-          )
+          .filter((point) => point.value !== "")
+          .map((point) => `<circle cx="${point.x}" cy="${point.y}" r="2.3"></circle>`)
           .join("")}
+      </svg>
+    `
+    : `<div class="ultra-trend-empty">Trend için veri yok</div>`;
+
+  return `
+    <article class="measurement-trend-card ultra-trend-card ultra-trend-card--${escapeHtml(chart.status)}">
+      <div class="ultra-trend-card__head">
+        <strong>${escapeHtml(chart.label)}</strong>
+        <em>${escapeHtml(deltaText)}</em>
       </div>
+      ${lineHtml}
+      <div class="ultra-trend-card__meta">
+        <span>İlk: ${escapeHtml(formatReportValue(chart.firstValue, chart.unit))}</span>
+        <span>Son: ${escapeHtml(formatReportValue(chart.latestValue, chart.unit))}</span>
+      </div>
+      <p>${escapeHtml(chart.interpretation)}</p>
     </article>
   `;
 }
@@ -1692,6 +2153,7 @@ function buildHistoryRowHtml(row) {
       <strong>${escapeHtml(formatHistoryValueWithDelta(row.fat, row.fatDelta, "%"))}</strong>
       <strong>${escapeHtml(formatHistoryValueWithDelta(row.muscleMass, row.muscleMassDelta, "kg"))}</strong>
       <strong>${escapeHtml(formatHistoryValueWithDelta(row.bodyWaterKg, row.bodyWaterDelta, "kg"))}</strong>
+      <strong>${escapeHtml(formatHistoryValueWithDelta(row.bmi, row.bmiDelta, ""))}</strong>
     </div>
   `;
 }
