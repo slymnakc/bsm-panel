@@ -16,6 +16,7 @@
 console.log("APP VERSION: v1.0.14");
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
+console.log("MEASUREMENT TAB VERSION: v1");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -313,6 +314,11 @@ const exerciseGifModalTitle = document.querySelector("#exerciseGifModalTitle");
 const exerciseGifModalGroup = document.querySelector("#exerciseGifModalGroup");
 const studioNav = document.querySelector(".studio-nav");
 const screenPanels = [...document.querySelectorAll("[data-screen]")];
+const measurementsPanel = document.querySelector("#measurementsPanel");
+const measurementTabMount = document.querySelector("#measurementTabMount");
+const measurementTabNotice = document.querySelector("#measurementTabNotice");
+const measurementActiveMemberCard = document.querySelector("#measurementActiveMemberCard");
+const openMeasurementTabButton = document.querySelector("#openMeasurementTabButton");
 const nutritionPanel = document.querySelector("#nutritionPanel");
 const nutritionMemberSummary = document.querySelector("#nutritionMemberSummary");
 const nutritionPlanEditor = document.querySelector("#nutritionPlanEditor");
@@ -400,6 +406,7 @@ const tanitaImportStatus = document.querySelector("#tanitaImportStatus");
 const tanitaPreview = document.querySelector("#tanitaPreview");
 const saveTanitaMeasurementButton = document.querySelector("#saveTanitaMeasurementButton");
 const buildMeasurementReportButton = document.querySelector("#buildMeasurementReportButton");
+const measurementTabPdfButton = document.querySelector("#measurementTabPdfButton");
 const measurementReportSection = document.querySelector("#measurementReportSection");
 const measurementReportContent = document.querySelector("#measurementReportContent");
 const measurementReportBackButton = document.querySelector("#measurementReportBackButton");
@@ -564,6 +571,7 @@ function initialize() {
   populateProgramStyleOptions();
   initializeStateFromStorage();
   prepareOutputLayout();
+  prepareMeasurementTabLayout();
   syncStartupUi();
   bindApplicationHandlers();
   hydrateInitialSession();
@@ -737,6 +745,23 @@ function prepareOutputLayout() {
   }
 }
 
+function prepareMeasurementTabLayout() {
+  if (!measurementTabMount) {
+    return;
+  }
+
+  const measurementWorkspaceCard = document.querySelector('[data-workspace-panel="measurements"]');
+
+  if (!measurementWorkspaceCard || measurementWorkspaceCard.parentElement === measurementTabMount) {
+    return;
+  }
+
+  // UI-only refactor, logic preserved: measurement inputs/buttons keep their ids and existing handlers.
+  measurementWorkspaceCard.classList.remove("is-hidden");
+  measurementWorkspaceCard.classList.add("measurement-module-card");
+  measurementTabMount.appendChild(measurementWorkspaceCard);
+}
+
 function setResultCardTitle(card, title) {
   const titleElement = card?.querySelector("h3");
 
@@ -780,8 +805,7 @@ function handleBuildMeasurementReport() {
 }
 
 function handleMeasurementReportBack() {
-  setActiveScreen("builder", { silent: true });
-  setWorkspaceView("measurements");
+  setActiveScreen("measurements", { silent: true });
 }
 
 function handlePrintMeasurementReport() {
@@ -2631,8 +2655,7 @@ function handleWorkflowAssistantAction(event) {
   }
 
   if (action === "measurements") {
-    setActiveScreen("builder", { userTriggered: true, silent: true });
-    setWorkspaceView("measurements");
+    setActiveScreen("measurements", { userTriggered: true, silent: true });
     measurementDate?.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
@@ -2666,6 +2689,7 @@ function bindApplicationHandlers() {
   workflowAssistant?.addEventListener("click", handleWorkflowAssistantAction);
   form?.addEventListener("input", renderWorkflowAssistant);
   form?.addEventListener("change", renderWorkflowAssistant);
+  openMeasurementTabButton?.addEventListener("click", () => setActiveScreen("measurements", { userTriggered: true, silent: true }));
   bindFormHandlers(
     {
       form,
@@ -2740,8 +2764,9 @@ function bindApplicationHandlers() {
   restoreHiddenExercisesButton?.addEventListener("click", handleRestoreHiddenExercises);
   exerciseLibraryEl?.addEventListener("click", handleLibraryExerciseAction);
   customExerciseList?.addEventListener("click", handleLibraryExerciseAction);
-  buildMeasurementReportButton?.addEventListener("click", handleBuildMeasurementReport);
-  measurementReportBackButton?.addEventListener("click", handleMeasurementReportBack);
+buildMeasurementReportButton?.addEventListener("click", handleBuildMeasurementReport);
+measurementTabPdfButton?.addEventListener("click", handlePrintMeasurementReport);
+measurementReportBackButton?.addEventListener("click", handleMeasurementReportBack);
   measurementReportPdfButton?.addEventListener("click", handlePrintMeasurementReport);
   measurementReportPrintButton?.addEventListener("click", handlePrintMeasurementReport);
   document.addEventListener("click", handleExerciseGifModalClick);
@@ -3120,7 +3145,7 @@ function populateProgramStyleOptions() {
 
 function setActiveScreen(screen, options = {}) {
   const { userTriggered = false, silent = false } = options;
-  const normalized = ["dashboard", "builder", "nutrition", "library", "output", "measurement-report"].includes(screen) ? screen : "dashboard";
+  const normalized = ["dashboard", "builder", "measurements", "nutrition", "library", "output", "measurement-report"].includes(screen) ? screen : "dashboard";
 
   if (normalized === "output" && !state.activeProgram) {
     if (userTriggered && !silent) {
@@ -3135,6 +3160,10 @@ function setActiveScreen(screen, options = {}) {
     renderMeasurementReport();
   }
 
+  if (normalized === "measurements") {
+    renderMeasurementTabStatus();
+  }
+
   screenPanels.forEach((panel) => {
     panel.classList.toggle("is-hidden", panel.dataset.screen !== normalized);
   });
@@ -3146,6 +3175,7 @@ function setActiveScreen(screen, options = {}) {
   const hashMap = {
     dashboard: "#dashboardPanel",
     builder: "#plannerForm",
+    measurements: "#measurementsPanel",
     nutrition: "#nutritionPanel",
     library: "#libraryPanel",
     output: "#resultsSection",
@@ -3179,6 +3209,10 @@ function inferScreenFromHash(hashValue) {
     return "measurement-report";
   }
 
+  if (hash.includes("measurementspanel")) {
+    return "measurements";
+  }
+
   if (hash.includes("plannerform") || hash.includes("member") || hash.includes("measurement")) {
     return "builder";
   }
@@ -3188,10 +3222,14 @@ function inferScreenFromHash(hashValue) {
 
 
 function setWorkspaceView(view) {
-  const normalized = ["members", "measurements", "history", "v3"].includes(view) ? view : "members";
+  const normalized = ["members", "history", "v3"].includes(view) ? view : "members";
   state.activeWorkspaceView = normalized;
 
   workspacePanels.forEach((panel) => {
+    if (!panel.closest(".member-workspace")) {
+      return;
+    }
+
     panel.classList.toggle("is-hidden", panel.dataset.workspacePanel !== normalized);
   });
 
@@ -3272,7 +3310,11 @@ function upsertMemberFromCurrentForm(options = {}) {
     if (!options.silent) {
       showStatus("Üye dosyası kaydetmek için en az üye adı veya üye no girin.", "error");
     } else {
-      showStatus("Programı geçmişe kaydetmek için önce üye adı veya üye no girin.", "error");
+      const silentMessage =
+        state.activeScreen === "measurements"
+          ? "Ölçüm kaydetmek için önce üye seçin veya Üye ve Program sekmesinde yeni üye oluşturun."
+          : "Programı geçmişe kaydetmek için önce üye adı veya üye no girin.";
+      showStatus(silentMessage, "error");
     }
     return null;
   }
@@ -3335,6 +3377,7 @@ function loadMember(member) {
 function renderMemberWorkspace() {
   renderDashboard();
   renderWorkflowAssistant();
+  renderMeasurementTabStatus();
   renderWorkspacePanels();
   renderNutritionWorkspace();
   renderNutritionOutput();
@@ -3429,6 +3472,40 @@ function renderWorkflowAssistant() {
       <button type="button" class="primary-button mini-button" data-workflow-action="output">Çıktı / PDF</button>
     </div>
   `;
+}
+
+function renderMeasurementTabStatus() {
+  const member = findActiveMember();
+  const profile = member?.profile || {};
+  const latestMeasurement = member?.measurements?.[0] || state.latestMeasurement || null;
+  const memberName = profile.memberName || "Aktif üye yok";
+  const latestMeasurementText = latestMeasurement
+    ? `${latestMeasurement.date || "Tarih yok"} • ${formatWorkflowMetric(latestMeasurement.weight, "kg") || "Kilo yok"} • ${
+        formatWorkflowMetric(latestMeasurement.fat, "yağ") || "Yağ yok"
+      }`
+    : "Henüz kayıtlı ölçüm yok";
+
+  if (measurementActiveMemberCard) {
+    measurementActiveMemberCard.innerHTML = member
+      ? `
+        <strong>${escapeHtml(memberName)}</strong>
+        <span>${escapeHtml(profile.memberCode || "Üye no yok")} • ${escapeHtml(labelMaps.goal[profile.goal] || "Hedef belirtilmedi")}</span>
+        <small>${escapeHtml(latestMeasurementText)}</small>
+      `
+      : `
+        <strong>Önce üye seçin veya yeni üye oluşturun.</strong>
+        <span>Üye ve Program sekmesinden aktif üye seçildiğinde burada görünür.</span>
+      `;
+  }
+
+  if (measurementTabNotice) {
+    measurementTabNotice.textContent = member
+      ? "Aktif üye seçildi. Tanita CSV yükleyebilir, manuel ölçüm girebilir veya son ölçüm raporunu oluşturabilirsiniz."
+      : "Önce üye seçin veya yeni üye oluşturun.";
+    measurementTabNotice.dataset.state = member ? "ready" : "empty";
+  }
+
+  measurementsPanel?.classList.toggle("has-active-member", Boolean(member));
 }
 
 function buildWorkflowAssistantModel() {

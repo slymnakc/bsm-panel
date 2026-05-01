@@ -56,6 +56,7 @@ body {
 .studio-nav,
 .dashboard-panel,
 .app-shell,
+.measurement-panel,
 .results {
   position: relative;
   z-index: 1;
@@ -779,6 +780,136 @@ body {
 .workflow-assistant__actions .mini-button,
 .workflow-assistant__header .mini-button {
   justify-content: center;
+}
+
+.measurement-shortcut-card {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  background:
+    radial-gradient(circle at top right, rgba(216, 173, 99, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(15, 106, 101, 0.1), rgba(255, 255, 255, 0.76));
+}
+
+.measurement-shortcut-card h3,
+.measurement-shortcut-card p {
+  margin: 0;
+}
+
+.measurement-shortcut-card p:not(.section-kicker) {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.measurement-panel {
+  margin: 0 auto 36px;
+}
+
+.measurement-panel__header,
+.measurement-active-member-card,
+.measurement-flow-steps,
+.measurement-tab-notice,
+.measurement-tab-mount > .workspace-card {
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow);
+}
+
+.measurement-panel__header {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at 90% 10%, rgba(216, 173, 99, 0.18), transparent 32%),
+    linear-gradient(145deg, var(--surface), rgba(255, 250, 240, 0.82));
+}
+
+.measurement-panel__header h2 {
+  margin: 2px 0 6px;
+  font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+}
+
+.measurement-panel__header span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.measurement-active-member-card {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  color: #fffaf3;
+  background:
+    radial-gradient(circle at top right, rgba(216, 173, 99, 0.24), transparent 35%),
+    linear-gradient(145deg, var(--teal-deep), var(--teal));
+}
+
+.measurement-active-member-card span,
+.measurement-active-member-card small {
+  color: rgba(255, 250, 243, 0.76);
+}
+
+.measurement-flow-steps {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.measurement-flow-steps span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border-radius: var(--radius-md);
+  color: var(--teal-deep);
+  font-weight: 800;
+  background: rgba(29, 107, 116, 0.08);
+}
+
+.measurement-flow-steps b {
+  width: 26px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fffaf3;
+  background: var(--teal-deep);
+}
+
+.measurement-tab-notice {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  color: var(--teal-deep);
+  background: rgba(255, 247, 226, 0.86);
+  font-weight: 800;
+}
+
+.measurement-tab-notice[data-state="ready"] {
+  color: #fffaf3;
+  background:
+    radial-gradient(circle at top right, rgba(216, 173, 99, 0.22), transparent 34%),
+    linear-gradient(145deg, var(--teal), var(--teal-deep));
+}
+
+.measurement-tab-mount {
+  margin-top: 14px;
+}
+
+.measurement-tab-mount > .workspace-card {
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+}
+
+.measurement-report-entry__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .field {
@@ -3454,6 +3585,7 @@ body.modal-open {
 .app-shell,
 .results,
 .library-panel,
+.measurement-panel,
 .nutrition-panel {
   width: min(1240px, calc(100% - 32px));
 }
@@ -5528,6 +5660,15 @@ textarea:focus {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
+  .measurement-panel__header {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.34fr);
+    align-items: center;
+  }
+
+  .measurement-flow-steps {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
   .profile-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -5609,6 +5750,7 @@ textarea:focus {
   .dashboard-panel,
   .app-shell,
   .results,
+  .measurement-panel,
   .library-panel {
     width: min(100% - 20px, 1180px);
   }
@@ -5652,7 +5794,8 @@ textarea:focus {
   }
 
   .workflow-assistant__header .mini-button,
-  .workflow-assistant__actions .mini-button {
+  .workflow-assistant__actions .mini-button,
+  .measurement-report-entry__actions .workspace-button {
     width: 100%;
   }
 
