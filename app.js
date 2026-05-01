@@ -15,7 +15,7 @@
 
 console.log("APP VERSION: v1.0.12");
 console.log("UI VERSION: redesign-v1");
-console.log("TANITA REPORT VERSION: ultra-pro-v2");
+console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -1669,15 +1669,19 @@ function buildMeasurementCoachInterpretation(measurement, previousMeasurements) 
 
 // Premium report UI only, logic preserved.
 function buildMeasurementReportHtml(model) {
-  const { profile, measurement, bodyValues, segmentalAnalysis, targetDistance, impedanceValues, indicators, trends, interpretation, summary, scoreCards, coachPlan, nextGoals } = model;
+  const { profile, measurement, bodyValues, segmentalAnalysis, impedanceValues, indicators, trends, summary, scoreCards, coachPlan, nextGoals } = model;
   const memberName = profile?.memberName || measurement.memberName || "Üye";
   const trainerName = profile?.trainerName || "Bahçeşehir Spor Merkezi";
   const measurementTime = measurement.time ? ` / ${measurement.time}` : "";
   const reportDateText = `${formatReportDate(measurement.date)}${measurementTime}`;
   const reportHeader = buildPremiumReportHeader(memberName, reportDateText);
+  const compactBodyValues = getCompactBodyCompositionValues(bodyValues);
+  const compactIndicators = getCompactHealthIndicators(indicators);
+  const compactCoachPlan = getCompactCoachPlan(coachPlan);
+  const compactGoals = getCompactNextGoals(nextGoals);
 
   return `
-    <article class="measurement-report-page measurement-report-page--executive measurement-report-page--ultra-cover">
+    <article class="report-page measurement-report-page measurement-report-page--executive measurement-report-page--compact measurement-report-page--ultra-cover">
       ${reportHeader}
       <section class="ultra-cover-grid">
         <div class="ultra-cover-main">
@@ -1701,104 +1705,82 @@ function buildMeasurementReportHtml(model) {
           ${scoreCards.map(buildPremiumScoreCardHtml).join("")}
         </div>
       </section>
+      <section class="compact-report-section compact-report-section--composition">
+        <div class="compact-section-title">
+          <span>01</span>
+          <div>
+            <strong>Vücut kompozisyonu</strong>
+            <small>Kilo, yağ, kas, sıvı ve kemik değerleri tek bakışta.</small>
+          </div>
+        </div>
+        <div class="premium-reference-bars premium-reference-bars--compact">
+          ${compactBodyValues.map(buildMeasurementBarHtml).join("")}
+        </div>
+      </section>
       ${buildPremiumReportFooter("Executive Summary")}
     </article>
 
-    <article class="measurement-report-page measurement-report-page--composition">
-      ${buildPremiumSectionHeader("02", "Vücut Kompozisyonu Analizi", "Kilo, yağ, su, yağsız kütle, kas ve kemik değerleri referans aralıklarıyla birlikte gösterilir.")}
-      <div class="premium-reference-bars">
-        ${bodyValues.map(buildMeasurementBarHtml).join("")}
-      </div>
-      ${buildTargetDistanceHtml(targetDistance)}
-      <div class="premium-reference-note">
-        <strong>Okuma notu</strong>
-        <span>Her bar mevcut değeri, referans bölgeyi ve kısa yorumu birlikte gösterir. Renkler; yeşil normal, turuncu dikkat, kırmızı yüksek takip ihtiyacı, mavi/gri ise nötr referans değerleri belirtir.</span>
-      </div>
-      ${buildPremiumReportFooter("Vücut Kompozisyonu")}
-    </article>
-
-    <article class="measurement-report-page measurement-report-page--segmental">
-      ${buildPremiumSectionHeader("03", "Segmental Vücut Kompozisyonu Analizi", "Sağ-sol kas dengesi, gövde dağılımı ve segmental yağ yoğunluğu daha okunabilir şekilde yorumlanır.")}
-      <div class="premium-segmental-layout">
+    <article class="report-page measurement-report-page measurement-report-page--segmental measurement-report-page--compact">
+      ${buildPremiumSectionHeader("02", "Segmental Analiz ve Sağlık Göstergeleri", "Kas/yağ dağılımı, sağ-sol farklar ve temel sağlık göstergeleri kompakt okunur.")}
+      <div class="compact-segmental-layout">
         ${buildSegmentalSilhouetteHtml(segmentalAnalysis)}
-        <div class="premium-segmental-side">
-          <div class="premium-segmental-subgrid">
-            ${segmentalAnalysis.muscleValues.map(buildSegmentCardHtml).join("")}
+        <div class="compact-segmental-stack">
+          <div class="compact-segment-pair-grid">
+            ${buildCompactSegmentPairCards(segmentalAnalysis)}
           </div>
-          <div class="premium-segmental-subgrid">
-            ${segmentalAnalysis.fatValues.map(buildSegmentCardHtml).join("")}
-          </div>
+          ${buildCompactSymmetryHtml(segmentalAnalysis.symmetryBars)}
         </div>
       </div>
-      ${buildSegmentalSymmetryHtml(segmentalAnalysis.symmetryBars)}
-      ${buildSegmentalHeatmapHtml(segmentalAnalysis.heatmap)}
-      <div class="premium-interpretation-grid">
-        ${segmentalAnalysis.interpretations.map((text) => `<article><strong>Segmental yorum</strong><p>${escapeHtml(text)}</p></article>`).join("")}
-      </div>
-      ${buildPremiumReportFooter("Segmental Analiz")}
+      <section class="compact-health-layout">
+        <div>
+          <div class="compact-section-title">
+            <span>02A</span>
+            <div>
+              <strong>Sağlık göstergeleri</strong>
+              <small>BMI, yağ, visceral yağ, BMR, metabolizma yaşı ve su oranı.</small>
+            </div>
+          </div>
+          <div class="premium-health-grid premium-health-grid--compact">
+            ${compactIndicators.map(buildIndicatorHtml).join("")}
+          </div>
+        </div>
+        <section class="premium-impedance-panel premium-impedance-panel--compact">
+          <div class="measurement-report-card__title">
+            <span>Ω</span>
+            <h2>Direnç / Empedans</h2>
+          </div>
+          <div class="measurement-impedance-table">
+            ${impedanceValues.map(([label, value]) => buildImpedanceRowHtml(label, value)).join("")}
+          </div>
+        </section>
+      </section>
+      ${buildPremiumReportFooter("Segmental + Sağlık")}
     </article>
 
-    <article class="measurement-report-page measurement-report-page--health">
-      ${buildPremiumSectionHeader("04", "Sağlık Göstergeleri ve Empedans", "Temel ölçüm değerleri kısa açıklama ve uygulanabilir önerilerle birlikte sunulur.")}
-      <div class="premium-health-grid">
-        ${indicators.map(buildIndicatorHtml).join("")}
-      </div>
-      <section class="premium-impedance-panel">
-        <div class="measurement-report-card__title">
-          <span>Ω</span>
-          <h2>Segmental Direnç / Empedans Değerleri</h2>
+    <article class="report-page measurement-report-page measurement-report-page--trend measurement-report-page--compact">
+      ${buildPremiumSectionHeader("03", "Trend ve Koç Aksiyon Planı", trends.hasTrend ? "Kilo, yağ oranı ve kas kütlesi değişimi aksiyon planıyla birlikte gösterilir." : "Trend analizi ikinci ölçümden itibaren otomatik oluşur.")}
+      <section class="compact-trend-action-grid">
+        <div class="compact-trend-panel">
+          ${buildCompactTrendSection(trends)}
         </div>
-        <div class="measurement-impedance-table">
-          ${impedanceValues.map(([label, value]) => buildImpedanceRowHtml(label, value)).join("")}
+        <aside class="compact-action-panel">
+          ${buildCompactActionPanel(profile, measurement)}
+        </aside>
+      </section>
+      <section class="compact-report-section">
+        <div class="compact-section-title">
+          <span>03A</span>
+          <div>
+            <strong>Koç yorumu</strong>
+            <small>Rapordan çıkan uygulanabilir kısa aksiyonlar.</small>
+          </div>
+        </div>
+        <div class="premium-coach-layout premium-coach-layout--compact">
+          ${compactCoachPlan.map(buildCoachInterpretationHtml).join("")}
         </div>
       </section>
-      ${buildPremiumReportFooter("Sağlık Göstergeleri")}
-    </article>
-
-    <article class="measurement-report-page measurement-report-page--trend">
-      ${buildPremiumSectionHeader("05", "Gelişim Takibi ve Fark Analizi", trends.hasTrend ? "Önceki ölçümlerle kilo, yağ, kas ve sıvı değişimi takip edilir." : "Trend grafikleri ikinci ölçümden itibaren otomatik oluşur.")}
-      ${
-        trends.hasTrend
-          ? `
-            <div class="premium-history-table">
-              <div class="premium-history-table__head">
-                <span>Ölçüm tarihi</span><span>Kilo / fark</span><span>Yağ kg / fark</span><span>Yağ % / fark</span><span>Kas kg / fark</span><span>Sıvı kg / fark</span><span>BMI / fark</span>
-              </div>
-              ${trends.historyRows.map(buildHistoryRowHtml).join("")}
-            </div>
-            <div class="measurement-trend-grid measurement-trend-grid--premium">
-              ${trends.charts.map(buildTrendChartHtml).join("")}
-            </div>
-            <div class="measurement-difference-table premium-difference-table">
-              <div class="measurement-difference-table__head">
-                <span>Alan</span><span>Önceki</span><span>Son</span><span>Fark</span>
-              </div>
-              ${trends.differences.map(buildDifferenceRowHtml).join("")}
-            </div>
-          `
-          : `
-            <article class="measurement-report-empty measurement-report-empty--compact">
-              <strong>Trend analizi için en az iki ölçüm gereklidir.</strong>
-              <span>İkinci ölçümden itibaren değişim grafikleri, fark tablosu ve trend yorumu otomatik oluşacaktır.</span>
-            </article>
-          `
-      }
-      ${buildPremiumReportFooter("Trend Analizi")}
-    </article>
-
-    <article class="measurement-report-page measurement-report-page--coach">
-      ${buildPremiumSectionHeader("06", "Profesyonel Koç Değerlendirmesi", "Ölçüm sonucu antrenman, beslenme ve takip aksiyonlarına dönüştürülür.")}
-      <div class="premium-coach-layout">
-        ${coachPlan.map(buildCoachInterpretationHtml).join("")}
-      </div>
-      <div class="premium-coach-summary">
-        <strong>Kısa değerlendirme</strong>
-        <div class="measurement-coach-grid measurement-coach-grid--final">
-          ${interpretation.map(buildCoachInterpretationHtml).join("")}
-        </div>
-      </div>
-      ${buildNextGoalsHtml(nextGoals)}
-      ${buildPremiumReportFooter("Koç Değerlendirmesi")}
+      ${buildCompactNextGoalsHtml(compactGoals)}
+      ${buildPremiumReportFooter("Trend + Aksiyon")}
     </article>
   `;
 }
@@ -1846,6 +1828,242 @@ function buildPremiumReportFooter(sectionName) {
       <em class="measurement-page-number"></em>
     </footer>
   `;
+}
+
+function getCompactBodyCompositionValues(bodyValues) {
+  const wantedLabels = ["Kilo", "Yağ kütlesi", "Yağ %", "Kas kütlesi", "Sıvı kg", "Kemik kütlesi"];
+  const labelMap = {
+    "Yağ kütlesi": "Yağ kg",
+    "Kas kütlesi": "Kas kg",
+    "Kemik kütlesi": "Kemik kg",
+  };
+
+  return bodyValues
+    .filter((item) => wantedLabels.includes(item.label))
+    .map((item) => ({
+      ...item,
+      label: labelMap[item.label] || item.label,
+      explanation: shortenReportText(item.explanation, 92),
+    }));
+}
+
+function getCompactHealthIndicators(indicators) {
+  const wantedLabels = ["BMI", "Yağ oranı", "Visceral yağ", "BMR", "Metabolizma yaşı", "Vücut suyu"];
+  const compactText = {
+    BMI: "Boy-kilo oranını hızlı takip eder; yağ ve kas verileriyle birlikte okunur.",
+    "Yağ oranı": "Kompozisyon hedefinin ana göstergesidir.",
+    "Visceral yağ": "İç yağlanma skorudur; yüksekse kardiyo ve takip önceliklenir.",
+    BMR: "Beslenme kalori planı için temel referanstır.",
+    "Metabolizma yaşı": "Metabolik profilin yaş referansına göre pratik yorumudur.",
+    "Vücut suyu": "Hidrasyon ve yağsız kütle kalitesini destekleyici göstergedir.",
+  };
+
+  return indicators
+    .filter((item) => wantedLabels.includes(item.title))
+    .map((item) => ({
+      ...item,
+      explanation: compactText[item.title] || shortenReportText(item.explanation, 88),
+      recommendation: "",
+    }));
+}
+
+function buildCompactSegmentPairCards(segmentalAnalysis) {
+  const regions = [
+    { title: "Sağ kol", muscle: "Sağ kol kas", fat: "Sağ kol yağ" },
+    { title: "Sol kol", muscle: "Sol kol kas", fat: "Sol kol yağ" },
+    { title: "Gövde", muscle: "Gövde kas", fat: "Gövde yağ" },
+    { title: "Sağ bacak", muscle: "Sağ bacak kas", fat: "Sağ bacak yağ" },
+    { title: "Sol bacak", muscle: "Sol bacak kas", fat: "Sol bacak yağ" },
+  ];
+
+  return regions
+    .map((region) => {
+      const muscle = findSegmentReportItem(segmentalAnalysis.muscleValues, region.muscle);
+      const fat = findSegmentReportItem(segmentalAnalysis.fatValues, region.fat);
+
+      return `
+        <article class="compact-segment-pair">
+          <strong>${escapeHtml(region.title)}</strong>
+          <div><span>Kas</span><em>${escapeHtml(formatReportValue(muscle?.value, "kg"))}</em></div>
+          <div><span>Yağ</span><em>${escapeHtml(formatReportValue(fat?.value, "kg"))}</em></div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function findSegmentReportItem(items, label) {
+  return (items || []).find((item) => item.label === label) || null;
+}
+
+function buildCompactSymmetryHtml(symmetryBars) {
+  const compactBars = (symmetryBars || []).slice(0, 4);
+
+  if (!compactBars.length) {
+    return "";
+  }
+
+  return `
+    <div class="compact-section-title compact-section-title--small">
+      <span>02B</span>
+      <div>
+        <strong>Sağ-sol karşılaştırma</strong>
+        <small>Kol ve bacak kas/yağ farkı.</small>
+      </div>
+    </div>
+    <div class="ultra-symmetry-grid ultra-symmetry-grid--compact">
+      ${compactBars.map(buildSymmetryBarHtml).join("")}
+    </div>
+  `;
+}
+
+function buildCompactTrendSection(trends) {
+  if (!trends.hasTrend) {
+    return `
+      <article class="measurement-report-empty measurement-report-empty--compact compact-trend-empty">
+        <strong>Trend analizi ikinci ölçümden itibaren otomatik oluşur.</strong>
+        <span>Bir sonraki Tanita veya manuel ölçüm kaydedildiğinde kilo, yağ oranı ve kas kütlesi grafikleri burada görünür.</span>
+      </article>
+    `;
+  }
+
+  const charts = getCompactTrendCharts(trends.charts);
+  const differences = getCompactDifferenceRows(trends.differences);
+
+  return `
+    <div class="compact-section-title">
+      <span>03</span>
+      <div>
+        <strong>Gelişim trendi</strong>
+        <small>Kilo, yağ oranı ve kas kütlesi değişimi.</small>
+      </div>
+    </div>
+    <div class="measurement-trend-grid measurement-trend-grid--premium measurement-trend-grid--compact">
+      ${charts.map(buildTrendChartHtml).join("")}
+    </div>
+    <div class="measurement-difference-table premium-difference-table premium-difference-table--compact">
+      <div class="measurement-difference-table__head">
+        <span>Alan</span><span>Önceki</span><span>Son</span><span>Fark</span>
+      </div>
+      ${differences.map(buildDifferenceRowHtml).join("")}
+    </div>
+  `;
+}
+
+function getCompactTrendCharts(charts) {
+  const wantedLabels = ["Kilo", "Yağ oranı", "Kas kütlesi"];
+  return (charts || []).filter((chart) => wantedLabels.includes(chart.label));
+}
+
+function getCompactDifferenceRows(differences) {
+  const wantedLabels = ["Kilo", "Yağ oranı", "Kas kütlesi", "Yağ kg"];
+  return (differences || []).filter((row) => wantedLabels.includes(row.label));
+}
+
+function getCompactCoachPlan(coachPlan) {
+  const wantedTitles = ["Genel değerlendirme", "Antrenman önerisi", "Beslenme önerisi", "Takip önerisi"];
+  const compact = (coachPlan || [])
+    .filter((item) => wantedTitles.includes(item.title))
+    .map((item) => ({
+      ...item,
+      text: shortenReportText(item.text, 150),
+    }));
+
+  return compact.length ? compact : (coachPlan || []).slice(0, 4).map((item) => ({ ...item, text: shortenReportText(item.text, 150) }));
+}
+
+function buildCompactActionPanel(profile, measurement) {
+  const goalLabel = labelMaps.goal?.[profile?.goal] || profile?.goal || "Hedefe göre kişisel takip";
+  const styleLabel = profile?.programStyle ? getProgramStyleLabel(profile.programStyle) : "Kişisel program";
+  const trainingSystem = profile?.trainingSystem ? getTrainingSystemLabel(profile.trainingSystem) : "Standart sistem";
+  const dayText = Array.isArray(profile?.days) && profile.days.length ? `${profile.days.length} gün/hafta` : "Haftalık güne göre";
+  const fat = measurementValue(measurement?.fat);
+  const visceralFat = measurementValue(measurement?.visceralFat);
+  const actionNote = fat !== "" && fat >= 30
+    ? "Yağ kaybı için direnç + düşük etkili kardiyo dengesi korunmalı."
+    : visceralFat !== "" && visceralFat >= 13
+      ? "Visceral yağ için düzenli kardiyo ve beslenme takibi öne alınmalı."
+      : "Program, beslenme ve ölçüm takibi aynı döngüde sürdürülmeli.";
+
+  return `
+    <div class="compact-section-title">
+      <span>03B</span>
+      <div>
+        <strong>Sonraki adım</strong>
+        <small>PT/program satışını destekleyen net aksiyon planı.</small>
+      </div>
+    </div>
+    <div class="compact-action-grid">
+      <article>
+        <span>Önerilen program türü</span>
+        <strong>${escapeHtml(styleLabel)}</strong>
+        <small>${escapeHtml(goalLabel)} • ${escapeHtml(trainingSystem)} • ${escapeHtml(dayText)}</small>
+      </article>
+      <article>
+        <span>Tekrar ölçüm</span>
+        <strong>14-21 gün</strong>
+        <small>Aynı saat ve benzer ölçüm koşullarıyla takip önerilir.</small>
+      </article>
+      <article>
+        <span>Kişisel takip</span>
+        <strong>Program + beslenme</strong>
+        <small>${escapeHtml(actionNote)}</small>
+      </article>
+    </div>
+  `;
+}
+
+function getCompactNextGoals(nextGoals) {
+  const wantedTitles = ["Yağ oranı takip", "Kas kütlesi koruma", "Segmental denge izleme", "BMR bazlı beslenme planlama"];
+  return (nextGoals || [])
+    .filter((goal) => wantedTitles.includes(goal.title))
+    .map((goal) => ({
+      ...goal,
+      text: shortenReportText(goal.text, 96),
+    }));
+}
+
+function buildCompactNextGoalsHtml(goals) {
+  if (!goals?.length) {
+    return "";
+  }
+
+  return `
+    <section class="compact-report-section compact-final-checklist">
+      <div class="compact-section-title">
+        <span>03C</span>
+        <div>
+          <strong>Final kontrol listesi</strong>
+          <small>Bir sonraki görüşmede kontrol edilecek ana başlıklar.</small>
+        </div>
+      </div>
+      <div class="ultra-next-goal-grid ultra-next-goal-grid--compact">
+        ${goals
+          .map(
+            (goal) => `
+              <article class="ultra-next-goal ultra-next-goal--${escapeHtml(goal.status)}">
+                <b aria-hidden="true"></b>
+                <div>
+                  <strong>${escapeHtml(goal.title)}</strong>
+                  <p>${escapeHtml(goal.text)}</p>
+                </div>
+              </article>
+            `,
+          )
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
+function shortenReportText(text, maxLength = 140) {
+  const value = String(text || "").trim();
+
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
 }
 
 function buildReportProfileItem(label, value) {
