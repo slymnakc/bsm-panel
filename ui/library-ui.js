@@ -38,7 +38,7 @@
                         <span>${escapeHtml(exercise.kindLabel)}</span>
                         <span>${escapeHtml(exercise.levelLabel)}</span>
                         ${exercise.isCustom ? "<span>Özel hareket</span>" : ""}
-                        <span>GIF destekli</span>
+                        <span>GIF alanı hazır</span>
                       </div>
                       <p>${escapeHtml(exercise.cue)}</p>
                     </div>

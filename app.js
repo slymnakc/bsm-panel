@@ -13,7 +13,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.12");
+console.log("APP VERSION: v1.0.14");
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 
@@ -264,6 +264,7 @@ function getTrainingSystemLabel(value) {
 const form = document.querySelector("#plannerForm");
 const formStatus = document.querySelector("#formStatus");
 const liveSummary = document.querySelector("#liveSummary");
+const workflowAssistant = document.querySelector("#workflowAssistant");
 const resultsSection = document.querySelector("#resultsSection");
 const resultsTitle = document.querySelector("#resultsTitle");
 const programOverview = document.querySelector("#programOverview");
@@ -2613,7 +2614,58 @@ function syncMembersFromSupabase() {
     });
 }
 
+function handleWorkflowAssistantAction(event) {
+  const button = event.target.closest("[data-workflow-action]");
+
+  if (!button) {
+    return;
+  }
+
+  const action = button.dataset.workflowAction;
+
+  if (action === "members") {
+    setActiveScreen("builder", { userTriggered: true, silent: true });
+    setWorkspaceView("members");
+    memberSearch?.focus();
+    return;
+  }
+
+  if (action === "measurements") {
+    setActiveScreen("builder", { userTriggered: true, silent: true });
+    setWorkspaceView("measurements");
+    measurementDate?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+
+  if (action === "build-program") {
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit();
+    } else {
+      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    }
+    return;
+  }
+
+  if (action === "save-member") {
+    formHandlers.handleSaveMember();
+    renderWorkflowAssistant();
+    return;
+  }
+
+  if (action === "output") {
+    setActiveScreen("output", { userTriggered: true });
+    return;
+  }
+
+  if (action === "nutrition") {
+    setActiveScreen("nutrition", { userTriggered: true, silent: true });
+  }
+}
+
 function bindApplicationHandlers() {
+  workflowAssistant?.addEventListener("click", handleWorkflowAssistantAction);
+  form?.addEventListener("input", renderWorkflowAssistant);
+  form?.addEventListener("change", renderWorkflowAssistant);
   bindFormHandlers(
     {
       form,
@@ -3282,6 +3334,7 @@ function loadMember(member) {
 
 function renderMemberWorkspace() {
   renderDashboard();
+  renderWorkflowAssistant();
   renderWorkspacePanels();
   renderNutritionWorkspace();
   renderNutritionOutput();
@@ -3335,6 +3388,153 @@ function renderDashboard() {
   renderCoachTaskPanel(automationSummary);
   renderCoachQuickPanel(activeMember);
   renderBackupMeta();
+}
+
+function renderWorkflowAssistant() {
+  if (!workflowAssistant) {
+    return;
+  }
+
+  const model = buildWorkflowAssistantModel();
+
+  workflowAssistant.innerHTML = `
+    <div class="workflow-assistant__header">
+      <div>
+        <p class="section-kicker">Akış Rehberi</p>
+        <h3>${escapeHtml(model.title)}</h3>
+        <span>${escapeHtml(model.subtitle)}</span>
+      </div>
+      <button type="button" class="primary-button mini-button" data-workflow-action="${escapeHtml(model.nextAction)}">${escapeHtml(model.nextActionLabel)}</button>
+    </div>
+    <div class="workflow-assistant__steps">
+      ${model.steps
+        .map(
+          (step) => `
+            <article class="workflow-step workflow-step--${escapeHtml(step.status)}">
+              <b>${escapeHtml(step.number)}</b>
+              <div>
+                <strong>${escapeHtml(step.title)}</strong>
+                <span>${escapeHtml(step.text)}</span>
+              </div>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+    <div class="workflow-assistant__actions" aria-label="Hızlı aksiyonlar">
+      <button type="button" class="ghost-button mini-button" data-workflow-action="members">Üye Listesi</button>
+      <button type="button" class="ghost-button mini-button" data-workflow-action="measurements">Ölçüm / Tanita</button>
+      <button type="button" class="secondary-button mini-button" data-workflow-action="build-program">Program Oluştur</button>
+      <button type="button" class="ghost-button mini-button" data-workflow-action="nutrition">Beslenme</button>
+      <button type="button" class="primary-button mini-button" data-workflow-action="output">Çıktı / PDF</button>
+    </div>
+  `;
+}
+
+function buildWorkflowAssistantModel() {
+  const activeMember = findActiveMember();
+  const draftProfile = form ? collectFormData() : {};
+  const memberName = activeMember?.profile?.memberName || draftProfile.memberName || draftProfile.memberCode || "Yeni üye";
+  const latestMeasurement = activeMember?.measurements?.[0] || state.latestMeasurement || state.pendingTanitaMeasurement || null;
+  const latestProgram = state.activeProgram || activeMember?.programs?.[0]?.program || null;
+  const nutritionPlan = state.activeNutritionPlan || activeMember?.nutritionPlan || activeMember?.nutritionPlans?.[0] || null;
+  const hasMember = Boolean(activeMember || draftProfile.memberName || draftProfile.memberCode);
+  const hasMeasurement = Boolean(latestMeasurement);
+  const hasProgram = Boolean(latestProgram);
+  const hasNutrition = Boolean(nutritionPlan);
+  const next = resolveWorkflowNextAction({ hasMember, hasMeasurement, hasProgram, hasNutrition });
+
+  return {
+    title: `${memberName} için sıradaki en doğru adım`,
+    subtitle: next.subtitle,
+    nextAction: next.action,
+    nextActionLabel: next.label,
+    steps: [
+      {
+        number: "1",
+        title: "Üye",
+        status: hasMember ? "done" : "current",
+        text: hasMember ? `${memberName} çalışma dosyası hazır.` : "Önce üye seçin veya yeni üye bilgisi girin.",
+      },
+      {
+        number: "2",
+        title: "Ölçüm",
+        status: hasMeasurement ? "done" : hasMember ? "current" : "todo",
+        text: hasMeasurement ? formatWorkflowMeasurement(latestMeasurement) : "Tanita CSV veya manuel ölçüm bekleniyor.",
+      },
+      {
+        number: "3",
+        title: "Program",
+        status: hasProgram ? "done" : hasMeasurement ? "current" : "todo",
+        text: hasProgram ? "Program hazır; isterseniz düzenleyip kaydedin." : "Hedef, seviye ve ölçüme göre program oluşturun.",
+      },
+      {
+        number: "4",
+        title: "Çıktı",
+        status: hasProgram ? "current" : "todo",
+        text: hasNutrition ? "PDF ve beslenme sekmesi birlikte takip edilebilir." : "Program PDF’i hazır olduğunda üyeye verilebilir.",
+      },
+    ],
+  };
+}
+
+function resolveWorkflowNextAction({ hasMember, hasMeasurement, hasProgram, hasNutrition }) {
+  if (!hasMember) {
+    return {
+      action: "members",
+      label: "Üye Seç / Oluştur",
+      subtitle: "Üye seçilmeden ölçüm, program ve çıktı akışı sağlıklı ilerlemez.",
+    };
+  }
+
+  if (!hasMeasurement) {
+    return {
+      action: "measurements",
+      label: "Ölçüm Gir",
+      subtitle: "Tanita CSV veya manuel ölçüm eklemek program ve beslenmeyi daha isabetli yapar.",
+    };
+  }
+
+  if (!hasProgram) {
+    return {
+      action: "build-program",
+      label: "Program Oluştur",
+      subtitle: "Ölçüm verisi hazır; şimdi hedefe uygun antrenman planını oluşturabilirsiniz.",
+    };
+  }
+
+  if (!hasNutrition) {
+    return {
+      action: "nutrition",
+      label: "Beslenme Planı",
+      subtitle: "Program hazır; isterseniz Beslenme sekmesinde Tanita bazlı plan oluşturun.",
+    };
+  }
+
+  return {
+    action: "output",
+    label: "PDF Çıktısını Aç",
+    subtitle: "Üye dosyası tamam; çıktı/PDF ekranından son kontrolü yapabilirsiniz.",
+  };
+}
+
+function formatWorkflowMeasurement(measurement) {
+  const parts = [
+    measurement?.date || "Tarih yok",
+    formatWorkflowMetric(measurement?.weight, "kg"),
+    formatWorkflowMetric(measurement?.fat, "yağ"),
+    formatWorkflowMetric(measurement?.muscleMass, "kas"),
+  ].filter(Boolean);
+
+  return parts.join(" • ");
+}
+
+function formatWorkflowMetric(value, label) {
+  if (value === "" || value === undefined || value === null) {
+    return "";
+  }
+
+  return `${value} ${label}`;
 }
 
 function buildActivityItems() {
@@ -4160,6 +4360,7 @@ function readMeasurementForm() {
     id: makeId("measurement"),
     createdAtIso: new Date().toISOString(),
     date: measurementDate.value || getTodayInputValue(),
+    source: "manual_entry",
     weight: numberOrEmpty(measurementWeight.value),
     height: numberOrEmpty(measurementHeight.value),
     bmi: numberOrEmpty(measurementBmi?.value),
@@ -4304,15 +4505,13 @@ function applyMeasurementToAppState(measurement) {
 function triggerMeasurementRecalculation() {
   const formData = collectFormData();
   const activeMember = state.activeMember || syncActiveMemberState();
-  const programWasRefreshed = refreshActiveProgramFromMeasurement(formData);
+  refreshActiveProgramFromMeasurement(formData);
 
   renderLiveSummary(formData);
   refreshNutritionPlanFromMeasurement(activeMember || state.activeMember);
+  renderNutritionWorkspace();
   renderMemberWorkspace();
-
-  if (!programWasRefreshed) {
-    renderNutritionOutput();
-  }
+  renderNutritionOutput();
 
   console.log("MEASUREMENT RECALC TRIGGERED");
 }
@@ -5034,6 +5233,7 @@ function renderProgram(program, options = {}) {
   renderTrainingReportUi?.(trainingReportPanel, state.activeProgram.trainingReport, escapeHtml);
   renderOutputIntelligence(state.activeProgram);
   renderNutritionOutput();
+  renderWorkflowAssistant();
 }
 
 function renderOutputIntelligence(program) {
