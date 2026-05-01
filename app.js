@@ -13,7 +13,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.14");
+console.log("APP VERSION: v1.0.15");
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 console.log("MEASUREMENT TAB VERSION: v1");
@@ -4918,7 +4918,13 @@ function formatResistanceLine(resistance = {}) {
 }
 
 function findActiveMember() {
-  return findActiveMemberRecord(state.members, state.activeMemberId);
+  const members = Array.isArray(state.members) ? state.members : normalizeMembersPayload(state.members);
+
+  if (!Array.isArray(state.members)) {
+    state.members = members;
+  }
+
+  return members.find((member) => member.id === state.activeMemberId) || null;
 }
 
 function syncActiveMemberState() {

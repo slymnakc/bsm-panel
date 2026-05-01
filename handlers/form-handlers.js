@@ -291,7 +291,7 @@
       }
       state.pendingTanitaMeasurement = null;
       setTanitaSaveEnabled(false);
-      setWorkspaceView("measurements");
+      setActiveScreen("measurements", { silent: true });
       clearMeasurementInputs();
       renderMemberWorkspace();
       showStatus("Üye ölçümü kaydedildi.", "success");
@@ -392,7 +392,7 @@
       if (tanitaCsvInput) {
         tanitaCsvInput.value = "";
       }
-      setWorkspaceView("measurements");
+      setActiveScreen("measurements", { silent: true });
       renderMemberWorkspace();
       showStatus("Tanita ölçümü üye geçmişine kaydedildi.", "success");
       setTanitaImportStatus("Tanita ölçümü kaydedildi. Analiz ve koç uyarıları güncellendi.", "success");
