@@ -13,7 +13,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.15");
+console.log("APP VERSION: v1.0.16");
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 console.log("MEASUREMENT TAB VERSION: v1");
@@ -3343,6 +3343,9 @@ function upsertMemberFromCurrentForm(options = {}) {
   state.latestMeasurement = member.measurements?.[0] || state.latestMeasurement || null;
   saveActiveMemberId(member.id);
   persistMembers();
+  member = findActiveMember() || member;
+  state.activeMember = member;
+  state.latestMeasurement = member.measurements?.[0] || state.latestMeasurement || null;
   renderMemberWorkspace();
   return member;
 }
