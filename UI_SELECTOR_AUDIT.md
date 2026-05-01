@@ -7,7 +7,7 @@ Bu dosya, tasarım düzenlemelerinde korunması gereken kritik JavaScript seçic
 ## Ekran ve Navigasyon Seçicileri
 
 - `data-screen-target`: `dashboard`, `builder`, `nutrition`, `library`, `output`
-- `data-screen`: `dashboard`, `builder`, `nutrition`, `library`, `output`
+- `data-screen`: `dashboard`, `builder`, `nutrition`, `library`, `output`, `measurement-report`
 - `data-workspace-view`: `members`, `measurements`, `history`, `v3`
 - `data-workspace-panel`: `members`, `measurements`, `history`, `v3`
 
@@ -32,6 +32,8 @@ Bu dosya, tasarım düzenlemelerinde korunması gereken kritik JavaScript seçic
 ## Ölçüm ve Tanita CSV Seçicileri
 
 - `#tanitaCsvButton`, `#tanitaCsvInput`, `#tanitaImportStatus`, `#tanitaPreview`, `#saveTanitaMeasurementButton`
+- `#buildMeasurementReportButton`, `#measurementReportSection`, `#measurementReportContent`
+- `#measurementReportBackButton`, `#measurementReportPdfButton`, `#measurementReportPrintButton`
 - `#saveMeasurementButton`, `#bodyAnalysisReport`
 - `#measurementDate`, `#measurementWeight`, `#measurementHeight`, `#measurementBmi`
 - `#measurementBirthDay`, `#measurementBirthMonth`, `#measurementBirthYear`
