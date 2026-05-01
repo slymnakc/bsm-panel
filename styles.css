@@ -3379,6 +3379,161 @@ body.modal-open {
   line-height: 1.55;
 }
 
+.nutrition-report-card {
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at 92% 8%, rgba(216, 173, 99, 0.18), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 246, 236, 0.86));
+  border: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.nutrition-report-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px;
+  color: #fffaf3;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(216, 173, 99, 0.28), transparent 34%),
+    linear-gradient(135deg, var(--teal-deep), #123d49);
+}
+
+.nutrition-report-hero h3 {
+  margin: 2px 0 6px;
+  font-family: var(--font-display);
+  font-size: clamp(1.55rem, 2.6vw, 2.2rem);
+}
+
+.nutrition-report-hero .section-kicker,
+.nutrition-report-hero span {
+  color: rgba(255, 250, 243, 0.78);
+}
+
+.nutrition-report-stamp {
+  min-width: 150px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 20px;
+  text-align: center;
+  background: rgba(255, 250, 243, 0.12);
+  border: 1px solid rgba(255, 250, 243, 0.22);
+}
+
+.nutrition-report-stamp strong {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+}
+
+.nutrition-report-summary {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.nutrition-report-summary div {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.nutrition-report-summary span,
+.nutrition-report-summary strong {
+  display: block;
+}
+
+.nutrition-report-summary span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.nutrition-report-summary strong {
+  margin-top: 4px;
+  color: var(--teal-deep);
+}
+
+.nutrition-report-section {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.nutrition-report-section__title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nutrition-report-section__title > span {
+  width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  color: #fffaf3;
+  background: linear-gradient(135deg, var(--teal), var(--teal-deep));
+  font-weight: 900;
+}
+
+.nutrition-report-section__title strong,
+.nutrition-report-section__title small {
+  display: block;
+}
+
+.nutrition-report-section__title strong {
+  color: var(--teal-deep);
+  font-size: 1.05rem;
+}
+
+.nutrition-report-section__title small {
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.nutrition-report-macros {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.nutrition-report-note-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.nutrition-report-note-grid p {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.nutrition-report-meals {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.nutrition-report-section--optional:empty {
+  display: none;
+}
+
+.nutrition-report-footer {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid rgba(25, 51, 66, 0.08);
+  background: rgba(8, 43, 53, 0.045);
+}
+
+.nutrition-report-footer small {
+  color: var(--teal-deep);
+  font-weight: 800;
+}
+
 .program-edit-toolbar {
   display: flex;
   justify-content: space-between;
@@ -7023,6 +7178,231 @@ textarea:focus {
 
   .supplement-preferences {
     display: none !important;
+  }
+
+  .nutrition-panel > .results__header,
+  .nutrition-side-card {
+    display: none !important;
+  }
+
+  .nutrition-panel,
+  .nutrition-layout,
+  .nutrition-editor {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    background: white;
+  }
+
+  .nutrition-report-card {
+    display: block;
+    border: 0;
+    border-radius: 0;
+    background: white;
+    box-shadow: none;
+    color: #111;
+  }
+
+  .nutrition-report-hero {
+    display: grid;
+    grid-template-columns: 1fr 120px;
+    gap: 8px;
+    padding: 8mm 7mm 6mm;
+    color: #111;
+    background: #eef6f4;
+    border: 1px solid #d7d7d7;
+    break-inside: avoid;
+  }
+
+  .nutrition-report-hero h3 {
+    margin: 1mm 0;
+    font-size: 1.35rem;
+  }
+
+  .nutrition-report-hero .section-kicker,
+  .nutrition-report-hero span {
+    color: #444;
+  }
+
+  .nutrition-report-stamp {
+    min-width: auto;
+    padding: 7px;
+    color: #111;
+    background: white;
+    border: 1px solid #d7d7d7;
+  }
+
+  .nutrition-report-stamp strong {
+    font-size: 1.35rem;
+  }
+
+  .nutrition-report-stamp span {
+    font-size: 0.62rem;
+  }
+
+  .nutrition-report-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    padding: 6px 0;
+    background: white;
+  }
+
+  .nutrition-report-summary div,
+  .nutrition-report-section,
+  .nutrition-macro-field,
+  .nutrition-meal-card,
+  .nutrition-supplements,
+  .nutrition-supplements article,
+  .nutrition-report-footer {
+    box-shadow: none;
+    border: 1px solid #d7d7d7;
+    background: white;
+    break-inside: avoid;
+  }
+
+  .nutrition-report-summary div {
+    padding: 6px 7px;
+    border-radius: 9px;
+  }
+
+  .nutrition-report-summary span,
+  .nutrition-report-summary strong {
+    font-size: 0.68rem;
+  }
+
+  .nutrition-report-section {
+    gap: 6px;
+    margin-top: 5px;
+    padding: 7px;
+    border-radius: 0;
+  }
+
+  .nutrition-report-section__title {
+    gap: 7px;
+  }
+
+  .nutrition-report-section__title > span {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    color: #fff;
+    background: #0f6a65;
+    font-size: 0.7rem;
+  }
+
+  .nutrition-report-section__title strong {
+    font-size: 0.78rem;
+  }
+
+  .nutrition-report-section__title small {
+    font-size: 0.62rem;
+  }
+
+  .nutrition-report-macros {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .nutrition-macro-field {
+    padding: 6px;
+    border-radius: 9px;
+  }
+
+  .nutrition-macro-field input,
+  .nutrition-meal-card input,
+  .nutrition-meal-card textarea,
+  .nutrition-note-field textarea {
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    color: #111;
+    font-weight: 800;
+    resize: none;
+  }
+
+  .nutrition-macro-field input {
+    font-size: 1rem;
+  }
+
+  .nutrition-report-note-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .nutrition-report-note-grid p {
+    margin: 0;
+    padding: 6px;
+    border: 1px solid #d7d7d7;
+    border-radius: 9px;
+    background: white;
+    font-size: 0.66rem;
+  }
+
+  .nutrition-report-meals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .nutrition-meal-card {
+    gap: 4px;
+    padding: 7px;
+    border-radius: 9px;
+  }
+
+  .nutrition-meal-card .edit-field {
+    gap: 2px;
+  }
+
+  .nutrition-meal-card__macros {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .nutrition-meal-card__macros label {
+    padding: 4px;
+    border-radius: 7px;
+    background: #f6f7f7;
+  }
+
+  .nutrition-meal-card__macros span,
+  .nutrition-meal-card textarea,
+  .nutrition-meal-alternatives,
+  .nutrition-supplements article,
+  .nutrition-disclaimer {
+    font-size: 0.62rem;
+    line-height: 1.25;
+  }
+
+  .nutrition-meal-alternatives {
+    margin-top: 2px;
+    padding: 5px;
+    border-radius: 8px;
+  }
+
+  .nutrition-supplements {
+    gap: 5px;
+    padding: 7px;
+    border-radius: 0;
+  }
+
+  .nutrition-supplements h4 {
+    font-size: 0.78rem;
+  }
+
+  .nutrition-report-footer {
+    margin-top: 5px;
+    padding: 7px;
+    border-radius: 0;
+  }
+
+  .nutrition-report-footer small {
+    font-size: 0.64rem;
   }
 
   .member-program-table__head {
