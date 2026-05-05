@@ -352,8 +352,15 @@
     }
 
     function handleSaveTanitaMeasurement() {
-      if (!state.pendingTanitaMeasurement) {
-        setTanitaImportStatus("Kaydedilecek Tanita ölçümü yok. Önce CSV yükleyin.", "error");
+      const formMeasurement = readMeasurementForm();
+      const measurementToSave = state.pendingTanitaMeasurement
+        ? formMeasurement
+          ? mergePendingTanitaMeasurement(formMeasurement)
+          : state.pendingTanitaMeasurement
+        : formMeasurement;
+
+      if (!measurementToSave) {
+        setTanitaImportStatus("Kaydedilecek ölçüm bulunamadı. CSV yükleyin veya form alanlarını doldurun.", "error");
         return;
       }
 
@@ -364,8 +371,6 @@
         return;
       }
 
-      const formMeasurement = readMeasurementForm();
-      const measurementToSave = formMeasurement ? mergePendingTanitaMeasurement(formMeasurement) : state.pendingTanitaMeasurement;
       const measurementValidationMessage = validateMeasurementData(measurementToSave);
 
       if (measurementValidationMessage) {
