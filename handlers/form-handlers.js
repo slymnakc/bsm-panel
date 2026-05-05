@@ -259,16 +259,16 @@
     }
 
     function handleSaveMeasurement() {
-      const member = upsertMemberFromCurrentForm({ silent: true });
-
-      if (!member) {
-        return;
-      }
-
       const measurement = readMeasurementForm();
 
       if (!measurement) {
         showStatus("Ölçüm kaydı için en az bir değer veya not girin.", "error");
+        return;
+      }
+
+      const member = upsertMemberFromCurrentForm({ silent: true });
+
+      if (!member) {
         return;
       }
 
@@ -281,13 +281,10 @@
       }
 
       const normalizedMeasurement = normalizeMeasurementPayload(measurementForSave);
-      member.measurements = upsertMeasurementRecord(member.measurements, normalizedMeasurement);
-      member.updatedAt = new Date().toISOString();
-      persistMembers();
-      applyMeasurementToAppState?.(normalizedMeasurement);
+      const savedMember = applyMeasurementToAppState?.(normalizedMeasurement) || member;
       triggerMeasurementRecalculation?.(normalizedMeasurement);
       if (typeof saveMeasurementToSupabase === "function") {
-        saveMeasurementToSupabase(member, normalizedMeasurement);
+        saveMeasurementToSupabase(savedMember, normalizedMeasurement);
       }
       state.pendingTanitaMeasurement = null;
       setTanitaSaveEnabled(false);
@@ -341,12 +338,12 @@
           state.pendingTanitaMeasurement = measurement;
           renderTanitaPreview?.(buildTanitaPreviewModel?.(measurement));
           applyTanitaMeasurementToForm?.(measurement);
-          applyMeasurementToAppState?.(measurement);
-          triggerMeasurementRecalculation?.(measurement);
+          renderLiveSummary(collectFormData());
+          renderMemberWorkspace();
           setTanitaSaveEnabled(true);
 
           const warningText = result.warnings?.length ? ` Ek bilgi: ${result.warnings.join(" ")}` : "";
-          setTanitaImportStatus(`CSV okundu ve aktif üye analizlerine uygulandı. Supabase kaydı için Ölçümü Üyeye Kaydet'e basabilirsiniz.${warningText}`, "success");
+          setTanitaImportStatus(`CSV okundu, önizleme ve form alanları dolduruldu. Kalıcı kayıt için Ölçümü Üyeye Kaydet'e basın.${warningText}`, "success");
         })
         .catch((error) => {
           console.error("Tanita CSV read error", error);
@@ -355,15 +352,15 @@
     }
 
     function handleSaveTanitaMeasurement() {
+      if (!state.pendingTanitaMeasurement) {
+        setTanitaImportStatus("Kaydedilecek Tanita ölçümü yok. Önce CSV yükleyin.", "error");
+        return;
+      }
+
       const member = upsertMemberFromCurrentForm({ silent: true });
 
       if (!member) {
         setTanitaImportStatus("Ölçümü kaydetmek için önce üye adı veya üye no girin.", "error");
-        return;
-      }
-
-      if (!state.pendingTanitaMeasurement) {
-        setTanitaImportStatus("Kaydedilecek Tanita ölçümü yok. Önce CSV yükleyin.", "error");
         return;
       }
 
@@ -377,14 +374,11 @@
       }
 
       const normalizedMeasurement = normalizeMeasurementPayload(measurementToSave);
-      member.measurements = upsertMeasurementRecord(member.measurements, normalizedMeasurement);
-      member.updatedAt = new Date().toISOString();
-      persistMembers();
-      applyMeasurementToAppState?.(normalizedMeasurement);
+      const savedMember = applyMeasurementToAppState?.(normalizedMeasurement) || member;
       triggerMeasurementRecalculation?.(normalizedMeasurement);
 
       if (typeof saveMeasurementToSupabase === "function") {
-        saveMeasurementToSupabase(member, normalizedMeasurement);
+        saveMeasurementToSupabase(savedMember, normalizedMeasurement);
       }
 
       state.pendingTanitaMeasurement = null;

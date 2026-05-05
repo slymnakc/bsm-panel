@@ -63,11 +63,10 @@
         <div>
           <p class="section-kicker">Coach Command Center</p>
           <h2>Bahçeşehir Spor Merkezi Dashboard</h2>
-          <p>Bugün yapılacak işlemler, ölçüm bekleyen üyeler ve program durumu tek ekranda.</p>
+          <p id="dashboardStatusSummary">Bugün yapılacak işlemler, ölçüm bekleyen üyeler ve program durumu tek ekranda.</p>
         </div>
         <div class="dashboard-status dashboard-status--pill">
-          <span><strong>Supabase:</strong> Bağlı</span>
-          <span><strong>Son yedek:</strong> <small id="backupMeta">Oto yedek bekleniyor</small></span>
+          <span><strong>Durum</strong><small><b id="dashboardSupabaseStatus">Supabase kontrol ediliyor</b> • <em id="backupMeta">Oto yedek bekleniyor</em></small></span>
           <strong id="dashboardToday" class="visually-hidden">Bugün</strong>
           <div class="dashboard-tools dashboard-tools--compact" aria-label="Yedekleme araçları">
             <button type="button" class="ghost-button mini-button" id="downloadBackupButton">Yedek İndir</button>
@@ -81,24 +80,32 @@
 
       <div class="dashboard-grid dashboard-kpi-strip" aria-label="Dashboard ana göstergeleri">
         <article class="dashboard-card dashboard-card--accent">
+          <i class="dashboard-card__icon" aria-hidden="true">Ü</i>
           <span>Toplam Üye</span>
           <strong id="dashboardMemberCount">0</strong>
           <small>Kayıtlı aktif üye</small>
+          <em id="dashboardMemberTrend" class="dashboard-card__trend">→ Hazır</em>
         </article>
         <article class="dashboard-card">
+          <i class="dashboard-card__icon" aria-hidden="true">cm</i>
           <span>Ölçüm Bekleyen</span>
           <strong id="dashboardMeasurementDueCount">0</strong>
           <small>14 gün üzeri / ölçümsüz</small>
+          <em id="dashboardMeasurementDueTrend" class="dashboard-card__trend">→ Takipte</em>
         </article>
         <article class="dashboard-card">
+          <i class="dashboard-card__icon" aria-hidden="true">kg</i>
           <span>Program Revizyonu</span>
           <strong id="dashboardProgramDueCount">0</strong>
           <small>Güncelleme önerilen</small>
+          <em id="dashboardProgramDueTrend" class="dashboard-card__trend">→ Takipte</em>
         </article>
         <article class="dashboard-card dashboard-card--active-member">
+          <i class="dashboard-card__icon" aria-hidden="true">★</i>
           <span>Aktif Üye</span>
           <strong id="dashboardActiveMember">Seçilmedi</strong>
           <small id="dashboardActiveMemberMeta">Hedef ve son işlem burada görünür</small>
+          <em id="dashboardActiveMemberTrend" class="dashboard-card__trend">→ Üye seç</em>
         </article>
       </div>
 
@@ -109,6 +116,8 @@
         <strong id="dashboardLast7ActivityCount">0</strong>
         <div id="v3DashboardCalendar" class="v3-calendar-list"></div>
       </div>
+
+      <article class="dashboard-focus-block" id="dashboardFocusPanel"></article>
 
       <article class="dashboard-insight dashboard-insight--quick dashboard-command-actions" id="coachQuickPanel"></article>
 
