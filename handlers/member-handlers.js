@@ -220,6 +220,8 @@
     bindIf(elements.memberList, "click", handlers.handleMemberListClick);
     bindIf(elements.programHistory, "click", handlers.handleProgramHistoryClick);
     bindIf(elements.v3RevisionPanel, "click", handlers.handleV3RevisionAction);
+    bindIf(elements.dashboardFocusPanel, "click", handlers.handleCoachQuickAction);
+    bindIf(elements.dashboardFocusPanel, "click", handlers.handleCoachTaskAction);
     bindIf(elements.coachQuickPanel, "click", handlers.handleCoachQuickAction);
     bindIf(elements.coachAlertsPanel, "click", handlers.handleCoachQuickAction);
     bindIf(elements.coachAlertsPanel, "click", handlers.handleCoachTaskAction);

@@ -15,6 +15,16 @@
     setText(elements.measurementDueCount, summary.measurementDueCount);
     setText(elements.programDueCount, summary.programDueCount);
     setText(elements.last7ActivityCount, summary.last7ActivityCount);
+    setText(elements.statusSummary, summary.statusSummary);
+    setText(elements.supabaseStatus, `Supabase: ${summary.supabaseStatus || "Bilinmiyor"}`);
+    setText(elements.memberTrend, summary.kpiStates?.member?.trend);
+    setText(elements.measurementDueTrend, summary.kpiStates?.measurement?.trend);
+    setText(elements.programDueTrend, summary.kpiStates?.program?.trend);
+    setText(elements.activeMemberTrend, summary.kpiStates?.active?.trend);
+    setCardTone(elements.memberCount, summary.kpiStates?.member?.tone);
+    setCardTone(elements.measurementDueCount, summary.kpiStates?.measurement?.tone);
+    setCardTone(elements.programDueCount, summary.kpiStates?.program?.tone);
+    setCardTone(elements.activeMember, summary.kpiStates?.active?.tone);
   }
 
   function renderDashboardActivity(target, items, escapeHtml) {
@@ -59,7 +69,7 @@
             `,
           )
           .join("") +
-        `<button type="button" class="ghost-button mini-button dashboard-list-more" data-quick-action="open-builder">Tüm uyarıları gör</button>`
+        `<button type="button" class="ghost-button mini-button dashboard-list-more" data-quick-action="open-builder">Tümünü Gör</button>`
       : `<div class="empty-state compact-empty">Şu anda kritik uyarı yok. Ölçüm ve program kayıtları geldikçe otomatik takip burada görünür.</div>`;
   }
 
@@ -129,8 +139,38 @@
             `,
           )
           .join("") +
-        `<button type="button" class="ghost-button mini-button dashboard-list-more" data-quick-action="open-builder">Tüm görevleri gör</button>`
+        `<button type="button" class="ghost-button mini-button dashboard-list-more" data-quick-action="open-builder">Tümünü Gör</button>`
       : `<div class="empty-state compact-empty">Bugün için kritik koç görevi görünmüyor.</div>`;
+  }
+
+  function renderDashboardFocus(target, model, escapeHtml) {
+    if (!target || !model) {
+      return;
+    }
+
+    target.innerHTML = `
+      <div class="dashboard-focus-block__content">
+        <div>
+          <p class="section-kicker">Bugünün Öncelikli Aksiyonları</p>
+          <h3>${escapeHtml(model.title)}</h3>
+          <p>${escapeHtml(model.text)}</p>
+        </div>
+        <button type="button" class="primary-button" data-quick-action="${escapeHtml(model.action || "open-builder")}">${escapeHtml(model.actionLabel || "İşlemlere Başla")}</button>
+      </div>
+      <div class="dashboard-focus-metrics">
+        ${(model.items || [])
+          .map(
+            (item) => `
+              <article class="dashboard-focus-metric dashboard-focus-metric--${escapeHtml(item.tone || "neutral")}">
+                <strong>${escapeHtml(item.count)}</strong>
+                <span>${escapeHtml(item.title)}</span>
+                <small>${escapeHtml(item.text)}</small>
+              </article>
+            `,
+          )
+          .join("")}
+      </div>
+    `;
   }
 
   function renderCoachQuickPanel(target, model, escapeHtml) {
@@ -194,10 +234,21 @@
     target.textContent = String(value ?? "");
   }
 
+  function setCardTone(target, tone) {
+    const card = target?.closest?.(".dashboard-card");
+
+    if (!card) {
+      return;
+    }
+
+    card.dataset.tone = tone || "neutral";
+  }
+
   window.BSMDashboardUI = {
     renderDashboardMetrics,
     renderDashboardActivity,
     renderCoachAlerts,
+    renderDashboardFocus,
     renderV3DashboardCalendar,
     renderCoachTasks,
     renderCoachQuickPanel,

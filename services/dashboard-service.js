@@ -49,7 +49,42 @@
       item.badge = item.type === "program" ? "Program" : item.type === "measurement" ? "Ölçüm" : "Kayıt";
     });
 
-    return items.sort((a, b) => String(b.date).localeCompare(String(a.date), "tr"));
+    return items.sort((a, b) => parseActivityTime(b.date) - parseActivityTime(a.date));
+  }
+
+  function parseActivityTime(value) {
+    if (!value) {
+      return 0;
+    }
+
+    const parsed = new Date(value);
+
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.getTime();
+    }
+
+    const normalized = String(value)
+      .replace(/\s+/g, " ")
+      .replace(" Ocak ", ".01.")
+      .replace(" Şubat ", ".02.")
+      .replace(" Mart ", ".03.")
+      .replace(" Nisan ", ".04.")
+      .replace(" Mayıs ", ".05.")
+      .replace(" Haziran ", ".06.")
+      .replace(" Temmuz ", ".07.")
+      .replace(" Ağustos ", ".08.")
+      .replace(" Eylül ", ".09.")
+      .replace(" Ekim ", ".10.")
+      .replace(" Kasım ", ".11.")
+      .replace(" Aralık ", ".12.");
+    const match = normalized.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+
+    if (!match) {
+      return 0;
+    }
+
+    const [, day, month, year, hour = "0", minute = "0"] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)).getTime();
   }
 
   function buildFallbackMemberAnalysis(member, labelMaps) {

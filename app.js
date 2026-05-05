@@ -57,6 +57,7 @@ const {
   buildGuidance: buildGuidanceService,
 } = window.BSMProgramContentService;
 const {
+  matchesProgramMemberData: matchesProgramMemberDataService,
   findMatchingMemberRecord: findMatchingMemberRecordService,
   buildProgramMemberRecord: buildProgramMemberRecordService,
 } = window.BSMProgramMemberService;
@@ -142,6 +143,7 @@ const state = {
   activeNutritionMemberId: null,
   customExercises: [],
   hiddenExerciseIds: [],
+  supabaseStatus: "Kontrol ediliyor",
 };
 
 const {
@@ -183,6 +185,7 @@ const {
   renderDashboardMetrics: renderDashboardMetricsUi,
   renderDashboardActivity: renderDashboardActivityUi,
   renderCoachAlerts: renderCoachAlertsUi,
+  renderDashboardFocus: renderDashboardFocusUi,
   renderV3DashboardCalendar: renderV3DashboardCalendarUi,
   renderCoachTasks: renderCoachTasksUi,
   renderCoachQuickPanel: renderCoachQuickPanelUi,
@@ -344,6 +347,13 @@ const dashboardMeasurementDueCount = document.querySelector("#dashboardMeasureme
 const dashboardProgramDueCount = document.querySelector("#dashboardProgramDueCount");
 const dashboardLast7ActivityCount = document.querySelector("#dashboardLast7ActivityCount");
 const dashboardActivity = document.querySelector("#dashboardActivity");
+const dashboardStatusSummary = document.querySelector("#dashboardStatusSummary");
+const dashboardSupabaseStatus = document.querySelector("#dashboardSupabaseStatus");
+const dashboardMemberTrend = document.querySelector("#dashboardMemberTrend");
+const dashboardMeasurementDueTrend = document.querySelector("#dashboardMeasurementDueTrend");
+const dashboardProgramDueTrend = document.querySelector("#dashboardProgramDueTrend");
+const dashboardActiveMemberTrend = document.querySelector("#dashboardActiveMemberTrend");
+const dashboardFocusPanel = document.querySelector("#dashboardFocusPanel");
 const coachAlertsPanel = document.querySelector("#coachAlertsPanel");
 const coachTaskPanel = document.querySelector("#coachTaskPanel");
 const v3DashboardCalendar = document.querySelector("#v3DashboardCalendar");
@@ -2615,15 +2625,22 @@ function formatReportDate(dateValue) {
 }
 
 function syncMembersFromSupabase() {
+  state.supabaseStatus = window.supabaseClient?.from ? "Kontrol ediliyor" : "Kapalı";
+  renderDashboard();
+
   loadSupabaseMemberRecords()
     .then((supabaseMembers) => {
+      state.supabaseStatus = window.supabaseClient?.from ? "Bağlı" : "Kapalı";
+
       if (!supabaseMembers.length) {
+        renderDashboard();
         return;
       }
 
       const mergedMembers = mergeMemberLists(state.members, supabaseMembers);
 
       if (!mergedMembers.length) {
+        renderDashboard();
         return;
       }
 
@@ -2636,6 +2653,8 @@ function syncMembersFromSupabase() {
       renderMemberWorkspace();
     })
     .catch((error) => {
+      state.supabaseStatus = "Bağlantı hatası";
+      renderDashboard();
       console.warn("Supabase members sync error", error);
     });
 }
@@ -2735,6 +2754,7 @@ function bindApplicationHandlers() {
       memberList,
       programHistory,
       v3RevisionPanel,
+      dashboardFocusPanel,
       coachAlertsPanel,
       coachQuickPanel,
       coachTaskPanel,
@@ -3151,10 +3171,15 @@ function setActiveScreen(screen, options = {}) {
   const normalized = ["dashboard", "builder", "measurements", "nutrition", "library", "output", "measurement-report"].includes(screen) ? screen : "dashboard";
 
   if (normalized === "output" && !state.activeProgram) {
-    if (userTriggered && !silent) {
+    const loadedProgram = loadLatestProgramForOutput();
+
+    if (!loadedProgram && userTriggered && !silent) {
       showStatus("Çıktı ekranı için önce üye programı oluşturun.", "error");
     }
-    return false;
+
+    if (!loadedProgram) {
+      return false;
+    }
   }
 
   state.activeScreen = normalized;
@@ -3418,6 +3443,12 @@ function renderDashboard() {
       measurementDueCount: dashboardMeasurementDueCount,
       programDueCount: dashboardProgramDueCount,
       last7ActivityCount: dashboardLast7ActivityCount,
+      statusSummary: dashboardStatusSummary,
+      supabaseStatus: dashboardSupabaseStatus,
+      memberTrend: dashboardMemberTrend,
+      measurementDueTrend: dashboardMeasurementDueTrend,
+      programDueTrend: dashboardProgramDueTrend,
+      activeMemberTrend: dashboardActiveMemberTrend,
     },
     {
       memberCount: state.members.length,
@@ -3429,14 +3460,95 @@ function renderDashboard() {
       measurementDueCount: automationSummary.measurementDueCount || 0,
       programDueCount: automationSummary.programUpdateDueCount || 0,
       last7ActivityCount: automationSummary.last7DaysActivityCount || 0,
+      supabaseStatus: state.supabaseStatus,
+      statusSummary: buildDashboardStatusSummary(automationSummary, activeMember),
+      kpiStates: buildDashboardKpiStates(automationSummary, activeMember),
     },
   );
+  renderDashboardFocusUi?.(dashboardFocusPanel, buildDashboardFocusModel(automationSummary), escapeHtml);
   renderDashboardActivityUi(dashboardActivity, latestItems.slice(0, 5), escapeHtml);
   renderCoachAlertsPanel(automationSummary, activeMember);
   renderV3DashboardCalendar(automationSummary);
   renderCoachTaskPanel(automationSummary);
   renderCoachQuickPanel(activeMember);
   renderBackupMeta();
+}
+
+function buildDashboardStatusSummary(automationSummary, activeMember) {
+  const measurementDue = automationSummary.measurementDueCount || 0;
+  const programDue = automationSummary.programUpdateDueCount || 0;
+  const activeText = activeMember?.profile?.memberName ? `Aktif üye: ${activeMember.profile.memberName}` : "Aktif üye seçilmedi";
+  return `${activeText} • ${measurementDue} ölçüm bekliyor • ${programDue} program revizyonu`;
+}
+
+function buildDashboardKpiStates(automationSummary, activeMember) {
+  const measurementDue = Number(automationSummary.measurementDueCount || 0);
+  const programDue = Number(automationSummary.programUpdateDueCount || 0);
+
+  return {
+    member: {
+      tone: state.members.length ? "good" : "neutral",
+      trend: state.members.length ? "↑ Aktif" : "→ Başlangıç",
+    },
+    measurement: {
+      tone: measurementDue >= 5 ? "danger" : measurementDue > 0 ? "warning" : "good",
+      trend: measurementDue > 0 ? `↑ ${measurementDue} takip` : "↓ Temiz",
+    },
+    program: {
+      tone: programDue >= 5 ? "danger" : programDue > 0 ? "warning" : "good",
+      trend: programDue > 0 ? `↑ ${programDue} revizyon` : "↓ Güncel",
+    },
+    active: {
+      tone: activeMember ? "good" : "warning",
+      trend: activeMember ? "↑ Seçili" : "→ Üye seç",
+    },
+  };
+}
+
+function buildDashboardFocusModel(automationSummary) {
+  const measurementDue = Number(automationSummary.measurementDueCount || 0);
+  const programDue = Number(automationSummary.programUpdateDueCount || 0);
+  const missingData = countMembersWithMissingData();
+  const items = [
+    {
+      title: "Ölçüm bekleyen üyeler",
+      count: measurementDue,
+      text: measurementDue ? "14 günü geçen veya hiç ölçümü olmayan üyeler var." : "Ölçüm takibi şu an dengede.",
+      tone: measurementDue >= 5 ? "danger" : measurementDue > 0 ? "warning" : "good",
+    },
+    {
+      title: "Program güncelleme",
+      count: programDue,
+      text: programDue ? "Revizyon zamanı yaklaşan programlar bulunuyor." : "Program revizyon takibi temiz.",
+      tone: programDue >= 5 ? "danger" : programDue > 0 ? "warning" : "good",
+    },
+    {
+      title: "Eksik profil / veri",
+      count: missingData,
+      text: missingData ? "Hedef, seviye, gün veya ölçüm bilgisi eksik üyeler var." : "Temel üye verileri iyi görünüyor.",
+      tone: missingData >= 5 ? "danger" : missingData > 0 ? "warning" : "good",
+    },
+  ];
+  const highestPriority = items.find((item) => item.count > 0) || items[0];
+  const action =
+    measurementDue > 0 ? "open-measurements" : programDue > 0 ? "build-program" : missingData > 0 ? "open-builder" : "new-member";
+
+  return {
+    title: highestPriority.count ? highestPriority.title : "Salon akışı kontrol altında",
+    text: highestPriority.count
+      ? highestPriority.text
+      : "Bugün kritik aksiyon yok. Yeni üye, ölçüm veya program akışıyla devam edebilirsiniz.",
+    action,
+    actionLabel: "İşlemlere Başla",
+    items,
+  };
+}
+
+function countMembersWithMissingData() {
+  return state.members.filter((member) => {
+    const profile = member.profile || {};
+    return !profile.memberName || !profile.goal || !profile.level || !(profile.days || []).length || !(member.measurements || []).length;
+  }).length;
 }
 
 function getActiveMemberLastAction(member) {
@@ -3689,7 +3801,7 @@ function renderCoachAlertsPanel(automationSummary, activeMember) {
     actionLabel: "İncele",
     severityLabel: alert.level === "danger" || alert.severity === "danger" ? "Risk" : "Takip",
   }));
-  const automationAlerts = (automationSummary.records || []).slice(0, 4).map((record) => ({
+  const automationAlerts = (automationSummary.records || []).slice(0, 3).map((record) => ({
     ...record,
     workspace: record.type === "measurement-reminder" || record.type === "measurement-missing" ? "measurements" : "members",
     actionLabel: record.type === "measurement-reminder" || record.type === "measurement-missing" ? "Ölçüm aç" : "Üye aç",
@@ -3697,7 +3809,7 @@ function renderCoachAlertsPanel(automationSummary, activeMember) {
   }));
   const alerts = [...activeAlerts, ...automationAlerts]
     .filter((alert, index, list) => list.findIndex((item) => `${item.memberName}-${item.type}-${item.title}` === `${alert.memberName}-${alert.type}-${alert.title}`) === index)
-    .slice(0, 4);
+    .slice(0, 3);
   renderCoachAlertsUi(coachAlertsPanel, alerts, escapeHtml);
 }
 
@@ -3735,7 +3847,7 @@ function renderCoachTaskPanel(automationSummary) {
     return;
   }
 
-  const tasks = buildCoachTasks(automationSummary).slice(0, 4);
+  const tasks = buildCoachTasks(automationSummary).slice(0, 3);
   renderCoachTasksUi(coachTaskPanel, tasks, escapeHtml);
 }
 
@@ -4643,6 +4755,18 @@ function refreshActiveProgramFromMeasurement(formData) {
   return true;
 }
 
+function loadLatestProgramForOutput() {
+  const member = findActiveMember();
+  const latestProgramRecord = member?.programs?.[0];
+
+  if (!latestProgramRecord?.program) {
+    return null;
+  }
+
+  renderProgram(cloneData(latestProgramRecord.program), { savedProgramRecordId: latestProgramRecord.id || null });
+  return state.activeProgram;
+}
+
 function refreshNutritionPlanFromMeasurement(member) {
   if (!member || typeof buildNutritionPlan !== "function") {
     return;
@@ -5128,7 +5252,11 @@ function buildV3ProgramInsights(data, analysis) {
 }
 
 function buildProgramMemberRecord(data) {
-  return buildProgramMemberRecordService(data, findActiveMember(), {
+  const activeMember = findActiveMember();
+  const activeMemberMatches = activeMember && matchesProgramMemberDataService(data, activeMember, { normalizeText });
+  const matchedMember = activeMemberMatches ? activeMember : findMatchingMemberRecord(data);
+
+  return buildProgramMemberRecordService(data, matchedMember, {
     normalizeText,
   });
 }
