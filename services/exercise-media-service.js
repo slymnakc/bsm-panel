@@ -6,11 +6,11 @@
   function buildExerciseMedia(exercise, groupLabel = "") {
     const source = exercise && typeof exercise === "object" ? exercise : {};
     const name = String(source.name || "Hareket").trim();
-    const explicitGifUrl = String(source.gifUrl || "").trim();
+    const explicitGifUrl = getExplicitMediaUrl(source);
     const slug = slugifyExerciseName(name);
-    const slugUrl = `${GIF_BASE_PATH}${slug}.gif`;
+    const slugUrl = buildGifUrl(slug);
     const gifUrl = explicitGifUrl || slugUrl;
-    const fallbackGifUrls = explicitGifUrl ? [] : buildFallbackGifUrls(slug);
+    const fallbackGifUrls = explicitGifUrl ? buildExplicitFallbackGifUrls(explicitGifUrl, slug) : buildFallbackGifUrls(source, slug);
 
     return {
       gifUrl,
@@ -18,18 +18,66 @@
       fallbackGifUrls,
       name,
       groupLabel: groupLabel || source.group || "Kas grubu",
-      isExplicit: Boolean(source.gifUrl),
+      isExplicit: Boolean(explicitGifUrl),
     };
   }
 
-  function buildFallbackGifUrls(slug) {
+  function getExplicitMediaUrl(source) {
+    const media = source.media && typeof source.media === "object" ? source.media : {};
+    return String(
+      source.gifUrl ||
+        source.exerciseGif ||
+        source.exerciseGifUrl ||
+        source.image ||
+        source.imageUrl ||
+        source.mediaUrl ||
+        media.gifUrl ||
+        media.exerciseGif ||
+        media.url ||
+        media.image ||
+        media.imageUrl ||
+        "",
+    ).trim();
+  }
+
+  function buildExplicitFallbackGifUrls(explicitGifUrl, slug) {
+    return uniqueValues([
+      normalizeLocalGifPath(explicitGifUrl),
+      ...buildFallbackGifUrls({}, slug),
+    ]).filter((url) => url !== explicitGifUrl);
+  }
+
+  function buildFallbackGifUrls(source, slug) {
     const doubleHyphenSlug = buildDoubleHyphenAlias(slug);
+    const idSlug = slugifyExerciseName(source?.id || "");
+    const nameWithoutEquipment = stripCommonEquipmentPrefix(slug);
 
     return uniqueValues([
-      `${GIF_BASE_PATH}${slug}.gif.gif`,
-      doubleHyphenSlug ? `${GIF_BASE_PATH}${doubleHyphenSlug}.gif` : "",
-      doubleHyphenSlug ? `${GIF_BASE_PATH}${doubleHyphenSlug}.gif.gif` : "",
+      buildGifUrl(slug),
+      `${buildGifUrl(slug)}.gif`,
+      doubleHyphenSlug ? buildGifUrl(doubleHyphenSlug) : "",
+      doubleHyphenSlug ? `${buildGifUrl(doubleHyphenSlug)}.gif` : "",
+      idSlug ? buildGifUrl(idSlug) : "",
+      nameWithoutEquipment ? buildGifUrl(nameWithoutEquipment) : "",
     ]);
+  }
+
+  function buildGifUrl(slug) {
+    return slug ? `${GIF_BASE_PATH}${slug}.gif` : "";
+  }
+
+  function normalizeLocalGifPath(value) {
+    const text = String(value || "").trim();
+
+    if (!text || text.includes("/") || text.includes("\\") || /^https?:\/\//i.test(text)) {
+      return text;
+    }
+
+    return `${GIF_BASE_PATH}${text.replace(/\.gif$/i, "")}.gif`;
+  }
+
+  function stripCommonEquipmentPrefix(slug) {
+    return String(slug || "").replace(/^(barbell|dumbbell|machine|cable|band|bodyweight|smith|kettlebell)-/, "");
   }
 
   function buildDoubleHyphenAlias(slug) {

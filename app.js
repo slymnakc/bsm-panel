@@ -2974,6 +2974,9 @@ function handleExerciseGifError(event) {
   }
 
   const openButton = image.closest("[data-exercise-gif-open]");
+  const failedUrl = image.getAttribute("src") || "";
+  const exerciseName = openButton?.dataset.exerciseName || image.alt || "Bilinmeyen hareket";
+  console.warn(`EXERCISE GIF LOAD FAILED: ${exerciseName} -> ${failedUrl}`);
   const fallbackUrl = getNextExerciseGifFallbackUrl(image, openButton);
 
   if (fallbackUrl) {

@@ -178,7 +178,8 @@
         return `
           <article class="member-program-exercise-card">
             <div class="member-program-exercise-card__top">
-              <span>${index + 1}</span>
+              ${renderExerciseMedia(helpers?.getExerciseMedia?.(exercise), escapeHtml, "exercise-media--program-card", exercise, helpers)}
+              <span class="member-program-exercise-card__index">${index + 1}</span>
               <div>
                 <strong>${escapeHtml(exercise.name || "Hareket")}</strong>
                 <small>${escapeHtml(helpers.getMuscleLabel(exercise.group))}</small>
@@ -205,7 +206,7 @@
         return `
           <div class="member-program-table__row">
             <div class="member-program-exercise-title">
-              ${renderExerciseMedia(helpers?.getExerciseMedia?.(exercise), escapeHtml, "exercise-media--tiny")}
+              ${renderExerciseMedia(helpers?.getExerciseMedia?.(exercise), escapeHtml, "exercise-media--tiny", exercise, helpers)}
               <strong>${escapeHtml(exercise.name || "Hareket")}</strong>
             </div>
             <span data-label="Set">${escapeHtml(prescription.sets)}</span>
@@ -243,7 +244,7 @@
 
     return `
       <div class="editable-exercise-card">
-        ${renderExerciseMedia(helpers?.getExerciseMedia?.(exercise), escapeHtml, "exercise-media--wide")}
+        ${renderExerciseMedia(helpers?.getExerciseMedia?.(exercise), escapeHtml, "exercise-media--wide", exercise, helpers)}
         <div class="editable-exercise-card__top">
           <label class="edit-field">
             <span>Kas grubu</span>
@@ -297,9 +298,12 @@
     return options.join("");
   }
 
-  function renderExerciseMedia(media, escapeHtml, modifier = "") {
+  function renderExerciseMedia(media, escapeHtml, modifier = "", exercise = null, helpers = {}) {
+    const name = media?.name || exercise?.name || "Hareket";
+    const groupLabel = media?.groupLabel || helpers?.getMuscleLabel?.(exercise?.group) || exercise?.group || "Kas grubu";
+
     if (!media?.gifUrl) {
-      return "";
+      return renderMissingExerciseMedia({ name, groupLabel }, escapeHtml, modifier);
     }
 
     return `
@@ -311,15 +315,28 @@
           data-gif-url="${escapeHtml(media.gifUrl)}"
           data-gif-fallback-url="${escapeHtml(media.fallbackGifUrl || "")}"
           data-gif-fallback-urls="${escapeHtml(getFallbackGifUrls(media).join("|"))}"
-          data-exercise-name="${escapeHtml(media.name)}"
-          data-exercise-group="${escapeHtml(media.groupLabel)}"
-          aria-label="${escapeHtml(media.name)} GIF önizlemesini büyüt"
+          data-exercise-name="${escapeHtml(name)}"
+          data-exercise-group="${escapeHtml(groupLabel)}"
+          aria-label="${escapeHtml(name)} GIF önizlemesini büyüt"
         >
-          <img src="${escapeHtml(media.gifUrl)}" alt="${escapeHtml(media.name)} GIF" loading="lazy" data-exercise-gif-img />
+          <img src="${escapeHtml(media.gifUrl)}" alt="${escapeHtml(name)} GIF" loading="lazy" data-exercise-gif-img />
         </button>
+        <div class="exercise-media__placeholder">
+          <strong>${escapeHtml(name)}</strong>
+          <span>${escapeHtml(groupLabel)}</span>
+          <em>GIF yok</em>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderMissingExerciseMedia(media, escapeHtml, modifier = "") {
+    return `
+      <div class="exercise-media ${modifier} is-missing" data-exercise-media aria-label="${escapeHtml(media.name)} için GIF yok">
         <div class="exercise-media__placeholder">
           <strong>${escapeHtml(media.name)}</strong>
           <span>${escapeHtml(media.groupLabel)}</span>
+          <em>GIF yok</em>
         </div>
       </div>
     `;
