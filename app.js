@@ -18,6 +18,7 @@ console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 console.log("MEASUREMENT TAB VERSION: v1");
 console.log("NUTRITION REPORT VERSION: dietitian-pro-v1");
+console.log("DASHBOARD VERSION: command-center-v1");
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -2734,6 +2735,7 @@ function bindApplicationHandlers() {
       memberList,
       programHistory,
       v3RevisionPanel,
+      coachAlertsPanel,
       coachQuickPanel,
       coachTaskPanel,
     },
@@ -3402,6 +3404,8 @@ function renderDashboard() {
   const latestItems = buildActivityItems();
   const automationSummary = getAutomationSummary();
   const analysisRiskMemberCount = state.members.filter((member) => ["Orta", "Yüksek"].includes(getMemberAnalysis(member)?.riskLevel)).length;
+  const activeGoalLabel = activeMember ? labelMaps.goal[activeMember.profile?.goal] || "Hedef yok" : "";
+  const activeLastAction = activeMember ? getActiveMemberLastAction(activeMember) : "";
 
   renderDashboardMetricsUi(
     {
@@ -3420,9 +3424,7 @@ function renderDashboard() {
       programCount: totalPrograms,
       measurementCount: totalMeasurements,
       activeMemberName: activeMember?.profile?.memberName || "Seçilmedi",
-      activeMemberMeta: activeMember
-        ? `${activeMember.profile?.memberCode || "Üye no yok"} • ${labelMaps.goal[activeMember.profile?.goal] || "Hedef yok"}`
-        : "Üye seçerek profil panelini açın",
+      activeMemberMeta: activeMember ? `${activeGoalLabel} • ${activeLastAction}` : "Üye seçerek profil panelini açın",
       riskMemberCount: Math.max(automationSummary.riskMemberCount || 0, analysisRiskMemberCount),
       measurementDueCount: automationSummary.measurementDueCount || 0,
       programDueCount: automationSummary.programUpdateDueCount || 0,
@@ -3435,6 +3437,25 @@ function renderDashboard() {
   renderCoachTaskPanel(automationSummary);
   renderCoachQuickPanel(activeMember);
   renderBackupMeta();
+}
+
+function getActiveMemberLastAction(member) {
+  const candidates = [
+    ...(member.measurements || []).map((measurement) => ({
+      date: measurement.date,
+      label: `Son ölçüm ${measurement.date || "tarihsiz"}`,
+    })),
+    ...(member.programs || []).map((record) => ({
+      date: record.savedAt || record.program?.createdAt,
+      label: `Son program ${formatDashboardDate(record.savedAt || record.program?.createdAt)}`,
+    })),
+    {
+      date: member.updatedAt || member.createdAt,
+      label: member.updatedAt || member.createdAt ? `Üye güncellendi ${formatDashboardDate(member.updatedAt || member.createdAt)}` : "Son işlem yok",
+    },
+  ].filter((item) => item.date);
+
+  return candidates.sort((a, b) => String(b.date).localeCompare(String(a.date), "tr"))[0]?.label || "Son işlem yok";
 }
 
 function renderWorkflowAssistant() {
@@ -3662,12 +3683,21 @@ function renderCoachAlertsPanel(automationSummary, activeMember) {
   const activeAnalysis = getMemberAnalysis(activeMember);
   const activeAlerts = (activeAnalysis?.coachAlerts || []).map((alert) => ({
     ...alert,
+    memberId: activeMember?.id || "",
     memberName: activeMember?.profile?.memberName || "Aktif üye",
+    workspace: "v3",
+    actionLabel: "İncele",
+    severityLabel: alert.level === "danger" || alert.severity === "danger" ? "Risk" : "Takip",
   }));
-  const automationAlerts = (automationSummary.records || []).slice(0, 5);
+  const automationAlerts = (automationSummary.records || []).slice(0, 4).map((record) => ({
+    ...record,
+    workspace: record.type === "measurement-reminder" || record.type === "measurement-missing" ? "measurements" : "members",
+    actionLabel: record.type === "measurement-reminder" || record.type === "measurement-missing" ? "Ölçüm aç" : "Üye aç",
+    severityLabel: record.severity === "warning" ? "Takip" : "Bilgi",
+  }));
   const alerts = [...activeAlerts, ...automationAlerts]
     .filter((alert, index, list) => list.findIndex((item) => `${item.memberName}-${item.type}-${item.title}` === `${alert.memberName}-${alert.type}-${alert.title}`) === index)
-    .slice(0, 5);
+    .slice(0, 4);
   renderCoachAlertsUi(coachAlertsPanel, alerts, escapeHtml);
 }
 
@@ -3705,7 +3735,7 @@ function renderCoachTaskPanel(automationSummary) {
     return;
   }
 
-  const tasks = buildCoachTasks(automationSummary).slice(0, 6);
+  const tasks = buildCoachTasks(automationSummary).slice(0, 4);
   renderCoachTasksUi(coachTaskPanel, tasks, escapeHtml);
 }
 

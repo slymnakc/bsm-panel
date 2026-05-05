@@ -26,14 +26,17 @@
       ? items
           .map(
             (item) => `
-              <div class="activity-item">
-                <strong>${escapeHtml(item.title)}</strong>
-                <span>${escapeHtml(item.meta)}</span>
+              <div class="activity-item activity-item--${escapeHtml(item.type || "default")}">
+                <i>${escapeHtml(item.badge || "Kayıt")}</i>
+                <div>
+                  <strong>${escapeHtml(item.title)}</strong>
+                  <span>${escapeHtml(item.meta)}</span>
+                </div>
               </div>
             `,
           )
           .join("")
-      : `<div class="empty-state compact-empty">Henüz aktivite yok. Üye kaydedip program oluşturunca burada görünür.</div>`;
+      : `<div class="empty-state compact-empty">Henüz aktivite yok. Üye kaydedip ölçüm veya program oluşturunca burada görünür.</div>`;
   }
 
   function renderCoachAlerts(target, alerts, escapeHtml) {
@@ -46,13 +49,33 @@
           .map(
             (alert) => `
               <article class="coach-alert coach-alert--${escapeHtml(alert.severity || "info")}">
-                <strong>${escapeHtml(alert.title || "Koç uyarısı")}</strong>
-                <span>${escapeHtml(alert.memberName || "")}${alert.memberName ? " • " : ""}${escapeHtml(alert.message || "")}</span>
+                <div class="coach-alert__top">
+                  <span>${escapeHtml(alert.severityLabel || alert.badge || "Takip")}</span>
+                  <strong>${escapeHtml(alert.memberName || "Üye")}</strong>
+                </div>
+                <p>${escapeHtml(alert.message || alert.title || "Koç uyarısı")}</p>
+                ${renderAlertAction(alert, escapeHtml)}
               </article>
             `,
           )
-          .join("")
+          .join("") +
+        `<button type="button" class="ghost-button mini-button dashboard-list-more" data-quick-action="open-builder">Tüm uyarıları gör</button>`
       : `<div class="empty-state compact-empty">Şu anda kritik uyarı yok. Ölçüm ve program kayıtları geldikçe otomatik takip burada görünür.</div>`;
+  }
+
+  function renderAlertAction(alert, escapeHtml) {
+    if (alert.memberId) {
+      return `
+        <button
+          type="button"
+          class="ghost-button mini-button"
+          data-task-member-id="${escapeHtml(alert.memberId)}"
+          data-task-workspace="${escapeHtml(alert.workspace || "members")}"
+        >${escapeHtml(alert.actionLabel || "Aç")}</button>
+      `;
+    }
+
+    return `<button type="button" class="ghost-button mini-button" data-quick-action="open-builder">${escapeHtml(alert.actionLabel || "Aç")}</button>`;
   }
 
   function renderV3DashboardCalendar(target, items, escapeHtml, formatV3DaysLeft) {
@@ -105,7 +128,8 @@
               </article>
             `,
           )
-          .join("")
+          .join("") +
+        `<button type="button" class="ghost-button mini-button dashboard-list-more" data-quick-action="open-builder">Tüm görevleri gör</button>`
       : `<div class="empty-state compact-empty">Bugün için kritik koç görevi görünmüyor.</div>`;
   }
 
@@ -114,51 +138,44 @@
       return;
     }
 
-    if (!model) {
-      target.innerHTML = `
-        <div class="quick-panel">
-          <div>
-            <p class="section-kicker">Koç Hızlı Panel</p>
-            <h3>Hızlı Erişim</h3>
-          </div>
-          <p class="quick-panel__note">Aktif üye seçtiğinizde bir sonraki adım önerileri, hızlı geçiş butonları ve kritik özet burada görünür.</p>
-          <div class="quick-panel__actions">
-            <button type="button" class="ghost-button mini-button" data-quick-action="open-builder">Üye Ekranı</button>
-            <button type="button" class="ghost-button mini-button" data-quick-action="open-measurements">Ölçüm Ekranı</button>
-          </div>
-        </div>
-      `;
-      return;
-    }
-
     target.innerHTML = `
-      <div class="quick-panel">
+      <div class="quick-panel quick-panel--command">
         <div>
-          <p class="section-kicker">Koç Hızlı Panel</p>
-          <h3>${escapeHtml(model.memberName || "Aktif Üye")}</h3>
+          <p class="section-kicker">Ana Akış</p>
+          <h3>Hızlı İşlemler</h3>
+          <p class="quick-panel__note">Üye seçimi, Tanita ölçümü, program, beslenme ve PDF çıktısına tek dokunuşla geçin.</p>
         </div>
-        <div class="quick-panel__meta">
-          <div><span>Haftalık gün</span><strong>${escapeHtml(model.trainingDays)}</strong></div>
-          <div><span>Son ölçüm</span><strong>${escapeHtml(model.latestMeasurementDate)}</strong></div>
-          <div><span>Son program</span><strong>${escapeHtml(model.latestProgramDate)}</strong></div>
-        </div>
-        <div class="quick-panel__ai">
-          <div><span>AI skor</span><strong>${escapeHtml(model.score)}</strong></div>
-          <div><span>Hedef uyumu</span><strong>${escapeHtml(model.goalFitScore)}</strong></div>
-          <div><span>Risk</span><strong>${escapeHtml(model.riskLevel)}</strong></div>
-        </div>
-        <p class="quick-panel__note"><strong>AI özet:</strong> ${escapeHtml(model.summary)}</p>
-        <p class="quick-panel__note"><strong>Trend:</strong> ${escapeHtml(model.trendText)}</p>
-        <p class="quick-panel__note"><strong>Koç uyarıları:</strong> ${escapeHtml(model.alertSummary)}</p>
-        <p class="quick-panel__note"><strong>Önerilen adım:</strong> ${escapeHtml(model.nextAction)}</p>
-        <div class="quick-panel__actions">
-          <button type="button" class="secondary-button mini-button" data-quick-action="open-builder">Üye Kartı</button>
-          <button type="button" class="ghost-button mini-button" data-quick-action="open-measurements">Ölçüm</button>
-          <button type="button" class="ghost-button mini-button" data-quick-action="open-output">Program Çıktısı</button>
-          <button type="button" class="ghost-button mini-button" data-quick-action="export-active-member">CSV</button>
+        <div class="quick-action-grid">
+          ${renderQuickActionCard("user-plus", "Yeni Üye", "Yeni üye formunu aç ve kayıt akışını başlat.", "new-member", escapeHtml)}
+          ${renderQuickActionCard("measure", "Tanita Ölçüm Gir", "CSV yükle veya manuel segmental ölçüm ekle.", "open-measurements", escapeHtml)}
+          ${renderQuickActionCard("dumbbell", "Program Oluştur", "Hedef ve ölçüme göre antrenman planı hazırla.", "build-program", escapeHtml)}
+          ${renderQuickActionCard("nutrition", "Beslenme Planı", "Tanita verisine bağlı beslenme sekmesini aç.", "open-nutrition", escapeHtml)}
+          ${renderQuickActionCard("pdf", "PDF Çıktı", "Üyeye verilecek çıktı ve rapor ekranına geç.", "open-output", escapeHtml)}
         </div>
       </div>
     `;
+  }
+
+  function renderQuickActionCard(icon, title, text, action, escapeHtml) {
+    return `
+      <button type="button" class="quick-action-card quick-action-card--${escapeHtml(icon)}" data-quick-action="${escapeHtml(action)}">
+        <span class="quick-action-card__icon" aria-hidden="true">${escapeHtml(getQuickActionIcon(icon))}</span>
+        <strong>${escapeHtml(title)}</strong>
+        <small>${escapeHtml(text)}</small>
+      </button>
+    `;
+  }
+
+  function getQuickActionIcon(icon) {
+    const icons = {
+      "user-plus": "+",
+      measure: "cm",
+      dumbbell: "kg",
+      nutrition: "B",
+      pdf: "PDF",
+    };
+
+    return icons[icon] || ">";
   }
 
   function renderBackupMeta(target, text) {
