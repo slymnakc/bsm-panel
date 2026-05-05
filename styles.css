@@ -2796,6 +2796,19 @@ input[type="radio"] {
   font-size: 0.84rem;
 }
 
+.exercise-media__placeholder em {
+  display: inline-grid;
+  place-items: center;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: var(--teal-deep);
+  background: rgba(29, 107, 116, 0.1);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 .exercise-media.is-missing .exercise-media__button,
 .exercise-media.is-missing img {
   display: none;
@@ -2823,6 +2836,23 @@ input[type="radio"] {
 
 .exercise-media--wide {
   min-height: 160px;
+}
+
+.exercise-media--program-card {
+  width: 64px;
+  min-width: 64px;
+  height: 64px;
+  min-height: 64px;
+  border-radius: 16px;
+}
+
+.exercise-media--program-card .exercise-media__placeholder {
+  padding: 6px;
+}
+
+.exercise-media--program-card .exercise-media__placeholder strong,
+.exercise-media--program-card .exercise-media__placeholder span {
+  display: none;
 }
 
 .member-program-exercise-title {
@@ -3506,9 +3536,9 @@ body.modal-open {
 
 .member-program-exercise-card__top {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto auto 1fr;
   gap: 10px;
-  align-items: start;
+  align-items: center;
 }
 
 .member-program-exercise-card__top > span {
@@ -7463,6 +7493,11 @@ textarea:focus {
 
   .member-program-exercise-card {
     padding: 7px;
+  }
+
+  .member-program-exercise-card__top {
+    grid-template-columns: auto 1fr;
+    align-items: start;
   }
 
   .member-program-exercise-card__metrics {
