@@ -207,33 +207,51 @@
 
   function fatLossMeals() {
     return [
-      meal("Kahvaltı", "2 yumurta, 3-4 kaşık yulaf, yoğurt, salatalık-domates"),
-      meal("Öğle", "120-150 g tavuk, 5-6 kaşık bulgur, büyük salata"),
-      meal("Ara Öğün 1", "1 porsiyon meyve, 10-12 badem veya fındık"),
-      meal("Akşam", "150 g balık veya yağsız et, sebze yemeği, yoğurt"),
-      meal("Ara Öğün 2", "Kefir veya yoğurt, tarçın"),
+      meal("Kahvaltı", "2 adet yumurta (100 g), yulaf 35 g, süzme yoğurt 150 g, salatalık-domates 200 g"),
+      meal("Öğle", "Tavuk göğüs 130 g pişmiş, bulgur 150 g pişmiş (5-6 yemek kaşığı), salata 250 g, zeytinyağı 5 ml"),
+      meal("Ara Öğün 1", "Elma veya armut 1 orta boy (150 g), badem veya fındık 15 g"),
+      meal("Akşam", "Balık veya yağsız et 150 g pişmiş, sebze yemeği 250 g, yoğurt 150 g"),
+      meal("Ara Öğün 2", "Kefir 200 ml veya yoğurt 150 g, tarçın 2 g"),
     ];
   }
 
   function muscleGainMeals() {
     return [
-      meal("Kahvaltı", "3 yumurta, yulaf veya tam buğday ekmeği, peynir, zeytin"),
-      meal("Öğle", "150-180 g tavuk/et, pirinç veya bulgur, salata"),
-      meal("Ara Öğün 1", "Yoğurt, muz, yulaf veya ev yapımı sandviç"),
-      meal("Akşam", "150-180 g balık/et/tavuk, patates veya makarna, salata"),
-      meal("Ara Öğün 2", "Süt/kefir veya yoğurt, ceviz/fındık"),
+      meal("Kahvaltı", "3 adet yumurta (150 g), yulaf 60 g veya tam buğday ekmeği 2 dilim (60 g), beyaz peynir 40 g, zeytin 5 adet (20 g)"),
+      meal("Öğle", "Tavuk veya et 170 g pişmiş, pirinç veya bulgur 200 g pişmiş, salata 250 g, zeytinyağı 10 ml"),
+      meal("Ara Öğün 1", "Yoğurt 200 g, muz 1 orta boy (120 g), yulaf 30 g veya tam buğday sandviç 1 adet (90 g)"),
+      meal("Akşam", "Balık, et veya tavuk 180 g pişmiş, patates 250 g veya makarna 180 g pişmiş, salata 250 g"),
+      meal("Ara Öğün 2", "Süt veya kefir 250 ml veya yoğurt 200 g, ceviz veya fındık 20 g"),
     ];
   }
 
   function balancedMeals() {
     return [
-      meal("Kahvaltı", "2 yumurta, peynir, tam buğday ekmeği, söğüş sebze"),
-      meal("Öğle", "120-150 g protein kaynağı, bulgur/pirinç, salata"),
-      meal("Ara Öğün 1", "Meyve ve yoğurt veya kefir"),
-      meal("Akşam", "Protein kaynağı, sebze, yoğurt ve kontrollü karbonhidrat"),
-      meal("Ara Öğün 2", "Bitki çayı yanında yoğurt veya küçük kuruyemiş porsiyonu"),
+      meal("Kahvaltı", "2 adet yumurta (100 g), beyaz peynir 40 g, tam buğday ekmeği 1-2 dilim (30-60 g), söğüş sebze 200 g"),
+      meal("Öğle", "Protein kaynağı 140 g pişmiş, bulgur veya pirinç 160 g pişmiş, salata 250 g, zeytinyağı 5 ml"),
+      meal("Ara Öğün 1", "Meyve 1 porsiyon (150 g) + yoğurt 150 g veya kefir 200 ml"),
+      meal("Akşam", "Protein kaynağı 150 g pişmiş, sebze 250 g, yoğurt 150 g, kontrollü karbonhidrat 100-150 g pişmiş"),
+      meal("Ara Öğün 2", "Bitki çayı 200 ml, yoğurt 150 g veya kuruyemiş 15 g"),
     ];
   }
+
+  const legacyMealPortionMap = new Map([
+    ["2 yumurta, 3-4 kaşık yulaf, yoğurt, salatalık-domates", "2 adet yumurta (100 g), yulaf 35 g, süzme yoğurt 150 g, salatalık-domates 200 g"],
+    ["120-150 g tavuk, 5-6 kaşık bulgur, büyük salata", "Tavuk göğüs 130 g pişmiş, bulgur 150 g pişmiş (5-6 yemek kaşığı), salata 250 g, zeytinyağı 5 ml"],
+    ["1 porsiyon meyve, 10-12 badem veya fındık", "Elma veya armut 1 orta boy (150 g), badem veya fındık 15 g"],
+    ["150 g balık veya yağsız et, sebze yemeği, yoğurt", "Balık veya yağsız et 150 g pişmiş, sebze yemeği 250 g, yoğurt 150 g"],
+    ["Kefir veya yoğurt, tarçın", "Kefir 200 ml veya yoğurt 150 g, tarçın 2 g"],
+    ["3 yumurta, yulaf veya tam buğday ekmeği, peynir, zeytin", "3 adet yumurta (150 g), yulaf 60 g veya tam buğday ekmeği 2 dilim (60 g), beyaz peynir 40 g, zeytin 5 adet (20 g)"],
+    ["150-180 g tavuk/et, pirinç veya bulgur, salata", "Tavuk veya et 170 g pişmiş, pirinç veya bulgur 200 g pişmiş, salata 250 g, zeytinyağı 10 ml"],
+    ["Yoğurt, muz, yulaf veya ev yapımı sandviç", "Yoğurt 200 g, muz 1 orta boy (120 g), yulaf 30 g veya tam buğday sandviç 1 adet (90 g)"],
+    ["150-180 g balık/et/tavuk, patates veya makarna, salata", "Balık, et veya tavuk 180 g pişmiş, patates 250 g veya makarna 180 g pişmiş, salata 250 g"],
+    ["Süt/kefir veya yoğurt, ceviz/fındık", "Süt veya kefir 250 ml veya yoğurt 200 g, ceviz veya fındık 20 g"],
+    ["2 yumurta, peynir, tam buğday ekmeği, söğüş sebze", "2 adet yumurta (100 g), beyaz peynir 40 g, tam buğday ekmeği 1-2 dilim (30-60 g), söğüş sebze 200 g"],
+    ["120-150 g protein kaynağı, bulgur/pirinç, salata", "Protein kaynağı 140 g pişmiş, bulgur veya pirinç 160 g pişmiş, salata 250 g, zeytinyağı 5 ml"],
+    ["Meyve ve yoğurt veya kefir", "Meyve 1 porsiyon (150 g) + yoğurt 150 g veya kefir 200 ml"],
+    ["Protein kaynağı, sebze, yoğurt ve kontrollü karbonhidrat", "Protein kaynağı 150 g pişmiş, sebze 250 g, yoğurt 150 g, kontrollü karbonhidrat 100-150 g pişmiş"],
+    ["Bitki çayı yanında yoğurt veya küçük kuruyemiş porsiyonu", "Bitki çayı 200 ml, yoğurt 150 g veya kuruyemiş 15 g"],
+  ]);
 
   function meal(name, foods) {
     return {
@@ -248,14 +266,26 @@
     const normalized = String(name || "").toLocaleLowerCase("tr-TR");
 
     if (normalized.includes("kahvalt")) {
-      return ["Menemen + tam buğday ekmeği", "Lor peynirli omlet", "Yoğurt + yulaf + meyve"];
+      return [
+        "Menemen: 2 yumurta (100 g) + sebze 150 g + tam buğday ekmeği 1 dilim (30 g)",
+        "Lor peynirli omlet: 2 yumurta (100 g) + lor 60 g + söğüş sebze 200 g",
+        "Yoğurt kasesi: yoğurt 200 g + yulaf 40 g + meyve 100 g",
+      ];
     }
 
     if (normalized.includes("öğle") || normalized.includes("akşam")) {
-      return ["Hindi/tavuk + bulgur", "Balık + salata + patates", "Kuru baklagil + yoğurt + salata"];
+      return [
+        "Hindi veya tavuk 150 g pişmiş + bulgur 160 g pişmiş + salata 250 g",
+        "Balık 170 g pişmiş + patates 220 g + salata 250 g",
+        "Kuru baklagil 180 g pişmiş + yoğurt 150 g + salata 250 g",
+      ];
     }
 
-    return ["Meyve + yoğurt", "Kefir + kuruyemiş", "Tam buğday tost"];
+    return [
+      "Meyve 150 g + yoğurt 150 g",
+      "Kefir 200 ml + kuruyemiş 15 g",
+      "Tam buğday tost: ekmek 60 g + peynir 40 g",
+    ];
   }
 
   function distributeCalories(calories) {
@@ -273,12 +303,12 @@
       {
         name: prefs.lactoseSensitive === "yes" ? "Laktozsuz protein alternatifi" : "Whey protein",
         purpose: "Protein hedefini yemekle tamamlamak zor olduğunda pratik destek.",
-        timing: "Antrenman sonrası veya protein düşük kalan öğünde.",
+        timing: "Antrenman sonrası veya protein düşük kalan öğünde 1 ölçek (25-30 g).",
         note:
           prefs.lactoseSensitive === "yes"
             ? "Laktoz hassasiyeti nedeniyle laktozsuz seçenek veya gıda alternatifi önceliklidir."
             : "Opsiyoneldir; günlük protein yiyeceklerle tamamlanabiliyorsa şart değildir.",
-        foodAlternative: "Yoğurt, kefir, yumurta, tavuk, balık veya et.",
+        foodAlternative: "Yoğurt 200 g, kefir 250 ml, 2 yumurta (100 g), tavuk/balık/et 120-150 g.",
       },
     ];
 
@@ -286,27 +316,27 @@
       supplements.push({
         name: "Creatine monohydrate",
         purpose: "Kuvvet ve yüksek yoğunluklu antrenman performansını desteklemek için opsiyonel tercih.",
-        timing: "Günün herhangi bir saatinde düzenli kullanım.",
+        timing: "Günün herhangi bir saatinde 3-5 g düzenli kullanım.",
         note: "Tıbbi durum varsa uzman görüşü alınmalıdır.",
-        foodAlternative: "Kırmızı et ve balık kreatin içeren doğal kaynaklardır.",
+        foodAlternative: "Kırmızı et veya balık 150-180 g doğal kaynak olarak tercih edilebilir.",
       });
     }
 
     supplements.push({
       name: "Omega-3",
       purpose: "Genel beslenme desteği olarak opsiyonel tercih.",
-      timing: "Öğünle birlikte.",
+      timing: "Etiket dozuna göre, öğünle birlikte.",
       note: "Tıbbi iddia değildir; kan sulandırıcı vb. ilaç kullanımında uzman görüşü gerekir.",
-      foodAlternative: "Somon, sardalya, uskumru, ceviz ve keten tohumu.",
+      foodAlternative: "Somon/sardalya/uskumru 150 g, ceviz 20 g veya keten tohumu 10 g.",
     });
 
     if (prefs.caffeineSensitive !== "yes" && (goal === "conditioning" || trainingDays >= 4)) {
       supplements.push({
         name: "Kafein / pre-workout",
         purpose: "Performans odaklı günlerde uyanıklık desteği için opsiyonel.",
-        timing: "Antrenmandan 30-45 dakika önce.",
+        timing: "Antrenmandan 30-45 dakika önce; düşük dozla başlanmalı.",
         note: "Kafein hassasiyeti, çarpıntı veya uyku problemi varsa önerilmez.",
-        foodAlternative: "Türk kahvesi veya filtre kahve.",
+        foodAlternative: "Türk kahvesi 1 fincan (60 ml) veya filtre kahve 200 ml.",
       });
     }
 
@@ -328,13 +358,22 @@
 
     return source.map((mealItem, index) => ({
       name: String(mealItem.name || fallback[index]?.name || `Öğün ${index + 1}`),
-      foods: String(mealItem.foods || ""),
+      foods: upgradeLegacyMealFoods(mealItem.foods || fallback[index]?.foods || ""),
       calories: toNumber(mealItem.calories) || 0,
       protein: toNumber(mealItem.protein) || 0,
       carbs: toNumber(mealItem.carbs) || 0,
       fat: toNumber(mealItem.fat) || 0,
       macroShare: mealItem.macroShare || {},
+      alternatives:
+        Array.isArray(mealItem.alternatives) && mealItem.alternatives.length
+          ? mealItem.alternatives.map(String)
+          : buildMealAlternatives(mealItem.name || fallback[index]?.name),
     }));
+  }
+
+  function upgradeLegacyMealFoods(foods) {
+    const text = String(foods || "").trim();
+    return legacyMealPortionMap.get(text) || text;
   }
 
   function normalizeSupplements(supplements) {
