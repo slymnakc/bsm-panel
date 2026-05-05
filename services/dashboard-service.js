@@ -24,6 +24,31 @@
       });
     });
 
+    (members || []).forEach((member) => {
+      if (!member.updatedAt && !member.createdAt) {
+        return;
+      }
+
+      const name = member.profile?.memberName || "Üye";
+      items.push({
+        date: member.updatedAt || member.createdAt,
+        title: `${name} üye dosyası güncellendi`,
+        meta: member.updatedAt || member.createdAt || "Tarih yok",
+        type: "member",
+        badge: "Üye",
+      });
+    });
+
+    items.forEach((item) => {
+      if (item.type) {
+        return;
+      }
+
+      const normalizedTitle = String(item.title || "").toLocaleLowerCase("tr");
+      item.type = normalizedTitle.includes("program") ? "program" : normalizedTitle.includes("ölç") ? "measurement" : "default";
+      item.badge = item.type === "program" ? "Program" : item.type === "measurement" ? "Ölçüm" : "Kayıt";
+    });
+
     return items.sort((a, b) => String(b.date).localeCompare(String(a.date), "tr"));
   }
 

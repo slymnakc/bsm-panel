@@ -86,14 +86,22 @@
       const action = button.dataset.quickAction;
       const member = findActiveMember();
 
-      if (action === "open-builder") {
+      if (action === "open-builder" || action === "new-member" || action === "build-program") {
         setActiveScreen("builder", { userTriggered: true, silent: true });
         setWorkspaceView("members");
+        if (action === "new-member") {
+          document.querySelector("#memberName")?.focus();
+        }
         return;
       }
 
       if (action === "open-measurements") {
         setActiveScreen("measurements", { userTriggered: true, silent: true });
+        return;
+      }
+
+      if (action === "open-nutrition") {
+        setActiveScreen("nutrition", { userTriggered: true, silent: true });
         return;
       }
 
@@ -213,7 +221,10 @@
     bindIf(elements.programHistory, "click", handlers.handleProgramHistoryClick);
     bindIf(elements.v3RevisionPanel, "click", handlers.handleV3RevisionAction);
     bindIf(elements.coachQuickPanel, "click", handlers.handleCoachQuickAction);
+    bindIf(elements.coachAlertsPanel, "click", handlers.handleCoachQuickAction);
+    bindIf(elements.coachAlertsPanel, "click", handlers.handleCoachTaskAction);
     bindIf(elements.coachTaskPanel, "click", handlers.handleCoachTaskAction);
+    bindIf(elements.coachTaskPanel, "click", handlers.handleCoachQuickAction);
   }
 
   function bindIf(target, eventName, handler) {
