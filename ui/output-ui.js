@@ -301,20 +301,22 @@
   function renderExerciseMedia(media, escapeHtml, modifier = "", exercise = null, helpers = {}) {
     const name = media?.name || exercise?.name || "Hareket";
     const groupLabel = media?.groupLabel || helpers?.getMuscleLabel?.(exercise?.group) || exercise?.group || "Kas grubu";
+    const fallbackUrls = getFallbackGifUrls(media);
+    const mediaUrl = media?.gifUrl || fallbackUrls[0] || "";
 
     if (!media?.gifUrl) {
       return renderMissingExerciseMedia({ name, groupLabel }, escapeHtml, modifier);
     }
 
     return `
-      <div class="exercise-media ${modifier}" data-exercise-media>
+      <div class="exercise-media ${modifier}" data-exercise-media="${escapeHtml(mediaUrl)}" data-exercise-name="${escapeHtml(name)}" data-exercise-group="${escapeHtml(groupLabel)}" data-gif-slug="${escapeHtml(media?.slug || "")}">
         <button
           type="button"
           class="exercise-media__button"
           data-exercise-gif-open
           data-gif-url="${escapeHtml(media.gifUrl)}"
           data-gif-fallback-url="${escapeHtml(media.fallbackGifUrl || "")}"
-          data-gif-fallback-urls="${escapeHtml(getFallbackGifUrls(media).join("|"))}"
+          data-gif-fallback-urls="${escapeHtml(fallbackUrls.join("|"))}"
           data-exercise-name="${escapeHtml(name)}"
           data-exercise-group="${escapeHtml(groupLabel)}"
           aria-label="${escapeHtml(name)} GIF önizlemesini büyüt"
@@ -332,7 +334,7 @@
 
   function renderMissingExerciseMedia(media, escapeHtml, modifier = "") {
     return `
-      <div class="exercise-media ${modifier} is-missing" data-exercise-media aria-label="${escapeHtml(media.name)} için GIF yok">
+      <div class="exercise-media ${modifier} is-missing" data-exercise-media="" data-exercise-name="${escapeHtml(media.name)}" data-exercise-group="${escapeHtml(media.groupLabel)}" aria-label="${escapeHtml(media.name)} için GIF yok">
         <div class="exercise-media__placeholder">
           <strong>${escapeHtml(media.name)}</strong>
           <span>${escapeHtml(media.groupLabel)}</span>

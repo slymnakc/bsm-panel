@@ -6939,6 +6939,7 @@ textarea:focus {
   body {
     background: white;
     color: #111;
+    font-family: "DejaVu Sans", "Noto Sans", "Segoe UI", Arial, sans-serif;
     counter-reset: measurementReportPage;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
@@ -6955,7 +6956,6 @@ textarea:focus {
   .program-delivery-status,
   .program-mail-history,
   .program-edit-toolbar,
-  .exercise-media,
   .exercise-gif-modal,
   #copyPlanButton,
   #printPlanButton,
@@ -7561,10 +7561,11 @@ textarea:focus {
   .day-card,
   .member-program-day {
     box-shadow: none;
-    border: 1px solid #d7d7d7;
+    border: 1px solid rgba(8, 43, 53, 0.18);
     break-inside: avoid;
     margin-bottom: 10px;
     padding: 12px;
+    background: #ffffff;
   }
 
   .training-report-grid,
@@ -7590,7 +7591,7 @@ textarea:focus {
   .member-program-day__coach-notes div,
   .nutrition-output-card--workout-notice {
     box-shadow: none;
-    border: 1px solid #d7d7d7;
+    border: 1px solid rgba(8, 43, 53, 0.14);
     background: white;
     break-inside: avoid;
   }
@@ -7621,6 +7622,8 @@ textarea:focus {
 
   .member-program-day__coach-notes div {
     padding: 6px;
+    background: #f4faf8;
+    border-left: 3px solid #d8ad63;
   }
 
   .member-program-day__coach-notes span,
@@ -7635,11 +7638,59 @@ textarea:focus {
 
   .member-program-exercise-card {
     padding: 7px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff, #f7fbfa);
+    border-left: 3px solid #1d6b74;
   }
 
   .member-program-exercise-card__top {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: 48px 22px minmax(0, 1fr);
     align-items: start;
+    gap: 6px;
+  }
+
+  .member-program-exercise-card__top > span {
+    width: 22px;
+    height: 22px;
+    border-radius: 8px;
+    font-size: 0.68rem;
+    background: #082b35;
+    color: #fff;
+  }
+
+  .exercise-media,
+  .exercise-media--program-card,
+  .exercise-media--tiny {
+    display: block !important;
+    width: 46px !important;
+    min-width: 46px !important;
+    height: 46px !important;
+    min-height: 46px !important;
+    border-radius: 12px;
+    border: 1px solid rgba(8, 43, 53, 0.18);
+    background: linear-gradient(135deg, rgba(216, 173, 99, 0.22), rgba(29, 107, 116, 0.12));
+    overflow: hidden;
+  }
+
+  .exercise-media__button,
+  .exercise-media__button img {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .exercise-media__button img {
+    object-fit: cover;
+  }
+
+  .exercise-media:not(.is-missing) .exercise-media__placeholder {
+    display: none !important;
+  }
+
+  .exercise-media.is-missing .exercise-media__placeholder {
+    display: grid !important;
+    padding: 4px;
+    font-size: 0.52rem;
   }
 
   .member-program-exercise-card__metrics {
@@ -7657,9 +7708,9 @@ textarea:focus {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px;
-    color: #111;
-    background: white;
-    border: 1px solid #d7d7d7;
+    color: #ffffff;
+    background: linear-gradient(135deg, #082b35, #1d6b74);
+    border: 1px solid rgba(8, 43, 53, 0.22);
     box-shadow: none;
     margin-bottom: 6px;
     padding: 8px 10px;
@@ -7674,15 +7725,15 @@ textarea:focus {
 
   .program-cover p,
   .program-cover span {
-    color: #444;
+    color: rgba(255, 255, 255, 0.78);
     font-size: 0.7rem;
     line-height: 1.25;
   }
 
   .cover-signature {
-    color: #111;
-    background: white;
-    border: 1px solid #d7d7d7;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(216, 173, 99, 0.5);
     min-width: 110px;
     padding: 6px 8px;
   }
