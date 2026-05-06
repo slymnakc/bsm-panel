@@ -3588,6 +3588,136 @@ body.modal-open {
   line-height: 1.42;
 }
 
+.program-delivery-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.program-action-button {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 14px;
+  border: 1px solid rgba(25, 51, 66, 0.1);
+  border-radius: 18px;
+  color: var(--teal-deep);
+  background:
+    radial-gradient(circle at top right, rgba(216, 173, 99, 0.22), transparent 34%),
+    rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 36px rgba(8, 43, 53, 0.08);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.program-action-button:hover {
+  transform: translateY(-2px);
+  border-color: rgba(29, 107, 116, 0.26);
+  box-shadow: 0 20px 44px rgba(8, 43, 53, 0.12);
+}
+
+.program-action-button > span {
+  width: 42px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  grid-row: span 2;
+  border-radius: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--teal), var(--teal-deep));
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.program-action-button--pdf > span {
+  background: linear-gradient(135deg, #da5f49, #8d3027);
+}
+
+.program-action-button--live > span {
+  background: linear-gradient(135deg, var(--teal), #0e8990);
+}
+
+.program-action-button--mail > span {
+  background: linear-gradient(135deg, var(--gold), #9c6b25);
+}
+
+.program-action-button strong,
+.program-action-button small {
+  display: block;
+}
+
+.program-action-button strong {
+  color: var(--teal-deep);
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+}
+
+.program-action-button small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.program-delivery-status {
+  margin: -6px 0 14px;
+}
+
+.program-mail-history {
+  display: grid;
+  gap: 8px;
+  margin: -4px 0 18px;
+}
+
+.program-mail-history > span,
+.program-mail-history > strong {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.program-mail-history__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid rgba(25, 51, 66, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.program-mail-history__item span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--teal);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.program-mail-history__item[data-state="error"] span {
+  background: #b24a3f;
+}
+
+.program-mail-history__item p,
+.program-mail-history__item small {
+  margin: 0;
+}
+
+.program-mail-history__item p {
+  color: var(--teal-deep);
+  font-weight: 800;
+}
+
+.program-mail-history__item small {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
 .nutrition-panel {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto 36px;
@@ -6789,6 +6919,15 @@ textarea:focus {
   .quick-action-card {
     min-height: 0;
   }
+
+  .program-delivery-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .program-mail-history__item {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
 }
 
 @media print {
@@ -6812,6 +6951,9 @@ textarea:focus {
   .app-shell,
   .library-panel,
   .panel-actions,
+  .program-delivery-panel,
+  .program-delivery-status,
+  .program-mail-history,
   .program-edit-toolbar,
   .exercise-media,
   .exercise-gif-modal,

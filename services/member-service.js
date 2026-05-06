@@ -235,6 +235,7 @@
         ...profile,
         memberName: source.memberName || source.member_name || source.name || profile.memberName,
         memberCode: source.memberCode || source.member_code || profile.memberCode,
+        memberEmail: source.memberEmail || source.email || source.member_email || profile.memberEmail,
         trainerName: source.trainerName || source.trainer_name || profile.trainerName,
         goal: source.goal || source.program || profile.goal,
       },
