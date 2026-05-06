@@ -223,13 +223,13 @@ function serveStatic(req, res) {
 }
 
 function createSimpleProgramPdf({ title, memberName, programText }) {
-  const text = transliterateTurkish(`${title}\nÜye: ${memberName}\n\n${programText}`);
+  const text = `${title}\nÜye: ${memberName}\n\n${programText}`;
   const lines = wrapText(text, 92);
   const pages = chunkLines(lines, 42).slice(0, 3);
 
   if (chunkLines(lines, 42).length > 3) {
     pages[2].push("...");
-    pages[2].push("Program metni kisaltilmistir. Tam canli HTML dosyasi ekte yer alir.");
+    pages[2].push("Program metni kısaltılmıştır. Tam canlı HTML dosyası ekte yer alır.");
   }
 
   const objects = [];
@@ -254,12 +254,12 @@ function createSimpleProgramPdf({ title, memberName, programText }) {
 
 function buildPdfPageContent(lines, pageNumber, totalPages) {
   const escapedLines = [
-    "Bahcesehir Spor Merkezi | Antrenman Programi",
+    "Bahçeşehir Spor Merkezi | Antrenman Programı",
     "",
     ...lines,
     "",
     `Sayfa ${pageNumber}/${totalPages}`,
-  ].map((line) => `(${escapePdfString(line)}) Tj T*`);
+  ].map((line) => `${encodePdfUnicodeText(line)} Tj T*`);
 
   return `BT\n/F1 10 Tf\n42 790 Td\n13 TL\n${escapedLines.join("\n")}\nET`;
 }
@@ -322,11 +322,23 @@ function chunkLines(lines, size) {
     chunks.push(lines.slice(index, index + size));
   }
 
-  return chunks.length ? chunks : [["Program verisi bulunamadi."]];
+  return chunks.length ? chunks : [["Program verisi bulunamadı."]];
 }
 
 function escapePdfString(value) {
   return String(value || "").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+function encodePdfUnicodeText(value) {
+  const littleEndian = Buffer.from(`\ufeff${String(value || "")}`, "utf16le");
+  const bigEndian = Buffer.alloc(littleEndian.length);
+
+  for (let index = 0; index < littleEndian.length; index += 2) {
+    bigEndian[index] = littleEndian[index + 1];
+    bigEndian[index + 1] = littleEndian[index];
+  }
+
+  return `<${bigEndian.toString("hex").toUpperCase()}>`;
 }
 
 function transliterateTurkish(value) {

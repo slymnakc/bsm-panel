@@ -58,20 +58,22 @@
   function renderExerciseMedia(media, escapeHtml) {
     const name = media?.name || "Hareket";
     const groupLabel = media?.groupLabel || "Kas grubu";
+    const fallbackUrls = getFallbackGifUrls(media);
+    const mediaUrl = media?.gifUrl || fallbackUrls[0] || "";
 
     if (!media?.gifUrl) {
       return renderMissingExerciseMedia({ name, groupLabel }, escapeHtml);
     }
 
     return `
-      <div class="exercise-media" data-exercise-media>
+      <div class="exercise-media" data-exercise-media="${escapeHtml(mediaUrl)}" data-exercise-name="${escapeHtml(name)}" data-exercise-group="${escapeHtml(groupLabel)}" data-gif-slug="${escapeHtml(media?.slug || "")}">
         <button
           type="button"
           class="exercise-media__button"
           data-exercise-gif-open
           data-gif-url="${escapeHtml(media.gifUrl)}"
           data-gif-fallback-url="${escapeHtml(media.fallbackGifUrl || "")}"
-          data-gif-fallback-urls="${escapeHtml(getFallbackGifUrls(media).join("|"))}"
+          data-gif-fallback-urls="${escapeHtml(fallbackUrls.join("|"))}"
           data-exercise-name="${escapeHtml(name)}"
           data-exercise-group="${escapeHtml(groupLabel)}"
           aria-label="${escapeHtml(name)} GIF önizlemesini büyüt"
@@ -89,7 +91,7 @@
 
   function renderMissingExerciseMedia(media, escapeHtml) {
     return `
-      <div class="exercise-media is-missing" data-exercise-media aria-label="${escapeHtml(media.name)} için GIF yok">
+      <div class="exercise-media is-missing" data-exercise-media="" data-exercise-name="${escapeHtml(media.name)}" data-exercise-group="${escapeHtml(media.groupLabel)}" aria-label="${escapeHtml(media.name)} için GIF yok">
         <div class="exercise-media__placeholder">
           <strong>${escapeHtml(media.name)}</strong>
           <span>${escapeHtml(media.groupLabel)}</span>

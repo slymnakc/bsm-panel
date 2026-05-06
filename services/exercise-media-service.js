@@ -11,12 +11,15 @@
     const slugUrl = buildGifUrl(slug);
     const gifUrl = explicitGifUrl || slugUrl;
     const fallbackGifUrls = explicitGifUrl ? buildExplicitFallbackGifUrls(explicitGifUrl, slug) : buildFallbackGifUrls(source, slug);
+    const candidateGifUrls = uniqueValues([normalizeLocalGifPath(explicitGifUrl), gifUrl, ...fallbackGifUrls]);
 
     return {
       gifUrl,
       fallbackGifUrl: fallbackGifUrls[0] || "",
       fallbackGifUrls,
+      candidateGifUrls,
       name,
+      slug,
       groupLabel: groupLabel || source.group || "Kas grubu",
       isExplicit: Boolean(explicitGifUrl),
     };
@@ -26,16 +29,19 @@
     const media = source.media && typeof source.media === "object" ? source.media : {};
     return String(
       source.gifUrl ||
+        source.gif ||
         source.exerciseGif ||
         source.exerciseGifUrl ||
         source.image ||
         source.imageUrl ||
         source.mediaUrl ||
         media.gifUrl ||
+        media.gif ||
         media.exerciseGif ||
         media.url ||
         media.image ||
         media.imageUrl ||
+        media.mediaUrl ||
         "",
     ).trim();
   }
@@ -54,9 +60,7 @@
 
     return uniqueValues([
       buildGifUrl(slug),
-      `${buildGifUrl(slug)}.gif`,
       doubleHyphenSlug ? buildGifUrl(doubleHyphenSlug) : "",
-      doubleHyphenSlug ? `${buildGifUrl(doubleHyphenSlug)}.gif` : "",
       idSlug ? buildGifUrl(idSlug) : "",
       nameWithoutEquipment ? buildGifUrl(nameWithoutEquipment) : "",
     ]);
@@ -104,6 +108,12 @@
   function normalizeTurkishText(value) {
     return String(value || "")
       .toLowerCase()
+      .replace(/ğ/g, "g")
+      .replace(/ü/g, "u")
+      .replace(/ş/g, "s")
+      .replace(/ı/g, "i")
+      .replace(/ö/g, "o")
+      .replace(/ç/g, "c")
       .replace(/ğ/g, "g")
       .replace(/ü/g, "u")
       .replace(/ş/g, "s")

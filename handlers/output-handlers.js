@@ -232,8 +232,10 @@
         node.replaceWith(replacement);
       });
 
+      await hydrateExerciseMediaForExport(clone, { inlineImages: Boolean(options.inlineImages) });
+
       if (options.inlineImages) {
-        await inlineImagesInClone(clone);
+        await inlineNonExerciseImagesInClone(clone);
       }
 
       const title = escapeHtml(program.title || "Bahçeşehir Spor Merkezi Antrenman Programı");
@@ -272,9 +274,202 @@
         lightbox.hidden = true;
       }
     });
+    document.addEventListener("error", function (event) {
+      var img = event.target;
+      if (!img || !img.matches || !img.matches("[data-exercise-gif-img]")) return;
+      var button = img.closest("[data-exercise-gif-open]");
+      var card = img.closest("[data-exercise-media]");
+      var tried = (img.dataset.fallbackTriedUrls || "").split("|").filter(Boolean);
+      var current = img.getAttribute("src") || "";
+      if (current) tried.push(current);
+      var fallbacks = ((button && button.dataset.gifFallbackUrls) || "").split("|").filter(Boolean);
+      var next = fallbacks.find(function (url) { return tried.indexOf(url) === -1; });
+      img.dataset.fallbackTriedUrls = tried.join("|");
+      if (next) {
+        img.src = next;
+        if (button) button.dataset.gifUrl = next;
+        return;
+      }
+      if (card) card.classList.add("is-missing");
+      img.removeAttribute("src");
+    }, true);
   </script>
 </body>
 </html>`;
+    }
+
+    async function hydrateExerciseMediaForExport(clone, options = {}) {
+      const mediaCards = [...clone.querySelectorAll("[data-exercise-media]")];
+
+      for (const card of mediaCards) {
+        const name = getExerciseMediaName(card);
+        const groupLabel = getExerciseMediaGroup(card);
+        const candidates = buildExportGifCandidates(card, name);
+
+        if (!candidates.length) {
+          markExportMediaMissing(card);
+          continue;
+        }
+
+        const resolved = options.inlineImages ? await resolveFirstFetchableImage(candidates) : null;
+        const selectedUrl = resolved?.dataUrl || candidates[0];
+        const fallbackUrls = resolved?.dataUrl ? [] : candidates.slice(1);
+        const button = ensureExportMediaButton(card, name, groupLabel);
+        const image = ensureExportMediaImage(button, name);
+
+        card.classList.remove("is-missing");
+        card.dataset.exerciseMedia = selectedUrl;
+        card.dataset.exerciseName = name;
+        card.dataset.exerciseGroup = groupLabel;
+        button.dataset.gifUrl = selectedUrl;
+        button.dataset.gifFallbackUrls = fallbackUrls.join("|");
+        button.dataset.exerciseName = name;
+        button.dataset.exerciseGroup = groupLabel;
+        image.src = selectedUrl;
+        image.alt = `${name} GIF`;
+        image.setAttribute("loading", "lazy");
+      }
+    }
+
+    async function resolveFirstFetchableImage(candidates) {
+      for (const candidate of candidates) {
+        try {
+          if (/^data:/i.test(candidate)) {
+            return { originalUrl: candidate, dataUrl: candidate };
+          }
+
+          const absoluteUrl = new URL(candidate, windowObject.location.href).href;
+          const response = await windowObject.fetch(absoluteUrl);
+
+          if (!response.ok) {
+            continue;
+          }
+
+          const blob = await response.blob();
+          return {
+            originalUrl: candidate,
+            dataUrl: await blobToDataUrl(blob),
+          };
+        } catch (error) {
+          // file:// kaynaklarda tarayıcı fetch engelleyebilir; bu durumda relative yol korunur.
+        }
+      }
+
+      return null;
+    }
+
+    async function inlineNonExerciseImagesInClone(clone) {
+      const images = [...clone.querySelectorAll("img")]
+        .filter((image) => image.getAttribute("src"))
+        .filter((image) => !image.matches("[data-exercise-gif-img]"));
+
+      for (const image of images) {
+        try {
+          const absoluteUrl = new URL(image.getAttribute("src"), windowObject.location.href).href;
+          const response = await windowObject.fetch(absoluteUrl);
+
+          if (!response.ok) {
+            continue;
+          }
+
+          const blob = await response.blob();
+          const dataUrl = await blobToDataUrl(blob);
+          image.setAttribute("src", dataUrl);
+        } catch (error) {
+          // Görsel yolu yerelde okunamazsa mevcut yol korunur; canlı panelde yine çalışır.
+        }
+      }
+    }
+
+    function buildExportGifCandidates(card, name) {
+      const button = card.querySelector("[data-exercise-gif-open]");
+      const image = card.querySelector("[data-exercise-gif-img]");
+      const slug = slugifyExerciseFilePart(card.dataset.gifSlug || name);
+      const explicitUrls = [
+        card.dataset.exerciseMedia,
+        button?.dataset.gifUrl,
+        image?.getAttribute("src"),
+        button?.dataset.gifFallbackUrl,
+        ...(button?.dataset.gifFallbackUrls || "").split("|"),
+      ];
+      const slugUrls = [
+        slug ? `./assets/gifs/${slug}.gif` : "",
+        slug ? `assets/gifs/${slug}.gif` : "",
+      ];
+
+      return uniqueStrings([...explicitUrls.map(normalizeGifCandidateUrl), ...slugUrls]);
+    }
+
+    function normalizeGifCandidateUrl(value) {
+      const text = String(value || "").trim();
+
+      if (!text || /^data:/i.test(text) || /^https?:\/\//i.test(text) || text.includes("/") || text.includes("\\")) {
+        return text;
+      }
+
+      return `./assets/gifs/${text.replace(/\.gif$/i, "")}.gif`;
+    }
+
+    function ensureExportMediaButton(card, name, groupLabel) {
+      let button = card.querySelector("[data-exercise-gif-open]");
+
+      if (button) {
+        return button;
+      }
+
+      button = windowObject.document.createElement("button");
+      button.type = "button";
+      button.className = "exercise-media__button";
+      button.setAttribute("data-exercise-gif-open", "");
+      button.dataset.exerciseName = name;
+      button.dataset.exerciseGroup = groupLabel;
+      button.setAttribute("aria-label", `${name} GIF önizlemesini büyüt`);
+      card.prepend(button);
+      return button;
+    }
+
+    function ensureExportMediaImage(button, name) {
+      let image = button.querySelector("[data-exercise-gif-img]");
+
+      if (image) {
+        return image;
+      }
+
+      image = windowObject.document.createElement("img");
+      image.alt = `${name} GIF`;
+      image.setAttribute("loading", "lazy");
+      image.setAttribute("data-exercise-gif-img", "");
+      button.append(image);
+      return image;
+    }
+
+    function markExportMediaMissing(card) {
+      card.classList.add("is-missing");
+      const image = card.querySelector("[data-exercise-gif-img]");
+
+      if (image) {
+        image.removeAttribute("src");
+      }
+    }
+
+    function getExerciseMediaName(card) {
+      return String(
+        card.dataset.exerciseName ||
+          card.querySelector("[data-exercise-gif-open]")?.dataset.exerciseName ||
+          card.querySelector(".exercise-media__placeholder strong")?.textContent ||
+          card.closest(".member-program-exercise-card")?.querySelector(".member-program-exercise-card__top strong")?.textContent ||
+          "Hareket",
+      ).trim();
+    }
+
+    function getExerciseMediaGroup(card) {
+      return String(
+        card.dataset.exerciseGroup ||
+          card.querySelector("[data-exercise-gif-open]")?.dataset.exerciseGroup ||
+          card.querySelector(".exercise-media__placeholder span")?.textContent ||
+          card.closest(".member-program-exercise-card")?.querySelector(".member-program-exercise-card__top small")?.textContent ||
+          "Kas grubu",
+      ).trim();
     }
 
     async function inlineImagesInClone(clone) {
@@ -342,7 +537,7 @@
         .gif-lightbox img { max-width: min(760px, 92vw); max-height: 78vh; border-radius: 24px; background: white; }
         .gif-lightbox button { position: fixed; top: 18px; right: 18px; width: 42px; height: 42px; border: 0; border-radius: 999px; font-size: 1.5rem; }
         @media (max-width: 760px) { .live-program-header, .member-program-day__header { grid-template-columns: 1fr; } .member-program-exercise-card__metrics { grid-template-columns: repeat(2, 1fr); } }
-        @media print { .live-program-shell { width: 100%; margin: 0; } .exercise-media { display: none; } .live-program-header, .program-cover, .result-card, .member-program-day { box-shadow: none; break-inside: avoid; } }
+        @media print { @page { size: A4; margin: 10mm; } body { background: white; font-family: "DejaVu Sans", "Noto Sans", "Segoe UI", Arial, sans-serif; print-color-adjust: exact; -webkit-print-color-adjust: exact; } .live-program-shell { width: 100%; margin: 0; } .exercise-media { width: 48px; min-width: 48px; height: 48px; min-height: 48px; border-radius: 13px; } .exercise-media__button img { object-fit: cover; } .live-program-header, .program-cover, .result-card, .member-program-day, .member-program-exercise-card { box-shadow: none; break-inside: avoid; } }
       `;
     }
 
@@ -458,6 +653,26 @@ Bahçeşehir Spor Merkezi`;
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "")
         .slice(0, 60) || "dosya";
+    }
+
+    function slugifyExerciseFilePart(value) {
+      return String(value || "")
+        .toLocaleLowerCase("tr-TR")
+        .replace(/ğ/g, "g")
+        .replace(/ü/g, "u")
+        .replace(/ş/g, "s")
+        .replace(/ı/g, "i")
+        .replace(/ö/g, "o")
+        .replace(/ç/g, "c")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .replace(/-{2,}/g, "");
+    }
+
+    function uniqueStrings(values) {
+      return [...new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean))];
     }
 
     function escapeHtml(value) {
