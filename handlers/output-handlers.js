@@ -32,9 +32,14 @@
       labelMaps,
       getTrainingSystemLabel,
       getDayLabel,
+      programDeliveryStatus,
+      programMailHistory,
       windowObject = window,
       navigatorObject = navigator,
     } = deps;
+    const PROGRAM_MAIL_HISTORY_KEY = "bsm-program-mail-history-v1";
+
+    renderProgramMailHistory();
 
     async function copyPlanText() {
       const savedPlan = getCurrentProgramFromEditor() || loadLastPlan();
@@ -73,6 +78,364 @@
       }
 
       windowObject.print();
+    }
+
+    async function handleDownloadLiveProgram() {
+      const program = getCurrentProgramFromEditor() || loadLastPlan();
+
+      if (!program?.schemaVersion) {
+        setProgramDeliveryStatus("Canlı program indirilebilmesi için önce program oluşturun.", "error");
+        return;
+      }
+
+      try {
+        setProgramDeliveryStatus("Canlı program dosyası hazırlanıyor...", "loading");
+        const html = await buildLiveProgramHtml(program, { inlineImages: true });
+        const profile = collectFormData();
+        const filename = `bahcesehir-canli-program-${slugifyFilePart(profile.memberName || "uye")}-${formatFileDate(new Date())}.html`;
+        downloadFile(filename, html, "text/html;charset=utf-8");
+        setProgramDeliveryStatus("Canlı program HTML dosyası indirildi.", "success");
+      } catch (error) {
+        console.error("Live program export error", error);
+        setProgramDeliveryStatus("Canlı program indirilemedi. Lütfen tekrar deneyin.", "error");
+      }
+    }
+
+    async function handleSendProgramMail() {
+      const program = getCurrentProgramFromEditor() || loadLastPlan();
+
+      if (!program?.schemaVersion) {
+        setProgramDeliveryStatus("Mail gönderimi için önce program oluşturun.", "error");
+        return;
+      }
+
+      const profile = collectFormData();
+      const activeMember = findActiveMember();
+      const recipientEmail = String(profile.memberEmail || activeMember?.profile?.memberEmail || "").trim();
+
+      if (!isValidEmail(recipientEmail)) {
+        setProgramDeliveryStatus("Mail göndermek için üye bilgilerine geçerli bir e-posta adresi girin.", "error");
+        return;
+      }
+
+      try {
+        setProgramDeliveryStatus("Gönderiliyor...", "loading");
+        const liveHtml = await buildLiveProgramHtml(program, { inlineImages: false });
+        const payload = {
+          to: recipientEmail,
+          memberName: profile.memberName || activeMember?.profile?.memberName || "Üye",
+          trainerName: profile.trainerName || activeMember?.profile?.trainerName || "",
+          subject: "Bahçeşehir Spor Merkezi | Size Özel Antrenman Programınız",
+          message: buildMailMessage(profile.memberName || activeMember?.profile?.memberName || "Üye"),
+          programText: convertProgramToText(program),
+          htmlAttachment: {
+            filename: `canli-antrenman-programi-${slugifyFilePart(profile.memberName || "uye")}.html`,
+            contentBase64: toBase64Unicode(liveHtml),
+          },
+        };
+        const response = await sendProgramMailRequest(payload);
+
+        if (!response.ok) {
+          throw new Error(response.message || "Mail gönderilemedi.");
+        }
+
+        const record = {
+          id: `mail-${Date.now()}`,
+          memberId: activeMember?.id || "",
+          memberName: payload.memberName,
+          email: recipientEmail,
+          status: "Başarılı",
+          sentAtIso: new Date().toISOString(),
+          sentAt: new Date().toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" }),
+        };
+        appendProgramMailHistory(record);
+        setProgramDeliveryStatus("Başarılı: Program maili üyeye gönderildi.", "success");
+      } catch (error) {
+        const record = {
+          id: `mail-${Date.now()}`,
+          memberId: activeMember?.id || "",
+          memberName: profile.memberName || activeMember?.profile?.memberName || "Üye",
+          email: recipientEmail,
+          status: "Hata",
+          error: error.message || "Mail gönderilemedi.",
+          sentAtIso: new Date().toISOString(),
+          sentAt: new Date().toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" }),
+        };
+        appendProgramMailHistory(record);
+        setProgramDeliveryStatus(`Hata: ${record.error}`, "error");
+      }
+    }
+
+    async function sendProgramMailRequest(payload) {
+      const endpoint = windowObject.location?.protocol === "file:" ? "http://localhost:3000/api/send-program-mail" : "/api/send-program-mail";
+      const response = await windowObject.fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+      return {
+        ok: response.ok && result.ok !== false,
+        message: result.message || result.error || "",
+      };
+    }
+
+    async function buildLiveProgramHtml(program, options = {}) {
+      const clone = resultsSection.cloneNode(true);
+      clone.classList.remove("hidden", "is-hidden");
+      clone.querySelectorAll(".results__header .panel-actions, .program-delivery-panel, .program-delivery-status, .program-mail-history, #programDeliveryStatus, #programMailHistory").forEach((node) => node.remove());
+      clone.querySelectorAll("button, input, select, textarea").forEach((node) => {
+        if (node.tagName === "BUTTON") {
+          node.remove();
+          return;
+        }
+
+        const value = node.value || node.textContent || "";
+        const replacement = windowObject.document.createElement("span");
+        replacement.textContent = value;
+        replacement.className = "exported-field-value";
+        node.replaceWith(replacement);
+      });
+
+      if (options.inlineImages) {
+        await inlineImagesInClone(clone);
+      }
+
+      const title = escapeHtml(program.title || "Bahçeşehir Spor Merkezi Antrenman Programı");
+      return `<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${title}</title>
+  <style>${buildLiveProgramCss()}</style>
+</head>
+<body>
+  <main class="live-program-shell">
+    <header class="live-program-header">
+      <div>
+        <span>Bahçeşehir Spor Merkezi</span>
+        <h1>${title}</h1>
+      </div>
+      <strong>GIF destekli canlı program</strong>
+    </header>
+    ${clone.innerHTML}
+  </main>
+  <div class="gif-lightbox" id="gifLightbox" hidden>
+    <button type="button" aria-label="Kapat">×</button>
+    <img alt="Egzersiz GIF büyütülmüş önizleme" />
+  </div>
+  <script>
+    document.addEventListener("click", function (event) {
+      var img = event.target.closest("[data-exercise-gif-img]");
+      var lightbox = document.getElementById("gifLightbox");
+      if (img && lightbox) {
+        lightbox.querySelector("img").src = img.src;
+        lightbox.hidden = false;
+      }
+      if (event.target.closest("#gifLightbox button") || event.target.id === "gifLightbox") {
+        lightbox.hidden = true;
+      }
+    });
+  </script>
+</body>
+</html>`;
+    }
+
+    async function inlineImagesInClone(clone) {
+      const images = [...clone.querySelectorAll("img")].filter((image) => image.getAttribute("src"));
+
+      for (const image of images) {
+        try {
+          const absoluteUrl = new URL(image.getAttribute("src"), windowObject.location.href).href;
+          const response = await windowObject.fetch(absoluteUrl);
+
+          if (!response.ok) {
+            continue;
+          }
+
+          const blob = await response.blob();
+          const dataUrl = await blobToDataUrl(blob);
+          image.setAttribute("src", dataUrl);
+        } catch (error) {
+          // GIF yolu yerelde okunamazsa mevcut yol korunur; canlı panelde yine çalışır.
+        }
+      }
+    }
+
+    function blobToDataUrl(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new windowObject.FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function buildLiveProgramCss() {
+      return `
+        :root { color-scheme: light; --navy: #082b35; --teal: #1d6b74; --gold: #d8ad63; --paper: #f6f1e8; --ink: #162b34; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); background: linear-gradient(135deg, #f8fbfb, var(--paper)); }
+        .live-program-shell { width: min(1120px, calc(100% - 28px)); margin: 22px auto; }
+        .live-program-header, .program-cover, .result-card, .member-program-day { background: rgba(255,255,255,.94); border: 1px solid rgba(8,43,53,.12); border-radius: 22px; box-shadow: 0 18px 45px rgba(8,43,53,.1); }
+        .live-program-header { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 22px; color: white; background: linear-gradient(135deg, var(--navy), var(--teal)); }
+        .live-program-header h1 { margin: 4px 0 0; font-size: clamp(1.45rem, 3vw, 2.35rem); }
+        .live-program-header span, .live-program-header strong { color: rgba(255,255,255,.78); }
+        .section-kicker, .output-detail-panel, .panel-actions, .program-delivery-panel, .program-mail-history, .program-delivery-status { display: none !important; }
+        .results__header { margin: 18px 0; }
+        .program-cover, .result-card, .member-program-day { padding: 18px; margin: 16px 0; }
+        .results__grid { display: grid; gap: 16px; }
+        .metric-grid, .training-report-grid, .training-report-block, .member-program-exercise-cards { display: grid; gap: 10px; }
+        .metric-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+        .metric-item, .training-report-card, .training-progression-card, .training-expected-card, .member-program-exercise-card, .member-program-day__coach-notes div, .member-program-support p { padding: 12px; border-radius: 16px; background: #f7faf9; border: 1px solid rgba(8,43,53,.08); }
+        .member-program-day__header, .member-program-exercise-card__top, .member-program-day__coach-notes, .member-program-exercise-card__metrics { display: grid; gap: 10px; }
+        .member-program-day__header { grid-template-columns: 1fr auto; align-items: center; }
+        .member-program-day__coach-notes, .member-program-exercise-cards { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+        .member-program-exercise-card__top { grid-template-columns: auto auto 1fr; align-items: center; }
+        .member-program-exercise-card__index { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 10px; background: var(--teal); color: white; font-weight: 800; }
+        .member-program-exercise-card__metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .member-program-exercise-card__metrics span { padding: 8px; border-radius: 11px; background: white; }
+        .member-program-exercise-card__metrics b { display: block; color: var(--teal); }
+        .exercise-media { position: relative; overflow: hidden; width: 66px; min-width: 66px; height: 66px; border-radius: 17px; background: linear-gradient(135deg, rgba(216,173,99,.18), rgba(29,107,116,.12)); }
+        .exercise-media__button, .exercise-media__button img { display: block; width: 100%; height: 100%; border: 0; padding: 0; object-fit: cover; cursor: zoom-in; }
+        .exercise-media__placeholder { position: absolute; inset: 0; display: grid; place-items: center; padding: 7px; font-size: .7rem; color: var(--teal); text-align: center; }
+        .exercise-media.is-missing .exercise-media__button, .exercise-media.is-missing img { display: none; }
+        .exercise-media--wide { width: 100%; height: 160px; }
+        .gif-lightbox { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(8,43,53,.76); z-index: 10; }
+        .gif-lightbox[hidden] { display: none; }
+        .gif-lightbox img { max-width: min(760px, 92vw); max-height: 78vh; border-radius: 24px; background: white; }
+        .gif-lightbox button { position: fixed; top: 18px; right: 18px; width: 42px; height: 42px; border: 0; border-radius: 999px; font-size: 1.5rem; }
+        @media (max-width: 760px) { .live-program-header, .member-program-day__header { grid-template-columns: 1fr; } .member-program-exercise-card__metrics { grid-template-columns: repeat(2, 1fr); } }
+        @media print { .live-program-shell { width: 100%; margin: 0; } .exercise-media { display: none; } .live-program-header, .program-cover, .result-card, .member-program-day { box-shadow: none; break-inside: avoid; } }
+      `;
+    }
+
+    function buildMailMessage(memberName) {
+      return `Merhaba ${memberName || "Üye"},
+
+Size özel hazırlanan antrenman programınız ekte yer almaktadır.
+
+Programınızı düzenli uygulamanız önerilir. Herhangi bir sorunuzda antrenörlerimizden destek alabilirsiniz.
+
+Sağlıklı günler dileriz.
+Bahçeşehir Spor Merkezi`;
+    }
+
+    function appendProgramMailHistory(record) {
+      const history = [record, ...loadProgramMailHistory()].slice(0, 20);
+      saveProgramMailHistory(history);
+
+      const activeMember = findActiveMember();
+      if (activeMember) {
+        activeMember.mailHistory = [record, ...(activeMember.mailHistory || [])].slice(0, 20);
+        activeMember.updatedAt = new Date().toISOString();
+        persistMembers();
+      }
+
+      renderProgramMailHistory();
+    }
+
+    function renderProgramMailHistory() {
+      if (!programMailHistory) {
+        return;
+      }
+
+      const activeMember = findActiveMember();
+      const allRecords = loadProgramMailHistory();
+      const records = allRecords.filter((record) => !activeMember || !record.memberId || record.memberId === activeMember.id).slice(0, 4);
+
+      if (!records.length) {
+        programMailHistory.innerHTML = `<span>Gönderim geçmişi henüz yok.</span>`;
+        return;
+      }
+
+      programMailHistory.innerHTML = `
+        <strong>Mail gönderim geçmişi</strong>
+        ${records
+          .map(
+            (record) => `
+              <div class="program-mail-history__item" data-state="${escapeAttribute(record.status === "Başarılı" ? "success" : "error")}">
+                <span>${escapeHtml(record.status)}</span>
+                <p>${escapeHtml(record.memberName || "Üye")} • ${escapeHtml(record.email || "")}</p>
+                <small>${escapeHtml(record.sentAt || "")}${record.error ? ` • ${escapeHtml(record.error)}` : ""}</small>
+              </div>
+            `,
+          )
+          .join("")}
+      `;
+    }
+
+    function loadProgramMailHistory() {
+      try {
+        const parsed = JSON.parse(windowObject.localStorage?.getItem(PROGRAM_MAIL_HISTORY_KEY) || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function saveProgramMailHistory(history) {
+      try {
+        windowObject.localStorage?.setItem(PROGRAM_MAIL_HISTORY_KEY, JSON.stringify(history));
+      } catch (error) {
+        // Gönderim geçmişi yazılamasa bile mail akışı devam eder.
+      }
+    }
+
+    function setProgramDeliveryStatus(message, stateName = "") {
+      if (programDeliveryStatus) {
+        programDeliveryStatus.textContent = message || "";
+        if (stateName) {
+          programDeliveryStatus.dataset.state = stateName;
+        } else {
+          delete programDeliveryStatus.dataset.state;
+        }
+      }
+
+      if (message) {
+        showStatus(message, stateName === "error" ? "error" : "success");
+      }
+    }
+
+    function isValidEmail(value) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+    }
+
+    function toBase64Unicode(value) {
+      const bytes = new TextEncoder().encode(String(value || ""));
+      let binary = "";
+      bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      return windowObject.btoa(binary);
+    }
+
+    function slugifyFilePart(value) {
+      return String(value || "dosya")
+        .toLocaleLowerCase("tr-TR")
+        .replace(/ğ/g, "g")
+        .replace(/ü/g, "u")
+        .replace(/ş/g, "s")
+        .replace(/ı/g, "i")
+        .replace(/ö/g, "o")
+        .replace(/ç/g, "c")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 60) || "dosya";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value).replace(/`/g, "&#096;");
     }
 
     function handleDownloadBackup() {
@@ -249,6 +612,8 @@
     return {
       copyPlanText,
       handlePrintPlan,
+      handleDownloadLiveProgram,
+      handleSendProgramMail,
       handleDownloadBackup,
       handleOpenRestorePicker,
       handleBackupFileSelected,
@@ -260,6 +625,9 @@
   function bindOutputHandlers(elements, handlers) {
     bindIf(elements.copyPlanButton, "click", handlers.copyPlanText);
     bindIf(elements.printPlanButton, "click", handlers.handlePrintPlan);
+    bindIf(elements.programPdfActionButton, "click", handlers.handlePrintPlan);
+    bindIf(elements.downloadLiveProgramButton, "click", handlers.handleDownloadLiveProgram);
+    bindIf(elements.sendProgramMailButton, "click", handlers.handleSendProgramMail);
     bindIf(elements.downloadBackupButton, "click", handlers.handleDownloadBackup);
     bindIf(elements.restoreBackupButton, "click", handlers.handleOpenRestorePicker);
     bindIf(elements.exportMembersCsvButton, "click", handlers.handleExportMembersCsv);

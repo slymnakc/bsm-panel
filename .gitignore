@@ -2,3 +2,7 @@ __remote_*.js
 *.log
 .DS_Store
 Thumbs.db
+node_modules/
+.env
+.env.*
+!.env.example

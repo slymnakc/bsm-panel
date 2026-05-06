@@ -6,6 +6,7 @@
     gymName: "Bahçeşehir Spor Merkezi",
     memberName: "",
     memberCode: "",
+    memberEmail: "",
     trainerName: "",
     goal: "",
     level: "",
@@ -78,6 +79,7 @@
       gymName: normalizeString(raw.gymName, DEFAULT_FORM.gymName),
       memberName: normalizeString(raw.memberName || raw.userName),
       memberCode: normalizeString(raw.memberCode),
+      memberEmail: normalizeString(raw.memberEmail || raw.email),
       trainerName: normalizeString(raw.trainerName),
       goal: normalizeString(raw.goal),
       level: normalizeString(raw.level),
@@ -169,6 +171,7 @@
       ...sourceProfile,
       memberName: member.memberName || member.member_name || member.name || sourceProfile.memberName,
       memberCode: member.memberCode || member.member_code || sourceProfile.memberCode,
+      memberEmail: member.memberEmail || member.email || sourceProfile.memberEmail || sourceProfile.email,
       trainerName: member.trainerName || member.trainer_name || sourceProfile.trainerName,
       goal: member.goal || member.program || sourceProfile.goal,
     });

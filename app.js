@@ -291,6 +291,11 @@ const programEditToolbar = document.querySelector("#programEditToolbar");
 const programEditStatus = document.querySelector("#programEditStatus");
 const copyPlanButton = document.querySelector("#copyPlanButton");
 const printPlanButton = document.querySelector("#printPlanButton");
+const programPdfActionButton = document.querySelector("#programPdfActionButton");
+const downloadLiveProgramButton = document.querySelector("#downloadLiveProgramButton");
+const sendProgramMailButton = document.querySelector("#sendProgramMailButton");
+const programDeliveryStatus = document.querySelector("#programDeliveryStatus");
+const programMailHistory = document.querySelector("#programMailHistory");
 const priorityMuscle = document.querySelector("#priorityMuscle");
 const libraryGroupFilter = document.querySelector("#libraryGroupFilter");
 const libraryEquipmentFilter = document.querySelector("#libraryEquipmentFilter");
@@ -530,6 +535,8 @@ const outputHandlers = createOutputHandlers({
   labelMaps,
   getTrainingSystemLabel,
   getDayLabel,
+  programDeliveryStatus,
+  programMailHistory,
 });
 
 const nutritionHandlers = createNutritionHandlers({
@@ -2765,6 +2772,11 @@ function bindApplicationHandlers() {
     {
       copyPlanButton,
       printPlanButton,
+      programPdfActionButton,
+      downloadLiveProgramButton,
+      sendProgramMailButton,
+      programDeliveryStatus,
+      programMailHistory,
       downloadBackupButton,
       restoreBackupButton,
       exportMembersCsvButton,
@@ -3280,6 +3292,7 @@ function collectFormData() {
     gymName: String(formData.get("gymName") || "").trim(),
     memberName: String(formData.get("memberName") || "").trim(),
     memberCode: String(formData.get("memberCode") || "").trim(),
+    memberEmail: String(formData.get("memberEmail") || "").trim(),
     trainerName: String(formData.get("trainerName") || "").trim(),
     goal: String(formData.get("goal") || ""),
     level: String(formData.get("level") || ""),
@@ -3311,6 +3324,7 @@ function populateForm(data) {
   form.querySelector("#gymName").value = data.gymName || "Bahçeşehir Spor Merkezi";
   form.querySelector("#memberName").value = data.memberName || data.userName || "";
   form.querySelector("#memberCode").value = data.memberCode || "";
+  form.querySelector("#memberEmail").value = data.memberEmail || data.email || "";
   form.querySelector("#trainerName").value = data.trainerName || "";
   form.querySelector("#goal").value = data.goal || "";
   form.querySelector("#level").value = data.level || "";

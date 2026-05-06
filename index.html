@@ -200,6 +200,11 @@
             </label>
 
             <label class="field">
+              <span>Üye e-posta</span>
+              <input type="email" id="memberEmail" name="memberEmail" placeholder="uye@ornek.com" maxlength="90" autocomplete="email" />
+            </label>
+
+            <label class="field">
               <span>Antrenör adı</span>
               <input type="text" id="trainerName" name="trainerName" placeholder="Örn. Mert Coach" maxlength="50" />
             </label>
@@ -798,9 +803,29 @@
         <div class="panel-actions">
           <button type="button" class="ghost-button" id="saveProgramButton">Programı Üyeye Kaydet</button>
           <button type="button" class="secondary-button" id="copyPlanButton">Metni Kopyala</button>
-          <button type="button" class="primary-button" id="printPlanButton">PDF Olarak İndir / Yazdır</button>
+          <button type="button" class="primary-button" id="printPlanButton">PDF İndir / Yazdır</button>
         </div>
       </div>
+
+      <div class="program-delivery-panel" aria-label="Program çıktı işlemleri">
+        <button type="button" class="program-action-button program-action-button--pdf" id="programPdfActionButton">
+          <span>PDF</span>
+          <strong>PDF İndir / Yazdır</strong>
+          <small>2-3 sayfalık temiz çıktı</small>
+        </button>
+        <button type="button" class="program-action-button program-action-button--live" id="downloadLiveProgramButton">
+          <span>HTML</span>
+          <strong>Canlı Program İndir</strong>
+          <small>GIF destekli tek dosya</small>
+        </button>
+        <button type="button" class="program-action-button program-action-button--mail" id="sendProgramMailButton">
+          <span>@</span>
+          <strong>Mail Gönder</strong>
+          <small>PDF ekiyle üyeye gönder</small>
+        </button>
+      </div>
+      <p id="programDeliveryStatus" class="status-message compact-status program-delivery-status"></p>
+      <div id="programMailHistory" class="program-mail-history" aria-live="polite"></div>
 
       <div class="program-cover" id="programCover">
         <div>
