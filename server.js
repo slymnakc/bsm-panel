@@ -2,6 +2,8 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 
+loadEnvFile();
+
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_DIR = __dirname;
 const MAX_BODY_SIZE = 18 * 1024 * 1024;
@@ -44,6 +46,37 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`BSM panel server running on port ${PORT}`);
 });
+
+function loadEnvFile() {
+  const envPath = path.join(__dirname, ".env");
+
+  if (!fs.existsSync(envPath)) {
+    return;
+  }
+
+  const content = fs.readFileSync(envPath, "utf8");
+  content.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith("#")) {
+      return;
+    }
+
+    const separatorIndex = trimmed.indexOf("=");
+
+    if (separatorIndex === -1) {
+      return;
+    }
+
+    const key = trimmed.slice(0, separatorIndex).trim();
+    const rawValue = trimmed.slice(separatorIndex + 1).trim();
+    const value = rawValue.replace(/^['"]|['"]$/g, "");
+
+    if (key && process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  });
+}
 
 async function handleSendProgramMail(req, res) {
   try {

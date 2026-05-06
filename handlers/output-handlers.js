@@ -38,6 +38,8 @@
       navigatorObject = navigator,
     } = deps;
     const PROGRAM_MAIL_HISTORY_KEY = "bsm-program-mail-history-v1";
+    const LOCAL_MAIL_API_ENDPOINT = "http://localhost:3000/api/send-program-mail";
+    const LIVE_MAIL_API_ENDPOINT = "https://bsm-panel.onrender.com/api/send-program-mail";
 
     renderProgramMailHistory();
 
@@ -167,17 +169,50 @@
     }
 
     async function sendProgramMailRequest(payload) {
-      const endpoint = windowObject.location?.protocol === "file:" ? "http://localhost:3000/api/send-program-mail" : "/api/send-program-mail";
-      const response = await windowObject.fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const result = await response.json().catch(() => ({}));
+      const endpoints = getProgramMailEndpoints();
+      const networkErrors = [];
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await windowObject.fetch(endpoint.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const result = await response.json().catch(() => null);
+
+          if (!result || typeof result !== "object") {
+            return {
+              ok: false,
+              message: `${endpoint.label} geçerli mail API yanıtı vermedi. Render servisinin Node olarak deploy edildiğini kontrol edin.`,
+            };
+          }
+
+          return {
+            ok: response.ok && result.ok === true,
+            message: result.message || result.error || "",
+          };
+        } catch (error) {
+          networkErrors.push(`${endpoint.label}: ${error.message || "bağlantı kurulamadı"}`);
+          console.warn("Program mail API erişim hatası", endpoint.url, error);
+        }
+      }
+
       return {
-        ok: response.ok && result.ok !== false,
-        message: result.message || result.error || "",
+        ok: false,
+        message: `Mail API'sine ulaşılamadı. Yerelde kullanıyorsanız proje klasöründe "npm start" ile backend'i çalıştırın veya paneli canlı Render adresinden açın. Detay: ${networkErrors.join(" | ")}`,
       };
+    }
+
+    function getProgramMailEndpoints() {
+      if (windowObject.location?.protocol === "file:") {
+        return [
+          { url: LOCAL_MAIL_API_ENDPOINT, label: "Yerel mail servisi" },
+          { url: LIVE_MAIL_API_ENDPOINT, label: "Canlı Render mail servisi" },
+        ];
+      }
+
+      return [{ url: "/api/send-program-mail", label: "Mail servisi" }];
     }
 
     async function buildLiveProgramHtml(program, options = {}) {
