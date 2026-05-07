@@ -396,14 +396,30 @@ function drawExerciseCard(commands, exercise, x, y, width, height) {
   addText(commands, x + 54, y - 6, name, 9.4, "#082b35", 31);
   addText(commands, x + 54, y - 20, group, 7.3, "#1d6b74", 31);
 
+  const repPattern = Array.isArray(exercise?.repPattern) && exercise.repPattern.length ? exercise.repPattern.join(" | ") : exercise?.reps || "-";
   const metrics = [
-    `Set: ${exercise?.sets || "-"}`,
-    `Tekrar: ${exercise?.reps || "-"}`,
+    `${exercise?.sets || "-"} Sets: ${repPattern}`,
+    `Model: ${formatRepModelLabel(exercise?.repModel)}`,
     `Dinlenme: ${exercise?.rest || "-"}`,
     `Tempo: ${exercise?.tempo || "-"}`,
   ];
   addText(commands, x + 54, y - 34, metrics.join("  |  "), 6.8, "#384d55", 42);
   addText(commands, x + 54, y - 46, exercise?.cue || exercise?.note || "Kontrollü formda uygula.", 6.5, "#5c6c72", 42);
+}
+
+function formatRepModelLabel(value) {
+  const labels = {
+    fixed: "Fixed",
+    pyramid: "Pyramid",
+    "reverse-pyramid": "Reverse Pyramid",
+    strength: "Strength",
+    hypertrophy: "Hypertrophy",
+    endurance: "Endurance",
+    advanced: "Advanced",
+    custom: "Custom",
+  };
+
+  return labels[String(value || "").trim()] || "Fixed";
 }
 
 function drawSupportNotes(commands, session, y) {

@@ -569,6 +569,8 @@
         .member-program-exercise-card__metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         .member-program-exercise-card__metrics span { padding: 8px; border-radius: 11px; background: white; }
         .member-program-exercise-card__metrics b { display: block; color: var(--teal); }
+        .rep-pattern-metric { background: linear-gradient(135deg, rgba(29,107,116,.12), rgba(216,173,99,.13)), #fff !important; border: 1px solid rgba(29,107,116,.16); }
+        .rep-pattern-metric em { display: block; margin-top: 3px; color: var(--ink); font-style: normal; font-weight: 900; letter-spacing: .02em; }
         .exercise-media { position: relative; overflow: hidden; width: 66px; min-width: 66px; height: 66px; border-radius: 17px; background: linear-gradient(135deg, rgba(216,173,99,.18), rgba(29,107,116,.12)); }
         .exercise-media__button, .exercise-media__button img { display: block; width: 100%; height: 100%; border: 0; padding: 0; object-fit: cover; cursor: zoom-in; }
         .exercise-media__placeholder { position: absolute; inset: 0; display: grid; place-items: center; padding: 7px; font-size: .7rem; color: var(--teal); text-align: center; }
@@ -621,6 +623,12 @@ Bahçeşehir Spor Merkezi`;
               groupLabel: exercise.groupLabel || exercise.muscleGroup || exercise.group || "Kas grubu",
               sets: exercise.sets || prescription.sets || "-",
               reps: exercise.reps || prescription.reps || "-",
+              repModel: exercise.repModel || exercise.repScheme?.model || "fixed",
+              repPattern: Array.isArray(exercise.repPattern)
+                ? exercise.repPattern
+                : Array.isArray(exercise.repScheme?.reps)
+                  ? exercise.repScheme.reps
+                  : String(exercise.reps || prescription.reps || "-").split(/[•,]/).map((item) => item.trim()).filter(Boolean),
               rest: exercise.rest || "-",
               tempo: exercise.tempo || "-",
               cue: limitMailSentence(exercise.cue || exercise.note || "Kontrollü formda uygula."),
