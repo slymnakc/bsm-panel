@@ -38,8 +38,7 @@
       navigatorObject = navigator,
     } = deps;
     const PROGRAM_MAIL_HISTORY_KEY = "bsm-program-mail-history-v1";
-    const LOCAL_MAIL_API_ENDPOINT = "http://localhost:3000/api/send-program-mail";
-    const LIVE_MAIL_API_ENDPOINT = "https://bsm-panel.onrender.com/api/send-program-mail";
+    const PROGRAM_EMAIL_API_PATH = "/api/send-program-email";
 
     renderProgramMailHistory();
 
@@ -111,6 +110,11 @@
         return;
       }
 
+      if (windowObject.location?.protocol === "file:") {
+        setProgramDeliveryStatus("Mail gönderimi için paneli http://localhost:3000 veya canlı Render adresi üzerinden açmalısınız.", "error");
+        return;
+      }
+
       const profile = collectFormData();
       const activeMember = findActiveMember();
       const recipientEmail = String(profile.memberEmail || activeMember?.profile?.memberEmail || "").trim();
@@ -130,6 +134,7 @@
           subject: "Bahçeşehir Spor Merkezi | Size Özel Antrenman Programınız",
           message: buildMailMessage(profile.memberName || activeMember?.profile?.memberName || "Üye"),
           programText: convertProgramToText(program),
+          programData: buildMailProgramData(program, profile, activeMember),
           htmlAttachment: {
             filename: `canli-antrenman-programi-${slugifyFilePart(profile.memberName || "uye")}.html`,
             contentBase64: toBase64Unicode(liveHtml),
@@ -191,6 +196,7 @@
           return {
             ok: response.ok && result.ok === true,
             message: result.message || result.error || "",
+            pdfCreated: result.pdfCreated !== false,
           };
         } catch (error) {
           networkErrors.push(`${endpoint.label}: ${error.message || "bağlantı kurulamadı"}`);
@@ -205,20 +211,14 @@
     }
 
     function getProgramMailEndpoints() {
-      if (windowObject.location?.protocol === "file:") {
-        return [
-          { url: LOCAL_MAIL_API_ENDPOINT, label: "Yerel mail servisi" },
-          { url: LIVE_MAIL_API_ENDPOINT, label: "Canlı Render mail servisi" },
-        ];
-      }
-
-      return [{ url: "/api/send-program-mail", label: "Mail servisi" }];
+      return [{ url: PROGRAM_EMAIL_API_PATH, label: "Mail servisi" }];
     }
 
     async function buildLiveProgramHtml(program, options = {}) {
       const clone = resultsSection.cloneNode(true);
       clone.classList.remove("hidden", "is-hidden");
       clone.querySelectorAll(".results__header .panel-actions, .program-delivery-panel, .program-delivery-status, .program-mail-history, #programDeliveryStatus, #programMailHistory").forEach((node) => node.remove());
+      stripTrainerOnlySectionsFromLiveExport(clone);
       clone.querySelectorAll("button, input, select, textarea").forEach((node) => {
         if (node.tagName === "BUTTON") {
           node.remove();
@@ -296,6 +296,48 @@
   </script>
 </body>
 </html>`;
+    }
+
+    function stripTrainerOnlySectionsFromLiveExport(clone) {
+      [
+        "trainingReportPanel",
+        "coachNote",
+        "aiReportSummary",
+        "nextControlReport",
+        "outputWarnings",
+        "muscleCoverage",
+        "progressionPlan",
+        "guidanceBlock",
+      ].forEach((id) => removeExportSectionById(clone, id));
+
+      clone.querySelectorAll(".output-detail-panel, .program-edit-toolbar").forEach((node) => node.remove());
+      simplifyLiveNutritionSection(clone);
+    }
+
+    function removeExportSectionById(clone, id) {
+      const target = clone.querySelector(`#${id}`);
+      const section = target?.closest(".result-card, section, article");
+
+      if (section) {
+        section.remove();
+      }
+    }
+
+    function simplifyLiveNutritionSection(clone) {
+      const nutritionOutput = clone.querySelector("#outputNutritionPlan");
+
+      if (!nutritionOutput) {
+        return;
+      }
+
+      nutritionOutput.innerHTML = `
+        <article class="nutrition-output-card nutrition-output-card--workout-notice">
+          <div class="nutrition-output-card__header">
+            <strong>Beslenme Bilgisi</strong>
+          </div>
+          <p>Beslenme planı uygulama içindeki Beslenme sekmesinde sunulmaktadır.</p>
+        </article>
+      `;
     }
 
     async function hydrateExerciseMediaForExport(clone, options = {}) {
@@ -550,6 +592,64 @@ Programınızı düzenli uygulamanız önerilir. Herhangi bir sorunuzda antrenö
 
 Sağlıklı günler dileriz.
 Bahçeşehir Spor Merkezi`;
+    }
+
+    function buildMailProgramData(program, profile, activeMember) {
+      const goalLabel = labelMaps?.goal?.[profile.goal] || profile.goal || activeMember?.profile?.goal || "Kişisel hedef";
+      const levelLabel = labelMaps?.level?.[profile.level] || profile.level || activeMember?.profile?.level || "Seviye belirtilmedi";
+      const days = Array.isArray(profile.days) && profile.days.length ? profile.days : activeMember?.profile?.days || [];
+
+      return {
+        title: program?.title || "Bahçeşehir Spor Merkezi Antrenman Programı",
+        memberName: profile.memberName || activeMember?.profile?.memberName || "Üye",
+        goal: goalLabel,
+        level: levelLabel,
+        daysText: Array.isArray(days) && days.length ? days.map((day) => getDayLabel?.(day) || day).join(", ") : "Haftalık plana göre",
+        sessions: (program?.sessions || []).map((session, sessionIndex) => ({
+          dayLabel: session.dayLabel || `Gün ${sessionIndex + 1}`,
+          title: session.title || "Antrenman",
+          duration: session.duration || "",
+          warmup: Array.isArray(session.warmup) ? session.warmup.join(" • ") : session.warmup || "",
+          cardioBlock: session.cardioBlock || "",
+          cooldown: Array.isArray(session.cooldown) ? session.cooldown.join(" • ") : session.cooldown || "",
+          exercises: (session.exercises || []).map((exercise) => {
+            const prescription = splitMailExercisePrescription(exercise);
+
+            return {
+              name: exercise.name || "Hareket",
+              group: exercise.group || "",
+              groupLabel: exercise.groupLabel || exercise.muscleGroup || exercise.group || "Kas grubu",
+              sets: exercise.sets || prescription.sets || "-",
+              reps: exercise.reps || prescription.reps || "-",
+              rest: exercise.rest || "-",
+              tempo: exercise.tempo || "-",
+              cue: limitMailSentence(exercise.cue || exercise.note || "Kontrollü formda uygula."),
+            };
+          }),
+        })),
+      };
+    }
+
+    function splitMailExercisePrescription(exercise) {
+      const text = String(exercise?.prescription || "").trim();
+      const match = text.match(/^(.+?)\s*(?:set|tur)\s*x\s*(.+)$/i);
+
+      if (match) {
+        return {
+          sets: match[1].trim(),
+          reps: match[2].trim(),
+        };
+      }
+
+      return {
+        sets: exercise?.sets || "-",
+        reps: exercise?.reps || text || "-",
+      };
+    }
+
+    function limitMailSentence(value) {
+      const firstSentence = String(value || "").split(/(?<=[.!?])\s+/)[0] || "";
+      return firstSentence.length > 140 ? `${firstSentence.slice(0, 137).trim()}...` : firstSentence;
     }
 
     function appendProgramMailHistory(record) {

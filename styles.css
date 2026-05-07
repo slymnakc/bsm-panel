@@ -7557,6 +7557,17 @@ textarea:focus {
     display: none !important;
   }
 
+  .results .output-training-card,
+  .results .result-card:has(#coachNote),
+  .results .result-card:has(#aiReportSummary),
+  .results .result-card:has(#nextControlReport),
+  .results .result-card:has(#outputWarnings),
+  .results .result-card:has(#muscleCoverage),
+  .results .result-card:has(#progressionPlan),
+  .results .result-card:has(#guidanceBlock) {
+    display: none !important;
+  }
+
   .result-card,
   .day-card,
   .member-program-day {
