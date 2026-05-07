@@ -272,7 +272,12 @@
       createdAtIso: normalizeIsoDate(raw.createdAtIso) || new Date().toISOString(),
       createdAt: normalizeString(raw.createdAt),
       memberName: normalizeString(raw.memberName),
+      memberEmail: normalizeString(raw.memberEmail),
       goal: normalizeString(raw.goal),
+      nutritionGoalId: normalizeString(raw.nutritionGoalId || raw.goal),
+      nutritionGoalLabel: normalizeString(raw.nutritionGoalLabel || raw.goal),
+      nutritionGoalCategory: normalizeString(raw.nutritionGoalCategory),
+      nutritionStrategy: normalizeString(raw.nutritionStrategy),
       level: normalizeString(raw.level),
       trainingDays: toNumberOrFallback(raw.trainingDays, 0),
       sourceSummary: raw.sourceSummary && typeof raw.sourceSummary === "object" ? raw.sourceSummary : {},
@@ -282,6 +287,8 @@
         carbs: toNumberOrFallback(raw.macros?.carbs, 0),
         fat: toNumberOrFallback(raw.macros?.fat, 0),
       },
+      mealCount: toNumberOrFallback(raw.mealCount, Array.isArray(raw.meals) ? raw.meals.length : 0),
+      dayType: normalizeString(raw.dayType, "balanced"),
       intelligence: normalizeStringArray(raw.intelligence),
       meals: Array.isArray(raw.meals)
         ? raw.meals.map((meal, index) => ({
@@ -295,12 +302,22 @@
           }))
         : [],
       supplementPreferences: raw.supplementPreferences && typeof raw.supplementPreferences === "object" ? raw.supplementPreferences : {},
+      supplementNotice: normalizeString(raw.supplementNotice),
       supplements: Array.isArray(raw.supplements)
         ? raw.supplements.map((item) => ({
-            name: normalizeString(item?.name),
+            id: normalizeString(item?.id),
+            supplementName: normalizeString(item?.supplementName || item?.name),
+            name: normalizeString(item?.name || item?.supplementName),
+            category: normalizeString(item?.category),
+            suitableGoals: normalizeStringArray(item?.suitableGoals),
             purpose: normalizeString(item?.purpose),
-            timing: normalizeString(item?.timing),
-            note: normalizeString(item?.note),
+            suggestedTiming: normalizeString(item?.suggestedTiming || item?.timing),
+            suggestedDoseText: normalizeString(item?.suggestedDoseText),
+            warningText: normalizeString(item?.warningText || item?.note),
+            evidenceLevel: normalizeString(item?.evidenceLevel, "limited"),
+            isOptional: item?.isOptional !== false,
+            timing: normalizeString(item?.timing || item?.suggestedTiming),
+            note: normalizeString(item?.note || item?.warningText),
             foodAlternative: normalizeString(item?.foodAlternative),
           }))
         : [],

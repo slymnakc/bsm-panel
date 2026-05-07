@@ -40,6 +40,11 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.url === "/api/send-nutrition-email" && req.method === "POST") {
+    await handleSendNutritionMail(req, res);
+    return;
+  }
+
   serveStatic(req, res);
 });
 
@@ -183,6 +188,90 @@ async function handleSendProgramMail(req, res) {
   }
 }
 
+async function handleSendNutritionMail(req, res) {
+  try {
+    const payload = await readJsonBody(req);
+
+    if (!payload || typeof payload !== "object" || !isValidEmail(payload.to)) {
+      sendJson(res, 400, { ok: false, message: "Geçerli bir üye e-posta adresi gerekli." });
+      return;
+    }
+
+    if (!payload.planData || typeof payload.planData !== "object") {
+      sendJson(res, 400, { ok: false, message: "Mail eki için beslenme planı bulunamadı." });
+      return;
+    }
+
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const mailFrom = process.env.MAIL_FROM;
+
+    if (!resendApiKey || !mailFrom) {
+      sendJson(res, 503, {
+        ok: false,
+        message: "Mail servisi yapılandırılmamış. .env veya Render ortam değişkenlerinde RESEND_API_KEY ve MAIL_FROM tanımlanmalı.",
+      });
+      return;
+    }
+
+    let pdfBuffer;
+    try {
+      pdfBuffer = createNutritionPlanPdf(payload.planData);
+    } catch (error) {
+      console.error("Nutrition PDF generation error", error);
+      sendJson(res, 500, { ok: false, message: "PDF oluşturulamadığı için mail gönderilmedi.", pdfCreated: false });
+      return;
+    }
+
+    const memberName = sanitizeText(payload.memberName || payload.planData.memberName || "Üye");
+    const message = `Merhaba ${memberName},\n\nSize özel hazırlanan sporcu beslenme planınız ekte yer almaktadır.\n\nPlanınızı düzenli uygulamanız ve gerekli durumlarda antrenör/diyetisyen desteği almanız önerilir.\n\nSağlıklı günler dileriz.\nBahçeşehir Spor Merkezi`;
+    const resendPayload = {
+      from: mailFrom,
+      to: [String(payload.to).trim()],
+      subject: "Bahçeşehir Spor Merkezi Sporcu Beslenme Planınız",
+      text: message,
+      html: buildMailHtml(message),
+      attachments: [
+        {
+          filename: "sporcu-beslenme-plani.pdf",
+          content: pdfBuffer.toString("base64"),
+          content_type: "application/pdf",
+        },
+      ],
+    };
+    let response;
+    try {
+      response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(resendPayload),
+      });
+    } catch (error) {
+      console.error("Resend nutrition connection error", error);
+      sendJson(res, 502, {
+        ok: false,
+        message: "Mail sağlayıcısına ulaşılamadı. İnternet bağlantısı, RESEND_API_KEY ve gönderici domain ayarlarını kontrol edin.",
+        pdfCreated: true,
+      });
+      return;
+    }
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.error("Resend nutrition mail error", result);
+      sendJson(res, response.status, { ok: false, message: result?.message || "Mail sağlayıcısı gönderimi reddetti." });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true, message: "Beslenme planı mail ile gönderildi.", providerId: result.id || "", pdfCreated: true });
+  } catch (error) {
+    console.error("Nutrition mail endpoint error", error);
+    sendJson(res, 500, { ok: false, message: error.message || "Beslenme maili gönderimi sırasında hata oluştu." });
+  }
+}
+
 function validateMailPayload(payload) {
   if (!payload || typeof payload !== "object") {
     return "Geçersiz mail isteği.";
@@ -271,6 +360,171 @@ function createPremiumProgramPdf({ title, memberName, programText, programData }
   });
 
   return buildPdf(objects);
+}
+
+function createNutritionPlanPdf(planData) {
+  const model = buildNutritionPdfModel(planData);
+  const pages = buildNutritionPdfPages(model).slice(0, 5);
+  const objects = [];
+  const pageIds = pages.map((_, index) => 4 + index * 2);
+  const contentIds = pages.map((_, index) => 5 + index * 2);
+
+  objects.push([1, "<< /Type /Catalog /Pages 2 0 R >>"]);
+  objects.push([2, `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`]);
+  objects.push([
+    3,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [128 /gbreve /Gbreve /Idotaccent /dotlessi /scedilla /Scedilla] >> >>",
+  ]);
+
+  pages.forEach((content, index) => {
+    objects.push([
+      pageIds[index],
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentIds[index]} 0 R >>`,
+    ]);
+    objects.push([contentIds[index], `<< /Length ${Buffer.byteLength(content, "binary")} >>\nstream\n${content}\nendstream`]);
+  });
+
+  return buildPdf(objects);
+}
+
+function buildNutritionPdfModel(planData) {
+  const plan = planData && typeof planData === "object" ? planData : {};
+  return {
+    title: "Sporcu Beslenme Planı",
+    memberName: plan.memberName || "Üye",
+    goal: plan.nutritionGoalLabel || plan.goal || "Beslenme hedefi",
+    category: plan.nutritionGoalCategory || "",
+    generatedAt: new Date().toLocaleDateString("tr-TR"),
+    summary: [
+      ["Üye", plan.memberName || "Üye"],
+      ["Hedef", plan.nutritionGoalLabel || plan.goal || "-"],
+      ["Kalori", `${plan.calories || "-"} kcal`],
+      ["Protein", `${plan.macros?.protein || "-"} g`],
+      ["Karbonhidrat", `${plan.macros?.carbs || "-"} g`],
+      ["Yağ", `${plan.macros?.fat || "-"} g`],
+      ["BMR", `${plan.sourceSummary?.bmr || "-"} kcal`],
+      ["Antrenman", `${plan.trainingDays || "-"} gün/hafta`],
+    ],
+    intelligence: Array.isArray(plan.intelligence) ? plan.intelligence.slice(0, 5) : [],
+    meals: Array.isArray(plan.meals) ? plan.meals : [],
+    supplements: Array.isArray(plan.supplements) ? plan.supplements : [],
+    supplementNotice: plan.supplementNotice || "Supplement kullanımı kapalı. Plan gıda öncelikli hazırlanmıştır.",
+    trainerNote: plan.trainerNote || "",
+    disclaimer: plan.disclaimer || "",
+  };
+}
+
+function buildNutritionPdfPages(model) {
+  const pages = [];
+  let commands = [];
+  let y = 704;
+  let pageNumber = 1;
+
+  function startPage() {
+    commands = [];
+    drawPageHeader(commands, { title: model.title, generatedAt: model.generatedAt }, pageNumber);
+    y = 704;
+  }
+
+  function finishPage() {
+    drawPageFooter(commands, pageNumber);
+    pages.push(commands.join("\n"));
+    pageNumber += 1;
+  }
+
+  startPage();
+  drawSummaryBlock(commands, { summary: model.summary, memberName: model.memberName });
+  y = 596;
+  drawNutritionPdfSectionTitle(commands, "Plan Mantığı", y);
+  y -= 24;
+  model.intelligence.forEach((note) => {
+    addText(commands, 48, y, `• ${note}`, 8, "#384d55", 92);
+    y -= 18;
+  });
+  y -= 8;
+  drawNutritionPdfSectionTitle(commands, "Kalori ve Makro Kartları", y);
+  y -= 28;
+  drawNutritionMacroCards(commands, model.summary.slice(2, 6), y);
+  y -= 74;
+  drawNutritionPdfSectionTitle(commands, "Günlük Öğün Planı", y);
+  y -= 28;
+
+  model.meals.forEach((meal, index) => {
+    if (y < 132) {
+      finishPage();
+      startPage();
+      drawNutritionPdfSectionTitle(commands, "Günlük Öğün Planı", y);
+      y -= 28;
+    }
+    drawNutritionMealRow(commands, meal, index + 1, y);
+    y -= 62;
+  });
+
+  if (y < 190) {
+    finishPage();
+    startPage();
+  }
+
+  drawNutritionPdfSectionTitle(commands, "Supplement ve Notlar", y);
+  y -= 26;
+  addText(commands, 44, y, model.supplementNotice, 8, "#384d55", 92);
+  y -= 24;
+
+  const supplements = model.supplements.length ? model.supplements.slice(0, 8) : [{ supplementName: "Supplement kapalı", purpose: "Plan gıda öncelikli hazırlanmıştır.", suggestedTiming: "", warningText: "" }];
+  supplements.forEach((item) => {
+    if (y < 118) {
+      finishPage();
+      startPage();
+    }
+    drawNutritionSupplementRow(commands, item, y);
+    y -= 44;
+  });
+
+  if (y < 150) {
+    finishPage();
+    startPage();
+  }
+
+  drawNutritionPdfSectionTitle(commands, "Antrenör / Beslenme Notu", y);
+  y -= 25;
+  addText(commands, 44, y, model.trainerNote || "Plan düzenli takip edilmelidir.", 8, "#384d55", 92);
+  y -= 44;
+  addText(commands, 44, y, model.disclaimer, 7, "#5c6c72", 98);
+  finishPage();
+  return pages;
+}
+
+function drawNutritionPdfSectionTitle(commands, title, y) {
+  drawRect(commands, 34, y - 17, 527, 24, "#eef7f5", "#d9e5e3");
+  drawRect(commands, 34, y - 17, 6, 24, "#d8ad63");
+  addText(commands, 48, y - 2, title, 10, "#082b35", 80);
+}
+
+function drawNutritionMacroCards(commands, metrics, y) {
+  metrics.forEach(([label, value], index) => {
+    const x = 44 + index * 126;
+    drawRect(commands, x, y - 48, 112, 52, "#ffffff", "#d9e5e3");
+    drawRect(commands, x, y - 48, 112, 6, index === 0 ? "#1d6b74" : "#d8ad63");
+    addText(commands, x + 10, y - 14, label, 7.5, "#5c6c72");
+    addText(commands, x + 10, y - 32, value, 12, "#082b35");
+  });
+}
+
+function drawNutritionMealRow(commands, meal, index, y) {
+  drawRect(commands, 42, y - 52, 511, 56, "#ffffff", "#d9e5e3");
+  drawRect(commands, 42, y - 52, 32, 56, "#1d6b74");
+  addText(commands, 51, y - 22, String(index), 12, "#ffffff");
+  addText(commands, 84, y - 10, meal.name || `Öğün ${index}`, 9.5, "#082b35", 32);
+  addText(commands, 84, y - 25, meal.foods || "-", 7, "#384d55", 82);
+  addText(commands, 84, y - 40, `${meal.calories || "-"} kcal | P ${meal.protein || "-"} g | K ${meal.carbs || "-"} g | Y ${meal.fat || "-"} g`, 7, "#1d6b74", 82);
+}
+
+function drawNutritionSupplementRow(commands, item, y) {
+  drawRect(commands, 42, y - 34, 511, 38, "#ffffff", "#d9e5e3");
+  addText(commands, 54, y - 8, item.supplementName || item.name || "Supplement", 8.5, "#082b35", 34);
+  addText(commands, 54, y - 22, `${item.category || ""} | ${item.purpose || ""}`, 6.7, "#384d55", 84);
+  addText(commands, 330, y - 8, item.suggestedTiming || item.timing || "", 6.5, "#1d6b74", 36);
+  addText(commands, 330, y - 22, item.evidenceLevel ? `Kanıt: ${item.evidenceLevel}` : "", 6.5, "#d8ad63", 28);
 }
 
 function buildProgramPdfModel({ title, memberName, programText, programData }) {
@@ -520,6 +774,12 @@ function encodePdfWinAnsiText(value) {
     "ş": 132,
     "Ş": 133,
   };
+  turkishMap["ğ"] = 128;
+  turkishMap["Ğ"] = 129;
+  turkishMap["İ"] = 130;
+  turkishMap["ı"] = 131;
+  turkishMap["ş"] = 132;
+  turkishMap["Ş"] = 133;
   let output = "";
 
   for (const char of String(value || "")) {

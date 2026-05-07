@@ -17,6 +17,8 @@
       makeId,
       nutritionPanel,
       nutritionPlanEditor,
+      generateNutritionPdf,
+      sendNutritionPlanEmail,
       windowObject = window,
     } = deps;
 
@@ -80,7 +82,42 @@
         renderNutritionWorkspace();
       }
 
-      windowObject.print();
+      const result = generateNutritionPdf
+        ? generateNutritionPdf(state.activeNutritionPlan, { windowObject })
+        : (windowObject.print(), { ok: true });
+
+      if (result?.message) {
+        showStatus(result.message, result.ok === false ? "error" : "success");
+      }
+    }
+
+    async function handleSendNutritionPlanEmail() {
+      const editedPlan = collectNutritionPlanEdits(nutritionPlanEditor, state.activeNutritionPlan);
+      const plan = normalizeNutritionPlan(editedPlan || state.activeNutritionPlan);
+
+      if (!plan) {
+        showStatus("Mail göndermek için önce beslenme planı oluşturun.", "error");
+        return;
+      }
+
+      const email = nutritionPanel?.querySelector("#nutritionEmailInput")?.value?.trim() || plan.memberEmail || "";
+
+      if (!sendNutritionPlanEmail) {
+        showStatus("Beslenme mail servisi hazır değil. Lütfen paneli güncelleyip tekrar deneyin.", "error");
+        return;
+      }
+
+      showStatus("Beslenme planı mail olarak gönderiliyor...", "success");
+      const result = await sendNutritionPlanEmail({ email, planData: plan });
+      showStatus(result.message, result.ok ? "success" : "error");
+    }
+
+    function handleNutritionPreferencesChange(event) {
+      if (event?.target?.closest?.("#nutritionPlanEditor")) {
+        return;
+      }
+
+      renderNutritionWorkspace();
     }
 
     function handleNutritionInput() {
@@ -96,7 +133,9 @@
       handleGenerateNutritionPlan,
       handleSaveNutritionPlan,
       handlePrintNutritionPlan,
+      handleSendNutritionPlanEmail,
       handleNutritionInput,
+      handleNutritionPreferencesChange,
     };
   }
 
@@ -104,8 +143,30 @@
     bindIf(elements.generateNutritionButton, "click", handlers.handleGenerateNutritionPlan);
     bindIf(elements.saveNutritionButton, "click", handlers.handleSaveNutritionPlan);
     bindIf(elements.printNutritionButton, "click", handlers.handlePrintNutritionPlan);
+    bindIf(elements.sendNutritionMailButton, "click", handlers.handleSendNutritionPlanEmail);
     bindIf(elements.nutritionPlanEditor, "input", handlers.handleNutritionInput);
     bindIf(elements.nutritionPlanEditor, "change", handlers.handleNutritionInput);
+    bindNutritionControlEvents(elements.nutritionPanel, handlers.handleNutritionPreferencesChange);
+  }
+
+  function bindNutritionControlEvents(root, handler) {
+    if (!root || !handler) {
+      return;
+    }
+
+    [
+      "#nutritionGoalSelect",
+      "#nutritionMealCount",
+      "#nutritionDayType",
+      "#supplementUse",
+      "#supplementUseCheckbox",
+      "#caffeineSensitive",
+      "#lactoseSensitive",
+      "#supplementBudget",
+      "#supplementCategoryList",
+    ].forEach((selector) => {
+      root.querySelector(selector)?.addEventListener("change", handler);
+    });
   }
 
   function validateNutritionPlan(plan) {

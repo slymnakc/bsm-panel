@@ -12,6 +12,12 @@
   ];
 
   function buildNutritionPlan(member, activeProgram, preferences = {}, deps = {}) {
+    if (window.BSMNutritionPlanEngine?.buildNutritionPlan) {
+      const plan = window.BSMNutritionPlanEngine.buildNutritionPlan(member, activeProgram, preferences, deps);
+      console.log("NUTRITION PLAN GENERATED:", plan);
+      return plan;
+    }
+
     const profile = member?.profile || {};
     const latestMeasurement = member?.measurements?.[0] || {};
     const memberName = profile.memberName || "Üye";
@@ -74,6 +80,11 @@
       createdAt: source.createdAt || new Date().toLocaleString("tr-TR", { dateStyle: "long", timeStyle: "short" }),
       memberName: String(source.memberName || "Üye"),
       goal: String(source.goal || "maintenance"),
+      memberEmail: String(source.memberEmail || ""),
+      nutritionGoalId: String(source.nutritionGoalId || source.goal || "maintenance"),
+      nutritionGoalLabel: String(source.nutritionGoalLabel || source.goal || "Kilo koruma"),
+      nutritionGoalCategory: String(source.nutritionGoalCategory || "Kilo Koruma"),
+      nutritionStrategy: String(source.nutritionStrategy || "maintenance"),
       level: String(source.level || ""),
       trainingDays: toNumber(source.trainingDays) || 3,
       sourceSummary: source.sourceSummary && typeof source.sourceSummary === "object" ? source.sourceSummary : {},
@@ -83,9 +94,12 @@
         carbs: toNumber(source.macros?.carbs) || 220,
         fat: toNumber(source.macros?.fat) || 70,
       },
+      mealCount: toNumber(source.mealCount) || (Array.isArray(source.meals) ? source.meals.length : 5),
+      dayType: ["balanced", "training", "rest"].includes(source.dayType) ? source.dayType : "balanced",
       intelligence: Array.isArray(source.intelligence) ? source.intelligence.map(String) : [],
       meals: normalizeMeals(source.meals),
       supplementPreferences: normalizeSupplementPreferences(source.supplementPreferences),
+      supplementNotice: String(source.supplementNotice || ""),
       supplements: normalizeSupplements(source.supplements),
       trainerNote: String(source.trainerNote || ""),
       disclaimer: String(source.disclaimer || DISCLAIMER),
@@ -344,11 +358,19 @@
   }
 
   function normalizeSupplementPreferences(preferences = {}) {
+    const supplementCategories = Array.isArray(preferences.supplementCategories)
+      ? preferences.supplementCategories.map(String).filter(Boolean)
+      : [];
+
     return {
+      nutritionGoalId: String(preferences.nutritionGoalId || ""),
+      mealCount: toNumber(preferences.mealCount) || 5,
+      dayType: ["balanced", "training", "rest"].includes(preferences.dayType) ? preferences.dayType : "balanced",
       useSupplements: preferences.useSupplements === "yes" ? "yes" : "no",
       caffeineSensitive: preferences.caffeineSensitive === "yes" ? "yes" : "no",
       lactoseSensitive: preferences.lactoseSensitive === "yes" ? "yes" : "no",
       budget: ["low", "medium", "high"].includes(preferences.budget) ? preferences.budget : "medium",
+      supplementCategories,
     };
   }
 
@@ -379,10 +401,19 @@
   function normalizeSupplements(supplements) {
     return Array.isArray(supplements)
       ? supplements.map((item) => ({
-          name: String(item.name || ""),
+          id: String(item.id || ""),
+          supplementName: String(item.supplementName || item.name || ""),
+          name: String(item.name || item.supplementName || ""),
+          category: String(item.category || ""),
+          suitableGoals: Array.isArray(item.suitableGoals) ? item.suitableGoals.map(String) : [],
           purpose: String(item.purpose || ""),
-          timing: String(item.timing || ""),
-          note: String(item.note || ""),
+          suggestedTiming: String(item.suggestedTiming || item.timing || ""),
+          suggestedDoseText: String(item.suggestedDoseText || ""),
+          warningText: String(item.warningText || ""),
+          evidenceLevel: String(item.evidenceLevel || "limited"),
+          isOptional: item.isOptional !== false,
+          timing: String(item.timing || item.suggestedTiming || ""),
+          note: String(item.note || item.warningText || ""),
           foodAlternative: String(item.foodAlternative || ""),
         }))
       : [];
