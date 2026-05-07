@@ -13,12 +13,14 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.17");
+console.log("APP VERSION: v1.0.21");
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 console.log("MEASUREMENT TAB VERSION: v1");
 console.log("NUTRITION REPORT VERSION: dietitian-pro-v1");
 console.log("DASHBOARD VERSION: command-center-v1");
+console.log("SUPABASE SYNC VERSION: supabase-first-v1");
+console.log("SUPABASE SYNC SERVICE READY:", Boolean(window.BSMSupabaseSyncService?.loadMembers));
 
 const {
   findActiveMember: findActiveMemberRecord,
@@ -144,6 +146,9 @@ const state = {
   customExercises: [],
   hiddenExerciseIds: [],
   supabaseStatus: "Kontrol ediliyor",
+  supabaseRealtimeActive: false,
+  supabaseRealtimeSubscription: null,
+  supabaseRealtimeTimer: null,
 };
 
 const {
@@ -596,6 +601,8 @@ function initialize() {
   hydrateInitialSession();
   setActiveScreen(inferScreenFromHash(window.location.hash), { silent: true });
   syncMembersFromSupabase();
+  setupSupabaseRealtimeSync();
+  syncAppSettingsFromSupabase();
 }
 
 function initializeStateFromStorage() {
@@ -669,10 +676,12 @@ function refreshExerciseLibrary() {
 
 function persistCustomExercises() {
   saveToStorage(storageKeys.customExercises, state.customExercises);
+  persistSupabaseAppSetting("customExercises", state.customExercises);
 }
 
 function persistHiddenExerciseIds() {
   saveToStorage(storageKeys.hiddenExerciseIds, state.hiddenExerciseIds);
+  persistSupabaseAppSetting("hiddenExerciseIds", state.hiddenExerciseIds);
 }
 
 function makeCustomExerciseId(name, group) {
@@ -2631,15 +2640,22 @@ function formatReportDate(dateValue) {
   return parsed.toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-function syncMembersFromSupabase() {
+function syncMembersFromSupabase(options = {}) {
   state.supabaseStatus = window.supabaseClient?.from ? "Kontrol ediliyor" : "Kapalı";
   renderDashboard();
 
   loadSupabaseMemberRecords()
     .then((supabaseMembers) => {
-      state.supabaseStatus = window.supabaseClient?.from ? "Bağlı" : "Kapalı";
+      state.supabaseStatus = window.supabaseClient?.from ? getSupabaseConnectedStatus() : "Kapalı";
 
       if (!supabaseMembers.length) {
+        if (state.members.length && window.BSMSupabaseSyncService?.isEnabled?.()) {
+          persistStoredMembers(state.members, state.activeMemberId);
+        }
+
+        syncActiveMemberState();
+        renderMemberWorkspace();
+        renderNutritionWorkspace();
         renderDashboard();
         return;
       }
@@ -2658,12 +2674,93 @@ function syncMembersFromSupabase() {
       state.members = cacheMembersLocally(mergedMembers, state.activeMemberId);
       syncActiveMemberState();
       renderMemberWorkspace();
+      renderNutritionWorkspace();
+      renderDashboard();
     })
     .catch((error) => {
       state.supabaseStatus = "Bağlantı hatası";
       renderDashboard();
       console.warn("Supabase members sync error", error);
     });
+}
+
+function setupSupabaseRealtimeSync() {
+  if (state.supabaseRealtimeSubscription || !window.BSMSupabaseSyncService?.subscribeToChanges) {
+    return;
+  }
+
+  state.supabaseRealtimeSubscription = window.BSMSupabaseSyncService.subscribeToChanges((event) => {
+    if (event?.status) {
+      state.supabaseRealtimeActive = event.status === "SUBSCRIBED";
+      state.supabaseStatus = state.supabaseRealtimeActive ? "Bağlı / Realtime aktif" : `Realtime: ${event.status}`;
+      renderDashboard();
+      return;
+    }
+
+    if (event?.table === "app_settings") {
+      syncAppSettingsFromSupabase();
+      return;
+    }
+
+    window.clearTimeout(state.supabaseRealtimeTimer);
+    state.supabaseRealtimeTimer = window.setTimeout(() => {
+      syncMembersFromSupabase({ source: "realtime" });
+    }, 700);
+  });
+}
+
+function getSupabaseConnectedStatus() {
+  return state.supabaseRealtimeActive ? "Bağlı / Realtime aktif" : "Bağlı";
+}
+
+function syncAppSettingsFromSupabase() {
+  if (!window.BSMSupabaseSyncService?.loadAppSettings) {
+    return;
+  }
+
+  window.BSMSupabaseSyncService
+    .loadAppSettings()
+    .then((settings) => {
+      const hasRemoteCustomExercises = Array.isArray(settings.customExercises);
+      const hasRemoteHiddenExerciseIds = Array.isArray(settings.hiddenExerciseIds);
+
+      if (hasRemoteCustomExercises) {
+        state.customExercises = normalizeCustomExercises(settings.customExercises);
+        saveToStorage(storageKeys.customExercises, state.customExercises);
+      }
+
+      if (hasRemoteHiddenExerciseIds) {
+        state.hiddenExerciseIds = normalizeHiddenExerciseIds(settings.hiddenExerciseIds);
+        saveToStorage(storageKeys.hiddenExerciseIds, state.hiddenExerciseIds);
+      }
+
+      if (hasRemoteCustomExercises || hasRemoteHiddenExerciseIds) {
+        refreshExerciseLibrary();
+        renderLibrary();
+        return;
+      }
+
+      if (state.customExercises.length) {
+        persistSupabaseAppSetting("customExercises", state.customExercises);
+      }
+
+      if (state.hiddenExerciseIds.length) {
+        persistSupabaseAppSetting("hiddenExerciseIds", state.hiddenExerciseIds);
+      }
+    })
+    .catch((error) => console.info("Supabase app settings sync skipped", error));
+}
+
+function persistSupabaseAppSetting(key, payload) {
+  if (!window.BSMSupabaseSyncService?.persistAppSetting) {
+    return;
+  }
+
+  window.BSMSupabaseSyncService.persistAppSetting(key, payload);
+}
+
+function normalizeHiddenExerciseIds(value) {
+  return Array.isArray(value) ? [...new Set(value.map(String).filter(Boolean))] : [];
 }
 
 function handleWorkflowAssistantAction(event) {
