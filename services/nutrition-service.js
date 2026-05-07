@@ -387,11 +387,26 @@
       carbs: toNumber(mealItem.carbs) || 0,
       fat: toNumber(mealItem.fat) || 0,
       macroShare: mealItem.macroShare || {},
+      supports: normalizeMealSupports(mealItem.supports),
       alternatives:
         Array.isArray(mealItem.alternatives) && mealItem.alternatives.length
           ? mealItem.alternatives.map(String)
           : buildMealAlternatives(mealItem.name || fallback[index]?.name),
     }));
+  }
+
+  function normalizeMealSupports(supports) {
+    return Array.isArray(supports)
+      ? supports.map((item) => ({
+          name: String(item.name || item.supplementName || "Supplement"),
+          usageTime: String(item.usageTime || item.timing || item.suggestedTiming || "Öğünle birlikte"),
+          dose: String(item.dose || item.suggestedDoseText || item.note || ""),
+          water: String(item.water || "1 bardak su"),
+          purpose: String(item.purpose || "Plan hedefini desteklemek"),
+          category: String(item.category || ""),
+          recommendationTier: String(item.recommendationTier || "main"),
+        }))
+      : [];
   }
 
   function upgradeLegacyMealFoods(foods) {

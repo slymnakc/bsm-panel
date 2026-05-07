@@ -185,6 +185,8 @@
       return;
     }
 
+    const displayPlan = withMealSupportFallback(plan);
+
     target.innerHTML = `
       <article class="nutrition-member-card">
         <div>
@@ -277,14 +279,14 @@
             </div>
           </div>
           <div class="nutrition-meal-grid nutrition-report-meals">
-            ${(plan.meals || []).map((meal, index) => renderMealEditor(meal, index, escapeHtml)).join("")}
+            ${(displayPlan.meals || []).map((meal, index) => renderMealEditor(meal, index, escapeHtml)).join("")}
           </div>
         </section>
-        <section class="nutrition-report-section nutrition-report-section--optional">
+        <section class="nutrition-report-section nutrition-report-section--optional is-hidden" aria-hidden="true">
           <div class="nutrition-report-section__title">
             <span>04</span>
             <div>
-              <strong>Supplement ve Alternatif Destekler</strong>
+              <strong></strong>
               <small>${escapeHtml(plan.supplementNotice || "Supplement kullanımı kapalı. Plan gıda öncelikli hazırlanmıştır.")}</small>
             </div>
           </div>
@@ -292,7 +294,7 @@
         </section>
         <section class="nutrition-report-section nutrition-report-section--note">
           <div class="nutrition-report-section__title">
-            <span>05</span>
+            <span>04</span>
             <div>
               <strong>Antrenör / Beslenme Notu</strong>
               <small>Üyeye verilecek kısa takip notu.</small>
@@ -388,6 +390,7 @@
       carbs: readNumber(root.querySelector(`[data-meal-index="${index}"][data-meal-field="carbs"]`)?.value) || meal.carbs,
       fat: readNumber(root.querySelector(`[data-meal-index="${index}"][data-meal-field="fat"]`)?.value) || meal.fat,
     }));
+    edited.meals = withMealSupportFallback(edited).meals;
     const editedTotals = sumEditedMeals(edited.meals);
     edited.calories = editedTotals.calories;
     edited.macros = editedTotals.macros;
@@ -437,8 +440,32 @@
           ${renderMealNumber("K", "carbs", meal.carbs, index, escapeHtml)}
           ${renderMealNumber("Y", "fat", meal.fat, index, escapeHtml)}
         </div>
+        ${renderMealSupports(meal.supports || [], escapeHtml)}
         ${renderMealAlternatives(meal.alternatives || [], escapeHtml)}
       </article>
+    `;
+  }
+
+  function renderMealSupports(supports, escapeHtml) {
+    if (!supports.length) {
+      return "";
+    }
+
+    return `
+      <div class="nutrition-meal-supports">
+        <strong>Destekler</strong>
+        ${supports
+          .slice(0, 5)
+          .map(
+            (item) => `
+              <span class="nutrition-meal-support">
+                <b>${escapeHtml(item.name || "Supplement")}</b>
+                <small>${escapeHtml(item.usageTime || item.timing || "Öğünle birlikte")} — ${escapeHtml(item.dose || item.suggestedDoseText || "")} — ${escapeHtml(item.water || "1 bardak su")} — ${escapeHtml(item.purpose || "Plan hedefini desteklemek")}</small>
+              </span>
+            `,
+          )
+          .join("")}
+      </div>
     `;
   }
 
@@ -462,6 +489,37 @@
         <input type="number" min="0" step="1" value="${escapeHtml(value || "")}" data-meal-index="${index}" data-meal-field="${escapeHtml(field)}" />
       </label>
     `;
+  }
+
+  function withMealSupportFallback(plan) {
+    const meals = Array.isArray(plan?.meals) ? plan.meals : [];
+    const hasMealSupports = meals.some((meal) => Array.isArray(meal.supports) && meal.supports.length);
+
+    if (hasMealSupports || !Array.isArray(plan?.supplements) || !plan.supplements.length) {
+      return plan;
+    }
+
+    const attach = window.BSMNutritionPlanEngine?.attachSupplementsToMeals;
+    return {
+      ...plan,
+      meals: typeof attach === "function" ? attach(meals, plan.supplements) : attachSupportsLocally(meals, plan.supplements),
+    };
+  }
+
+  function attachSupportsLocally(meals, supplements) {
+    const mealList = meals.map((meal) => ({ ...meal, supports: Array.isArray(meal.supports) ? [...meal.supports] : [] }));
+    supplements.forEach((item) => {
+      const support = window.BSMNutritionPlanEngine?.buildSupplementSupport?.(item) || {
+        name: item.supplementName || item.name || "Supplement",
+        usageTime: item.suggestedTiming || item.timing || "Öğünle birlikte",
+        dose: item.suggestedDoseText || item.note || "etiket dozuna göre",
+        water: "1 bardak su",
+        purpose: item.purpose || "Plan hedefini desteklemek",
+      };
+      const index = /uyku|gece/i.test(support.usageTime) ? mealList.length - 1 : /antrenman/i.test(support.usageTime) ? Math.min(1, mealList.length - 1) : 0;
+      mealList[index]?.supports.push(support);
+    });
+    return mealList;
   }
 
   function renderSupplementOutput(supplements, escapeHtml, editableContext, plan = {}) {

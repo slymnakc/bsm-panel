@@ -298,6 +298,7 @@
             protein: toNumberOrFallback(meal?.protein, 0),
             carbs: toNumberOrFallback(meal?.carbs, 0),
             fat: toNumberOrFallback(meal?.fat, 0),
+            supports: normalizeMealSupports(meal?.supports),
             alternatives: normalizeStringArray(meal?.alternatives),
           }))
         : [],
@@ -326,6 +327,20 @@
       trainerNote: normalizeString(raw.trainerNote),
       disclaimer: normalizeString(raw.disclaimer),
     };
+  }
+
+  function normalizeMealSupports(supports) {
+    return Array.isArray(supports)
+      ? supports.map((item) => ({
+          name: normalizeString(item?.name || item?.supplementName, "Supplement"),
+          usageTime: normalizeString(item?.usageTime || item?.timing || item?.suggestedTiming, "Öğünle birlikte"),
+          dose: normalizeString(item?.dose || item?.suggestedDoseText || item?.note),
+          water: normalizeString(item?.water, "1 bardak su"),
+          purpose: normalizeString(item?.purpose, "Plan hedefini desteklemek"),
+          category: normalizeString(item?.category),
+          recommendationTier: normalizeString(item?.recommendationTier, "main"),
+        }))
+      : [];
   }
 
   function normalizeMembers(rawMembers) {

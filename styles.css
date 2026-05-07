@@ -4057,6 +4057,36 @@ body.modal-open {
   color: var(--teal-deep);
 }
 
+.nutrition-meal-supports {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(15, 106, 101, 0.08), rgba(216, 173, 99, 0.12));
+  border: 1px solid rgba(15, 106, 101, 0.16);
+}
+
+.nutrition-meal-supports > strong {
+  color: var(--teal-deep);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.nutrition-meal-support {
+  display: grid;
+  gap: 2px;
+}
+
+.nutrition-meal-support b {
+  color: var(--teal-deep);
+}
+
+.nutrition-meal-support small {
+  color: var(--muted);
+  line-height: 1.38;
+}
+
 .nutrition-supplements {
   display: grid;
   gap: 10px;
@@ -8262,6 +8292,21 @@ textarea:focus {
     margin-top: 2px;
     padding: 5px;
     border-radius: 8px;
+  }
+
+  .nutrition-meal-supports {
+    gap: 3px;
+    padding: 5px;
+    border-radius: 8px;
+    background: #f7fbfa;
+    border: 1px solid #d7d7d7;
+  }
+
+  .nutrition-meal-supports > strong,
+  .nutrition-meal-support b,
+  .nutrition-meal-support small {
+    font-size: 0.58rem;
+    line-height: 1.18;
   }
 
   .nutrition-supplements {
