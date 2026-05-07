@@ -53,6 +53,7 @@
     preset("hypertrophy-3-10-12", "hypertrophy", 3, ["10-12", "10-12", "10-12"], ["muscle-gain", "beginner"]),
     preset("hypertrophy-3-12-15", "hypertrophy", 3, ["12-15", "12-15", "12-15"], ["fat-loss", "maintenance"]),
     preset("hypertrophy-4-8-12", "hypertrophy", 4, ["8-12", "8-12", "8-12", "8-12"], ["muscle-gain"]),
+    preset("hypertrophy-4-12-12-10-10", "hypertrophy", 4, ["12", "12", "10", "10"], ["hypertrophy", "muscle-gain"]),
     preset("hypertrophy-4-10-12", "hypertrophy", 4, ["10-12", "10-12", "10-12", "10-12"], ["hypertrophy"]),
     preset("hypertrophy-4-12-15", "hypertrophy", 4, ["12-15", "12-15", "12-15", "12-15"], ["fat-loss"]),
     preset("hypertrophy-5-8-10-10-12-12", "hypertrophy", 5, ["8", "10", "10", "12", "12"], ["advanced", "muscle-gain"]),

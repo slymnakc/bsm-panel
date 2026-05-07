@@ -16,10 +16,31 @@
     duration: 60,
     priorityMuscle: "balanced",
     cardioPreference: "balanced",
+    repetitionTemplate: {
+      sets: 3,
+      model: "pyramid",
+      presetId: "pyramid-3-12-10-8",
+      repPattern: ["12", "10", "8"],
+      reps: "12 • 10 • 8",
+      rest: "60-90 sn",
+      tempo: "2-0-2",
+      customPattern: "",
+    },
     restrictions: [],
     days: [],
     notes: "",
   };
+
+  const REPETITION_MODELS = new Set([
+    "fixed",
+    "pyramid",
+    "reverse-pyramid",
+    "hypertrophy",
+    "strength",
+    "endurance",
+    "advanced",
+    "custom",
+  ]);
 
   const MEASUREMENT_NUMERIC_KEYS = [
     "weight",
@@ -89,12 +110,52 @@
       duration: clamp(toNumberOrFallback(raw.duration, DEFAULT_FORM.duration), 30, 75),
       priorityMuscle: normalizeString(raw.priorityMuscle, DEFAULT_FORM.priorityMuscle),
       cardioPreference: normalizeString(raw.cardioPreference, DEFAULT_FORM.cardioPreference),
+      repetitionTemplate: normalizeRepetitionTemplate(raw.repetitionTemplate),
       restrictions: normalizeStringArray(raw.restrictions),
       days: normalizeStringArray(raw.days),
       notes: normalizeString(raw.notes),
     };
 
     return normalized;
+  }
+
+  function normalizeRepetitionTemplate(raw) {
+    const source = raw && typeof raw === "object" ? raw : DEFAULT_FORM.repetitionTemplate;
+    const sets = clamp(toNumberOrFallback(source.sets, DEFAULT_FORM.repetitionTemplate.sets), 1, 8);
+    const model = REPETITION_MODELS.has(source.model) ? source.model : DEFAULT_FORM.repetitionTemplate.model;
+    let repPattern = normalizeStringArray(source.repPattern);
+
+    if (!repPattern.length) {
+      const repText = normalizeString(source.reps || source.customPattern);
+      repPattern = repText
+        .split(/[•,]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      if (repPattern.length <= 1) {
+        const dashPattern = repText
+          .split(/\s*-\s*/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+
+        if (dashPattern.length === sets && dashPattern.length > 1) {
+          repPattern = dashPattern;
+        }
+      }
+    }
+
+    const safePattern = repPattern.length ? repPattern : [...DEFAULT_FORM.repetitionTemplate.repPattern];
+
+    return {
+      sets,
+      model,
+      presetId: normalizeString(source.presetId),
+      repPattern: safePattern,
+      reps: normalizeString(source.reps, safePattern.join(" • ")),
+      rest: normalizeString(source.rest, DEFAULT_FORM.repetitionTemplate.rest),
+      tempo: normalizeString(source.tempo, DEFAULT_FORM.repetitionTemplate.tempo),
+      customPattern: normalizeString(source.customPattern),
+    };
   }
 
   function normalizeMeasurement(raw, fallbackDate) {

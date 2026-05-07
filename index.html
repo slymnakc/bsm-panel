@@ -315,6 +315,56 @@
           <fieldset class="choice-block">
             <legend>Sağlık / uygulama uyarıları</legend>
             <p class="help-text">Varsa işaretleyin. Hareket seçimi daha güvenli alternatiflere kaydırılır.</p>
+          <fieldset class="choice-block repetition-builder">
+            <legend>Set ve Tekrar Yapısı</legend>
+            <p class="help-text">Program oluşturulmadan önce varsayılan set/tekrar mantığını seçin. Core, kondisyon ve kardiyo hareketlerinde süre bazlı reçeteler korunur.</p>
+            <div class="repetition-builder__grid">
+              <label class="field compact-field">
+                <span>Varsayılan set sayısı</span>
+                <select id="defaultSetCount" name="defaultSetCount">
+                  <option value="2">2 set</option>
+                  <option value="3" selected>3 set</option>
+                  <option value="4">4 set</option>
+                  <option value="5">5 set</option>
+                  <option value="6">6 set</option>
+                </select>
+              </label>
+              <label class="field compact-field">
+                <span>Varsayılan tekrar modeli</span>
+                <select id="defaultRepModel" name="defaultRepModel">
+                  <option value="fixed">Fixed</option>
+                  <option value="pyramid" selected>Pyramid</option>
+                  <option value="reverse-pyramid">Reverse Pyramid</option>
+                  <option value="hypertrophy">Hypertrophy</option>
+                  <option value="strength">Strength</option>
+                  <option value="endurance">Endurance</option>
+                  <option value="advanced">Advanced</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              <label class="field compact-field">
+                <span>Tekrar preset seçimi</span>
+                <select id="defaultRepPreset" name="defaultRepPreset"></select>
+              </label>
+              <label class="field compact-field">
+                <span>Dinlenme süresi</span>
+                <input type="text" id="defaultRestTime" name="defaultRestTime" value="60-90 sn" placeholder="45 sn, 60-90 sn, 120 sn" />
+              </label>
+              <label class="field compact-field">
+                <span>Tempo</span>
+                <input type="text" id="defaultTempo" name="defaultTempo" value="2-0-2" placeholder="2-0-2, 3-1-1" />
+              </label>
+              <label class="field compact-field">
+                <span>Custom tekrar girişi</span>
+                <input type="text" id="customRepPattern" name="customRepPattern" placeholder="15 • 12 • 10 • 8" />
+              </label>
+            </div>
+            <div class="repetition-builder__preview" id="repTemplatePreview">
+              <strong>3 Sets</strong>
+              <span>12 • 10 • 8</span>
+            </div>
+          </fieldset>
+
             <div class="restriction-grid">
               <label><input type="checkbox" name="restrictions" value="knee" /> <span>Diz hassasiyeti</span></label>
               <label><input type="checkbox" name="restrictions" value="back" /> <span>Bel hassasiyeti</span></label>
@@ -946,13 +996,13 @@
     <script src="./data/options.js"></script>
     <script src="./data/labels.js"></script>
     <script src="./data/presets.js"></script>
-    <script src="./data/repetition-presets.js?v=1.0.22"></script>
+    <script src="./data/repetition-presets.js?v=1.0.23"></script>
     <script src="./data/exercises.js"></script>
     <script src="./helpers/core-utils.js"></script>
     <script src="./helpers/label-utils.js"></script>
-    <script src="./data-migrations.js"></script>
+    <script src="./data-migrations.js?v=1.0.23"></script>
     <script src="./services/storage-service.js"></script>
-    <script src="./services/supabase-sync-service.js?v=1.0.22"></script>
+    <script src="./services/supabase-sync-service.js?v=1.0.23"></script>
     <script src="./services/member-service.js"></script>
     <script src="./services/tanita-csv-service.js"></script>
     <script src="./services/nutrition-service.js"></script>
@@ -998,6 +1048,6 @@ if (window.supabase?.createClient) {
   window.BSMSupabaseClient = window.supabaseClient;
 }
 </script>
-    <script src="./app.js?v=1.0.22"></script>
+    <script src="./app.js?v=1.0.23"></script>
   </body>
 </html>
