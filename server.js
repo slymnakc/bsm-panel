@@ -35,7 +35,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.url === "/api/send-program-mail" && req.method === "POST") {
+  if ((req.url === "/api/send-program-email" || req.url === "/api/send-program-mail") && req.method === "POST") {
     await handleSendProgramMail(req, res);
     return;
   }
@@ -94,18 +94,32 @@ async function handleSendProgramMail(req, res) {
     if (!resendApiKey || !mailFrom) {
       sendJson(res, 503, {
         ok: false,
-        message: "Mail servisi yapılandırılmamış. Render ortamında RESEND_API_KEY ve MAIL_FROM tanımlanmalı.",
+        message: "Mail servisi yapılandırılmamış. .env veya Render ortam değişkenlerinde RESEND_API_KEY ve MAIL_FROM tanımlanmalı.",
       });
       return;
     }
 
     const memberName = sanitizeText(payload.memberName || "Üye");
     const programText = sanitizeText(payload.programText || "");
-    const pdfBuffer = createSimpleProgramPdf({
-      title: "Bahçeşehir Spor Merkezi Antrenman Programı",
-      memberName,
-      programText,
-    });
+    let pdfBuffer;
+
+    try {
+      pdfBuffer = createPremiumProgramPdf({
+        title: "Bahçeşehir Spor Merkezi Antrenman Programı",
+        memberName,
+        programText,
+        programData: payload.programData,
+      });
+    } catch (error) {
+      console.error("Program PDF generation error", error);
+      sendJson(res, 500, { ok: false, message: "PDF oluşturulamadığı için mail gönderilmedi.", pdfCreated: false });
+      return;
+    }
+
+    if (!Buffer.isBuffer(pdfBuffer) || !pdfBuffer.length) {
+      sendJson(res, 500, { ok: false, message: "PDF oluşturulamadığı için mail gönderilmedi.", pdfCreated: false });
+      return;
+    }
     const attachments = [
       {
         filename: "antrenman-programi.pdf",
@@ -131,14 +145,26 @@ async function handleSendProgramMail(req, res) {
       attachments,
     };
 
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(resendPayload),
-    });
+    let response;
+
+    try {
+      response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(resendPayload),
+      });
+    } catch (error) {
+      console.error("Resend connection error", error);
+      sendJson(res, 502, {
+        ok: false,
+        message: "Mail sağlayıcısına ulaşılamadı. İnternet bağlantısı, RESEND_API_KEY ve gönderici domain ayarlarını kontrol edin.",
+        pdfCreated: true,
+      });
+      return;
+    }
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok) {
@@ -150,7 +176,7 @@ async function handleSendProgramMail(req, res) {
       return;
     }
 
-    sendJson(res, 200, { ok: true, message: "Mail gönderildi.", providerId: result.id || "" });
+    sendJson(res, 200, { ok: true, message: "Mail gönderildi.", providerId: result.id || "", pdfCreated: true });
   } catch (error) {
     console.error("Program mail endpoint error", error);
     sendJson(res, 500, { ok: false, message: error.message || "Mail gönderimi sırasında hata oluştu." });
@@ -220,6 +246,279 @@ function serveStatic(req, res) {
     "Cache-Control": ext === ".html" ? "no-cache" : "public, max-age=3600",
   });
   fs.createReadStream(filePath).pipe(res);
+}
+
+function createPremiumProgramPdf({ title, memberName, programText, programData }) {
+  const model = buildProgramPdfModel({ title, memberName, programText, programData });
+  const pages = buildPremiumProgramPdfPages(model).slice(0, 4);
+  const objects = [];
+  const pageIds = pages.map((_, index) => 4 + index * 2);
+  const contentIds = pages.map((_, index) => 5 + index * 2);
+
+  objects.push([1, "<< /Type /Catalog /Pages 2 0 R >>"]);
+  objects.push([2, `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`]);
+  objects.push([
+    3,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [128 /gbreve /Gbreve /Idotaccent /dotlessi /scedilla /Scedilla] >> >>",
+  ]);
+
+  pages.forEach((content, index) => {
+    objects.push([
+      pageIds[index],
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentIds[index]} 0 R >>`,
+    ]);
+    objects.push([contentIds[index], `<< /Length ${Buffer.byteLength(content, "binary")} >>\nstream\n${content}\nendstream`]);
+  });
+
+  return buildPdf(objects);
+}
+
+function buildProgramPdfModel({ title, memberName, programText, programData }) {
+  const data = programData && typeof programData === "object" ? programData : {};
+  const sessions = Array.isArray(data.sessions) ? data.sessions : parseProgramTextToSessions(programText);
+  const summary = [
+    ["Üye", data.memberName || memberName || "Üye"],
+    ["Hedef", data.goal || "Kişisel hedef"],
+    ["Seviye", data.level || "Seviye belirtilmedi"],
+    ["Haftalık düzen", data.daysText || data.frequency || "Haftalık plana göre"],
+  ];
+
+  return {
+    title: title || data.title || "Bahçeşehir Spor Merkezi Antrenman Programı",
+    memberName: data.memberName || memberName || "Üye",
+    summary,
+    sessions,
+    generatedAt: new Date().toLocaleDateString("tr-TR"),
+  };
+}
+
+function buildPremiumProgramPdfPages(model) {
+  const pages = [];
+  let commands = [];
+  let y = 0;
+  let pageNumber = 0;
+
+  function startPage() {
+    pageNumber += 1;
+    commands = [];
+    drawPageHeader(commands, model, pageNumber);
+    y = 704;
+  }
+
+  function finishPage() {
+    drawPageFooter(commands, pageNumber);
+    pages.push(commands.join("\n"));
+  }
+
+  startPage();
+  drawSummaryBlock(commands, model);
+  y = 612;
+
+  for (const session of model.sessions) {
+    const exercises = Array.isArray(session.exercises) ? session.exercises : [];
+
+    if (y < 150) {
+      finishPage();
+      startPage();
+    }
+
+    drawSessionHeader(commands, session, y);
+    y -= 42;
+
+    exercises.forEach((exercise, index) => {
+      const column = index % 2;
+      const needsNewRow = column === 0 && index > 0;
+
+      if (needsNewRow) {
+        y -= 64;
+      }
+
+      if (y < 92) {
+        finishPage();
+        startPage();
+        drawSessionHeader(commands, session, y);
+        y -= 42;
+      }
+
+      drawExerciseCard(commands, exercise, 42 + column * 256, y, 244, 54);
+    });
+
+    y -= exercises.length % 2 === 0 ? 76 : 140;
+    drawSupportNotes(commands, session, y + 52);
+    y -= 22;
+  }
+
+  if (y < 142) {
+    finishPage();
+    startPage();
+  }
+
+  drawNutritionNotice(commands, y);
+  finishPage();
+  return pages.length ? pages : [commands.join("\n")];
+}
+
+function drawPageHeader(commands, model, pageNumber) {
+  drawRect(commands, 28, 760, 539, 54, "#082b35");
+  drawRect(commands, 28, 754, 112, 6, "#d8ad63");
+  addText(commands, 44, 792, "Bahçeşehir Spor Merkezi", 10, "#d8ad63");
+  addText(commands, 44, 774, model.title, 16, "#ffffff", 52);
+  addText(commands, 420, 792, `Sayfa ${pageNumber}`, 9, "#d8ad63");
+  addText(commands, 420, 774, model.generatedAt || "", 9, "#ffffff");
+}
+
+function drawSummaryBlock(commands, model) {
+  drawRect(commands, 28, 648, 539, 88, "#f6faf9", "#d9e5e3");
+  addText(commands, 44, 714, model.memberName, 18, "#082b35", 36);
+  addText(commands, 44, 696, "Üyeye verilecek sade antrenman planı", 9, "#1d6b74");
+
+  model.summary.forEach((item, index) => {
+    const x = 44 + index * 128;
+    drawRect(commands, x, 660, 116, 28, "#ffffff", "#d9e5e3");
+    addText(commands, x + 8, 678, item[0], 6.8, "#1d6b74");
+    addText(commands, x + 8, 666, item[1], 8.6, "#082b35", 18);
+  });
+}
+
+function drawSessionHeader(commands, session, y) {
+  drawRect(commands, 28, y - 8, 539, 30, "#1d6b74");
+  addText(commands, 42, y + 10, `${session.dayLabel || "Gün"} - ${session.title || "Antrenman"}`, 12, "#ffffff", 52);
+  addText(commands, 420, y + 10, session.duration || "", 8, "#d8ad63", 18);
+}
+
+function drawExerciseCard(commands, exercise, x, y, width, height) {
+  const name = exercise?.name || "Hareket";
+  const group = exercise?.groupLabel || exercise?.group || "Kas grubu";
+  drawRect(commands, x, y - height + 10, width, height, "#ffffff", "#d9e5e3");
+  drawRect(commands, x, y - height + 10, 6, height, "#d8ad63");
+  drawRect(commands, x + 12, y - 31, 34, 34, "#eef7f5", "#b9d3ce");
+  addText(commands, x + 19, y - 12, "GIF", 7, "#1d6b74");
+  addText(commands, x + 54, y - 6, name, 9.4, "#082b35", 31);
+  addText(commands, x + 54, y - 20, group, 7.3, "#1d6b74", 31);
+
+  const metrics = [
+    `Set: ${exercise?.sets || "-"}`,
+    `Tekrar: ${exercise?.reps || "-"}`,
+    `Dinlenme: ${exercise?.rest || "-"}`,
+    `Tempo: ${exercise?.tempo || "-"}`,
+  ];
+  addText(commands, x + 54, y - 34, metrics.join("  |  "), 6.8, "#384d55", 42);
+  addText(commands, x + 54, y - 46, exercise?.cue || exercise?.note || "Kontrollü formda uygula.", 6.5, "#5c6c72", 42);
+}
+
+function drawSupportNotes(commands, session, y) {
+  const text = [
+    session.warmup ? `Isınma: ${session.warmup}` : "",
+    session.cardioBlock ? `Kardiyo: ${session.cardioBlock}` : "",
+    session.cooldown ? `Soğuma: ${session.cooldown}` : "",
+  ].filter(Boolean).join("   ");
+
+  if (!text) {
+    return;
+  }
+
+  drawRect(commands, 42, y - 16, 511, 18, "#f8fbfb", "#d9e5e3");
+  addText(commands, 52, y - 4, text, 6.6, "#384d55", 96);
+}
+
+function drawNutritionNotice(commands, y) {
+  drawRect(commands, 28, y - 52, 539, 44, "#fffaf0", "#d8ad63");
+  addText(commands, 44, y - 24, "Beslenme Bilgisi", 10, "#082b35");
+  addText(commands, 44, y - 40, "Beslenme planı uygulama içindeki Beslenme sekmesinde sunulmaktadır.", 8, "#384d55", 84);
+}
+
+function drawPageFooter(commands, pageNumber) {
+  drawLine(commands, 28, 50, 567, 50, "#d9e5e3");
+  addText(commands, 42, 34, "Bahçeşehir Spor Merkezi | Üye Antrenman Programı", 7.5, "#5c6c72");
+  addText(commands, 500, 34, `Sayfa ${pageNumber}`, 7.5, "#5c6c72");
+}
+
+function parseProgramTextToSessions(programText) {
+  const lines = String(programText || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  return [
+    {
+      dayLabel: "Program",
+      title: "Antrenman Planı",
+      duration: "",
+      exercises: lines.slice(0, 22).map((line) => ({ name: line, groupLabel: "Program", sets: "-", reps: "-", rest: "-", tempo: "-", cue: "" })),
+    },
+  ];
+}
+
+function addText(commands, x, y, text, size = 9, color = "#082b35", maxChars = 80) {
+  const lines = wrapTextByChars(text, maxChars).slice(0, 2);
+  commands.push(`BT /F1 ${size} Tf ${pdfColor(color)} rg ${x} ${y} Td ${Math.round(size + 3)} TL`);
+  lines.forEach((line, index) => {
+    commands.push(`${index ? "T* " : ""}${encodePdfWinAnsiText(line)} Tj`);
+  });
+  commands.push("ET");
+}
+
+function drawRect(commands, x, y, width, height, fillColor, strokeColor = "") {
+  commands.push(`${pdfColor(fillColor)} rg ${x} ${y} ${width} ${height} re f`);
+
+  if (strokeColor) {
+    commands.push(`${pdfColor(strokeColor)} RG ${x} ${y} ${width} ${height} re S`);
+  }
+}
+
+function drawLine(commands, x1, y1, x2, y2, color = "#d9e5e3") {
+  commands.push(`${pdfColor(color)} RG ${x1} ${y1} m ${x2} ${y2} l S`);
+}
+
+function pdfColor(hex) {
+  const clean = String(hex || "#000000").replace("#", "");
+  const r = parseInt(clean.slice(0, 2), 16) / 255;
+  const g = parseInt(clean.slice(2, 4), 16) / 255;
+  const b = parseInt(clean.slice(4, 6), 16) / 255;
+  return `${r.toFixed(3)} ${g.toFixed(3)} ${b.toFixed(3)}`;
+}
+
+function wrapTextByChars(value, maxChars) {
+  const words = String(value || "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let current = "";
+
+  words.forEach((word) => {
+    if (`${current} ${word}`.trim().length > maxChars) {
+      if (current) lines.push(current);
+      current = word;
+    } else {
+      current = `${current} ${word}`.trim();
+    }
+  });
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines.length ? lines : [""];
+}
+
+function encodePdfWinAnsiText(value) {
+  const turkishMap = {
+    "ğ": 128,
+    "Ğ": 129,
+    "İ": 130,
+    "ı": 131,
+    "ş": 132,
+    "Ş": 133,
+  };
+  let output = "";
+
+  for (const char of String(value || "")) {
+    const mapped = turkishMap[char];
+
+    if (mapped) {
+      output += String.fromCharCode(mapped);
+      continue;
+    }
+
+    const code = char.charCodeAt(0);
+    output += code <= 255 ? String.fromCharCode(code) : "?";
+  }
+
+  return `(${escapePdfString(output)})`;
 }
 
 function createSimpleProgramPdf({ title, memberName, programText }) {
