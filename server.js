@@ -396,7 +396,7 @@ function drawExerciseCard(commands, exercise, x, y, width, height) {
   addText(commands, x + 54, y - 6, name, 9.4, "#082b35", 31);
   addText(commands, x + 54, y - 20, group, 7.3, "#1d6b74", 31);
 
-  const repPattern = Array.isArray(exercise?.repPattern) && exercise.repPattern.length ? exercise.repPattern.join(" | ") : exercise?.reps || "-";
+  const repPattern = Array.isArray(exercise?.repPattern) && exercise.repPattern.length ? exercise.repPattern.join(" • ") : exercise?.reps || "-";
   const metrics = [
     `${exercise?.sets || "-"} Sets: ${repPattern}`,
     `Model: ${formatRepModelLabel(exercise?.repModel)}`,
@@ -523,6 +523,11 @@ function encodePdfWinAnsiText(value) {
   let output = "";
 
   for (const char of String(value || "")) {
+    if (char === "•") {
+      output += String.fromCharCode(149);
+      continue;
+    }
+
     const mapped = turkishMap[char];
 
     if (mapped) {

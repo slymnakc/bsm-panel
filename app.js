@@ -13,7 +13,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.22");
+console.log("APP VERSION: v1.0.23");
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 console.log("MEASUREMENT TAB VERSION: v1");
@@ -273,8 +273,20 @@ function getTrainingSystemLabel(value) {
   return trainingSystemMap[normalizeTrainingSystem(value)]?.label || trainingSystemMap.standard.label;
 }
 
+function getRepetitionModelLabel(value) {
+  return repetitionModelOptions.find((option) => option.value === normalizeRepModel(value))?.label || "Fixed";
+}
+
 const form = document.querySelector("#plannerForm");
 const formStatus = document.querySelector("#formStatus");
+const repetitionBuilder = document.querySelector(".repetition-builder");
+const defaultSetCount = document.querySelector("#defaultSetCount");
+const defaultRepModel = document.querySelector("#defaultRepModel");
+const defaultRepPreset = document.querySelector("#defaultRepPreset");
+const defaultRestTime = document.querySelector("#defaultRestTime");
+const defaultTempo = document.querySelector("#defaultTempo");
+const customRepPattern = document.querySelector("#customRepPattern");
+const repTemplatePreview = document.querySelector("#repTemplatePreview");
 const liveSummary = document.querySelector("#liveSummary");
 const workflowAssistant = document.querySelector("#workflowAssistant");
 const resultsSection = document.querySelector("#resultsSection");
@@ -594,6 +606,7 @@ initialize();
 function initialize() {
   populateStaticFilters();
   populateProgramStyleOptions();
+  prepareRepetitionTemplateControls();
   initializeStateFromStorage();
   prepareOutputLayout();
   prepareMeasurementTabLayout();
@@ -2815,6 +2828,10 @@ function bindApplicationHandlers() {
   workflowAssistant?.addEventListener("click", handleWorkflowAssistantAction);
   form?.addEventListener("input", renderWorkflowAssistant);
   form?.addEventListener("change", renderWorkflowAssistant);
+  [defaultSetCount, defaultRepModel, defaultRepPreset, defaultRestTime, defaultTempo, customRepPattern].forEach((control) => {
+    control?.addEventListener("input", handleRepetitionTemplateControlChange);
+    control?.addEventListener("change", handleRepetitionTemplateControlChange);
+  });
   openMeasurementTabButton?.addEventListener("click", () => setActiveScreen("measurements", { userTriggered: true, silent: true }));
   bindFormHandlers(
     {
@@ -3278,6 +3295,66 @@ function populateProgramStyleOptions() {
   styleSelect.value = "auto";
 }
 
+function prepareRepetitionTemplateControls() {
+  if (repetitionBuilder?.parentElement?.tagName === "FIELDSET") {
+    repetitionBuilder.parentElement.before(repetitionBuilder);
+  }
+
+  populateRepetitionPresetOptions();
+  updateRepetitionTemplatePreview();
+}
+
+function populateRepetitionPresetOptions() {
+  if (!defaultRepPreset) {
+    return;
+  }
+
+  const sets = Number(defaultSetCount?.value || 3);
+  const model = normalizeRepModel(defaultRepModel?.value || "pyramid");
+  const customOption = `<option value="custom">${model === "custom" ? "Manuel giriş" : "Custom / manuel giriş"}</option>`;
+  const matchingPresets = repetitionPresets.filter((preset) => Number(preset.sets) === sets && preset.model === model);
+  const fallbackPresets = repetitionPresets.filter((preset) => Number(preset.sets) === sets);
+  const options = (matchingPresets.length ? matchingPresets : fallbackPresets)
+    .map((preset) => `<option value="${preset.id}">${preset.reps.join(" • ")}</option>`)
+    .join("");
+
+  const previousValue = defaultRepPreset.value;
+  defaultRepPreset.innerHTML = `${options}${customOption}`;
+
+  if ([...defaultRepPreset.options].some((option) => option.value === previousValue)) {
+    defaultRepPreset.value = previousValue;
+  } else if (model === "custom") {
+    defaultRepPreset.value = "custom";
+  }
+}
+
+function updateRepetitionTemplatePreview() {
+  if (!repTemplatePreview) {
+    return;
+  }
+
+  const template = readRepetitionTemplateFromForm();
+  repTemplatePreview.innerHTML = `
+    <strong>${template.sets} Sets</strong>
+    <span>${escapeHtml(template.repPattern.join(" • "))}</span>
+    <em>${escapeHtml(getRepetitionModelLabel(template.model))} • ${escapeHtml(template.rest || "Dinlenme otomatik")} • ${escapeHtml(template.tempo || "Tempo otomatik")}</em>
+  `;
+}
+
+function handleRepetitionTemplateControlChange(event) {
+  if (event?.target === defaultSetCount || event?.target === defaultRepModel) {
+    populateRepetitionPresetOptions();
+  }
+
+  if (event?.target === customRepPattern && defaultRepModel) {
+    defaultRepModel.value = "custom";
+    populateRepetitionPresetOptions();
+    if (defaultRepPreset) defaultRepPreset.value = "custom";
+  }
+
+  updateRepetitionTemplatePreview();
+}
+
 
 function setActiveScreen(screen, options = {}) {
   const { userTriggered = false, silent = false } = options;
@@ -3400,6 +3477,7 @@ function collectFormData() {
     duration: Number(formData.get("duration") || 60),
     priorityMuscle: String(formData.get("priorityMuscle") || "balanced"),
     cardioPreference: String(formData.get("cardioPreference") || "balanced"),
+    repetitionTemplate: readRepetitionTemplateFromForm(formData),
     restrictions: formData.getAll("restrictions").map(String),
     days: selectedDays,
     notes: String(formData.get("notes") || "").trim(),
@@ -3432,6 +3510,24 @@ function populateForm(data) {
   form.querySelector("#duration").value = String(data.duration || 60);
   form.querySelector("#priorityMuscle").value = data.priorityMuscle || "balanced";
   form.querySelector("#notes").value = data.notes || "";
+
+  const repetitionTemplate = data.repetitionTemplate || {};
+  if (defaultSetCount) defaultSetCount.value = String(repetitionTemplate.sets || 3);
+  if (defaultRepModel) defaultRepModel.value = normalizeRepModel(repetitionTemplate.model || "pyramid");
+  populateRepetitionPresetOptions();
+  if (
+    defaultRepPreset &&
+    repetitionTemplate.presetId &&
+    [...defaultRepPreset.options].some((option) => option.value === repetitionTemplate.presetId)
+  ) {
+    defaultRepPreset.value = repetitionTemplate.presetId;
+  } else if (defaultRepPreset && normalizeRepModel(repetitionTemplate.model) === "custom") {
+    defaultRepPreset.value = "custom";
+  }
+  if (defaultRestTime) defaultRestTime.value = repetitionTemplate.rest || "60-90 sn";
+  if (defaultTempo) defaultTempo.value = repetitionTemplate.tempo || "2-0-2";
+  if (customRepPattern) customRepPattern.value = repetitionTemplate.customPattern || "";
+  updateRepetitionTemplatePreview();
 
   form.querySelectorAll('input[name="cardioPreference"]').forEach((input) => {
     input.checked = input.value === (data.cardioPreference || "balanced");
@@ -3617,6 +3713,29 @@ function buildDashboardKpiStates(automationSummary, activeMember) {
       tone: activeMember ? "good" : "warning",
       trend: activeMember ? "↑ Seçili" : "→ Üye seç",
     },
+  };
+}
+
+function readRepetitionTemplateFromForm(formData = null) {
+  const source = formData || new FormData(form);
+  const sets = Number(source.get("defaultSetCount") || defaultSetCount?.value || 3);
+  const model = normalizeRepModel(source.get("defaultRepModel") || defaultRepModel?.value || "pyramid");
+  const presetId = String(source.get("defaultRepPreset") || defaultRepPreset?.value || "");
+  const customPattern = String(source.get("customRepPattern") || customRepPattern?.value || "").trim();
+  const selectedPreset = repetitionPresets.find((preset) => preset.id === presetId && Number(preset.sets) === sets);
+  const fallbackPreset = repetitionPresets.find((preset) => preset.model === model && Number(preset.sets) === sets) || repetitionPresets.find((preset) => Number(preset.sets) === sets);
+  const preset = model === "custom" || presetId === "custom" ? null : selectedPreset || fallbackPreset;
+  const repPattern = preset?.reps?.length ? [...preset.reps] : buildRepPatternFromText(customPattern || defaultRepTextForSets(sets), sets);
+
+  return {
+    sets,
+    model,
+    presetId: preset?.id || (model === "custom" ? "custom" : presetId || ""),
+    repPattern,
+    reps: repPattern.join(" • "),
+    rest: String(source.get("defaultRestTime") || defaultRestTime?.value || "").trim(),
+    tempo: String(source.get("defaultTempo") || defaultTempo?.value || "").trim(),
+    customPattern,
   };
 }
 
@@ -5797,8 +5916,92 @@ function syncExercisePrescriptionFields(exercise) {
   exercise.prescription = `${exercise.sets} set x ${exercise.reps}`;
 }
 
+function shouldPreserveDurationPrescription(exercise = {}) {
+  const kind = String(exercise.kind || "").toLowerCase();
+  const group = String(exercise.group || "").toLowerCase();
+  const prescriptionText = String(exercise.prescription || exercise.reps || "").toLowerCase();
+  const durationLike = /\b(sn|dk|tur|interval|tempo|saniye|dakika)\b/.test(prescriptionText);
+
+  return ["cardio", "conditioning", "mobility"].includes(kind) || group === "cardio" || (kind === "core" && durationLike);
+}
+
+function hasExerciseRepetitionScheme(exercise = {}) {
+  return Boolean(
+    exercise.repScheme ||
+      exercise.repPresetId ||
+      (Array.isArray(exercise.repPattern) && exercise.repPattern.length) ||
+      exercise.repetitionTemplateApplied,
+  );
+}
+
+function applyDefaultRepetitionTemplate(exercise, rawData = {}) {
+  const template = rawData?.repetitionTemplate;
+
+  if (!template || shouldPreserveDurationPrescription(exercise)) {
+    return false;
+  }
+
+  const sets = normalizeEditableSet(template.sets || 3);
+  const model = normalizeRepModel(template.model || "fixed");
+  const patternSource = Array.isArray(template.repPattern) && template.repPattern.length ? template.repPattern.join(" • ") : template.reps || template.customPattern;
+  const repPattern = buildRepPatternFromText(patternSource || defaultRepTextForSets(sets), sets);
+
+  exercise.sets = sets;
+  exercise.repModel = model;
+  exercise.repPresetId = template.presetId || "custom";
+  exercise.reps = repPattern.join(" • ");
+  exercise.repPattern = [...repPattern];
+  exercise.repScheme = {
+    model,
+    presetId: exercise.repPresetId,
+    sets: Number(sets) || 1,
+    reps: [...repPattern],
+    label: repPattern.join(" • "),
+  };
+  exercise.prescription = `${sets} set x ${exercise.reps}`;
+  exercise.repetitionTemplateApplied = true;
+
+  if (template.rest) {
+    exercise.rest = template.rest;
+  }
+
+  if (template.tempo) {
+    exercise.tempo = template.tempo;
+  }
+
+  return true;
+}
+
 function normalizeExerciseRepetitionScheme(exercise, rawData = {}, options = {}) {
   if (!exercise) {
+    return exercise;
+  }
+
+  if (
+    !options.forcePresetForSet &&
+    !options.forcePresetForModel &&
+    !hasExerciseRepetitionScheme(exercise) &&
+    applyDefaultRepetitionTemplate(exercise, rawData)
+  ) {
+    return exercise;
+  }
+
+  if (shouldPreserveDurationPrescription(exercise) && !hasExerciseRepetitionScheme(exercise)) {
+    const originalPrescription = exercise.prescription;
+    const parts = splitProgramPrescription(exercise.prescription);
+    exercise.sets = normalizeEditableSet(exercise.sets || parts.sets || 1);
+    exercise.repModel = "custom";
+    exercise.repPresetId = "custom";
+    exercise.reps = String(exercise.reps || parts.reps || exercise.prescription || "30 sn").trim();
+    exercise.repPattern = buildRepPatternFromText(exercise.reps, exercise.sets);
+    exercise.repScheme = {
+      model: "custom",
+      presetId: "custom",
+      sets: Number(exercise.sets) || 1,
+      reps: [...exercise.repPattern],
+      label: exercise.repPattern.join(" • "),
+    };
+    exercise.prescription = originalPrescription || `${exercise.sets} set x ${exercise.reps}`;
     return exercise;
   }
 
@@ -5929,16 +6132,29 @@ function defaultRepTextForSets(sets) {
 }
 
 function buildRepPatternFromText(value, sets) {
-  const pattern = String(value || "")
+  const rawValue = String(value || "").trim();
+  const setCount = Number(normalizeEditableSet(sets)) || 1;
+  let pattern = rawValue
     .split(/[•,](?=\s*\d|\s*AMRAP|\s*\d+\s*sn)/i)
     .map((item) => item.trim())
     .filter(Boolean);
+
+  if (pattern.length <= 1) {
+    const dashPattern = rawValue
+      .split(/\s*-\s*/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (dashPattern.length === setCount && dashPattern.length > 1) {
+      pattern = dashPattern;
+    }
+  }
 
   if (pattern.length) {
     return pattern;
   }
 
-  return Array.from({ length: Number(normalizeEditableSet(sets)) || 1 }, () => String(value || "10-12").trim());
+  return Array.from({ length: setCount }, () => String(value || "10-12").trim());
 }
 
 function normalizeEditableSet(value) {
