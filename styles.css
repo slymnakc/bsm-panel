@@ -4067,6 +4067,30 @@ body.modal-open {
   font-family: var(--font-display);
 }
 
+.nutrition-supplements__group {
+  display: grid;
+  gap: 8px;
+}
+
+.nutrition-supplements__group h5 {
+  margin: 4px 0 0;
+  color: var(--teal-deep);
+  font-size: 0.86rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.nutrition-supplements__warning {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: var(--muted);
+  background: rgba(216, 173, 99, 0.12);
+  border: 1px solid rgba(216, 173, 99, 0.24);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
 .nutrition-output-card {
   display: grid;
   gap: 14px;

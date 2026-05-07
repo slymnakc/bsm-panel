@@ -288,7 +288,7 @@
               <small>${escapeHtml(plan.supplementNotice || "Supplement kullanımı kapalı. Plan gıda öncelikli hazırlanmıştır.")}</small>
             </div>
           </div>
-          ${renderSupplementOutput(plan.supplements || [], escapeHtml, true)}
+          ${renderSupplementOutput(plan.supplements || [], escapeHtml, true, plan)}
         </section>
         <section class="nutrition-report-section nutrition-report-section--note">
           <div class="nutrition-report-section__title">
@@ -388,6 +388,9 @@
       carbs: readNumber(root.querySelector(`[data-meal-index="${index}"][data-meal-field="carbs"]`)?.value) || meal.carbs,
       fat: readNumber(root.querySelector(`[data-meal-index="${index}"][data-meal-field="fat"]`)?.value) || meal.fat,
     }));
+    const editedTotals = sumEditedMeals(edited.meals);
+    edited.calories = editedTotals.calories;
+    edited.macros = editedTotals.macros;
     edited.trainerNote = root.querySelector("#nutritionTrainerNoteInput")?.value?.trim() || "";
     return edited;
   }
@@ -461,32 +464,63 @@
     `;
   }
 
-  function renderSupplementOutput(supplements, escapeHtml, editableContext) {
+  function renderSupplementOutput(supplements, escapeHtml, editableContext, plan = {}) {
     if (!supplements.length) {
       return editableContext ? `<div class="nutrition-supplements empty-state compact-empty">Supplement kullanımı kapalı. Plan gıda öncelikli hazırlandı.</div>` : "";
     }
 
+    const mainSupplements = supplements.filter((item) => item.recommendationTier !== "optional").slice(0, 5);
+    const optionalSupplements = supplements.filter((item) => item.recommendationTier === "optional").slice(0, 3);
+    const commonWarning =
+      plan.supplementCommonWarning ||
+      "Supplementler opsiyoneldir; ilaç kullanan, hamile/emziren, kronik hastalığı olan veya özel sağlık durumu bulunan kişiler kullanım öncesi hekim/diyetisyen görüşü almalıdır.";
+    const renderGroup = (title, items) =>
+      items.length
+        ? `
+          <div class="nutrition-supplements__group">
+            <h5>${escapeHtml(title)}</h5>
+            ${items.map((item) => renderSupplementCard(item, escapeHtml)).join("")}
+          </div>
+        `
+        : "";
+
     return `
       <div class="nutrition-supplements">
         <h4>Supplement Tercihi</h4>
-        ${supplements
-          .map(
-            (item) => `
-              <article>
-                <strong>${escapeHtml(item.supplementName || item.name)}</strong>
-                <span>${escapeHtml(item.category || "Supplement")} • ${escapeHtml(item.purpose)}</span>
-                <small>${escapeHtml(item.suggestedTiming || item.timing)} • ${escapeHtml(item.suggestedDoseText || "")} • Kanıt: ${escapeHtml(item.evidenceLevel || "limited")}<br />${escapeHtml(item.warningText || item.note)} Gıda alternatifi: ${escapeHtml(item.foodAlternative)}</small>
-              </article>
-            `,
-          )
-          .join("")}
+        ${renderGroup("Ana öneriler", mainSupplements)}
+        ${renderGroup("Opsiyonel destekler", optionalSupplements)}
+        <p class="nutrition-supplements__warning">${escapeHtml(commonWarning)}</p>
       </div>
+    `;
+  }
+
+  function renderSupplementCard(item, escapeHtml) {
+    return `
+      <article>
+        <strong>${escapeHtml(item.supplementName || item.name)}</strong>
+        <span>${escapeHtml(item.category || "Supplement")} • ${escapeHtml(item.purpose)}</span>
+        <small>${escapeHtml(item.suggestedTiming || item.timing)} • ${escapeHtml(item.suggestedDoseText || item.note || "")} • Kanıt: ${escapeHtml(item.evidenceLevel || "limited")}<br />Gıda alternatifi: ${escapeHtml(item.foodAlternative || "Dengeli ana öğün, yeterli protein ve düzenli su tüketimi.")}</small>
+      </article>
     `;
   }
 
   function readNumber(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function sumEditedMeals(meals) {
+    return (meals || []).reduce(
+      (total, meal) => ({
+        calories: total.calories + readNumber(meal.calories),
+        macros: {
+          protein: total.macros.protein + readNumber(meal.protein),
+          carbs: total.macros.carbs + readNumber(meal.carbs),
+          fat: total.macros.fat + readNumber(meal.fat),
+        },
+      }),
+      { calories: 0, macros: { protein: 0, carbs: 0, fat: 0 } },
+    );
   }
 
   function cloneData(value) {
