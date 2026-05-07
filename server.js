@@ -409,6 +409,9 @@ function buildNutritionPdfModel(planData) {
     meals: Array.isArray(plan.meals) ? plan.meals : [],
     supplements: Array.isArray(plan.supplements) ? plan.supplements : [],
     supplementNotice: plan.supplementNotice || "Supplement kullanımı kapalı. Plan gıda öncelikli hazırlanmıştır.",
+    supplementCommonWarning:
+      plan.supplementCommonWarning ||
+      "Supplementler opsiyoneldir; ilaç kullanan, hamile/emziren, kronik hastalığı olan veya özel sağlık durumu bulunan kişiler kullanım öncesi hekim/diyetisyen görüşü almalıdır.",
     trainerNote: plan.trainerNote || "",
     disclaimer: plan.disclaimer || "",
   };
@@ -470,15 +473,18 @@ function buildNutritionPdfPages(model) {
   addText(commands, 44, y, model.supplementNotice, 8, "#384d55", 92);
   y -= 24;
 
-  const supplements = model.supplements.length ? model.supplements.slice(0, 8) : [{ supplementName: "Supplement kapalı", purpose: "Plan gıda öncelikli hazırlanmıştır.", suggestedTiming: "", warningText: "" }];
-  supplements.forEach((item) => {
-    if (y < 118) {
-      finishPage();
-      startPage();
-    }
-    drawNutritionSupplementRow(commands, item, y);
+  const mainSupplements = model.supplements.filter((item) => item.recommendationTier !== "optional").slice(0, 5);
+  const optionalSupplements = model.supplements.filter((item) => item.recommendationTier === "optional").slice(0, 3);
+
+  if (!mainSupplements.length && !optionalSupplements.length) {
+    drawNutritionSupplementRow(commands, { supplementName: "Supplement kapalı", purpose: "Plan gıda öncelikli hazırlanmıştır.", suggestedTiming: "", suggestedDoseText: "" }, y);
     y -= 44;
-  });
+  } else {
+    y = drawNutritionSupplementGroup(commands, "Ana öneriler", mainSupplements, y);
+    y = drawNutritionSupplementGroup(commands, "Opsiyonel destekler", optionalSupplements, y);
+    addText(commands, 44, y, model.supplementCommonWarning, 7, "#5c6c72", 94);
+    y -= 36;
+  }
 
   if (y < 150) {
     finishPage();
@@ -524,7 +530,26 @@ function drawNutritionSupplementRow(commands, item, y) {
   addText(commands, 54, y - 8, item.supplementName || item.name || "Supplement", 8.5, "#082b35", 34);
   addText(commands, 54, y - 22, `${item.category || ""} | ${item.purpose || ""}`, 6.7, "#384d55", 84);
   addText(commands, 330, y - 8, item.suggestedTiming || item.timing || "", 6.5, "#1d6b74", 36);
-  addText(commands, 330, y - 22, item.evidenceLevel ? `Kanıt: ${item.evidenceLevel}` : "", 6.5, "#d8ad63", 28);
+  addText(commands, 330, y - 22, `${item.suggestedDoseText || item.note || ""}${item.evidenceLevel ? ` | Kanıt: ${item.evidenceLevel}` : ""}`, 6.5, "#d8ad63", 36);
+}
+
+function drawNutritionSupplementGroup(commands, title, supplements, y) {
+  if (!supplements.length) {
+    return y;
+  }
+
+  addText(commands, 44, y, title, 8, "#1d6b74", 42);
+  y -= 18;
+
+  supplements.forEach((item) => {
+    if (y < 118) {
+      return;
+    }
+    drawNutritionSupplementRow(commands, item, y);
+    y -= 42;
+  });
+
+  return y - 4;
 }
 
 function buildProgramPdfModel({ title, memberName, programText, programData }) {

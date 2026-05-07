@@ -303,6 +303,7 @@
         : [],
       supplementPreferences: raw.supplementPreferences && typeof raw.supplementPreferences === "object" ? raw.supplementPreferences : {},
       supplementNotice: normalizeString(raw.supplementNotice),
+      supplementCommonWarning: normalizeString(raw.supplementCommonWarning),
       supplements: Array.isArray(raw.supplements)
         ? raw.supplements.map((item) => ({
             id: normalizeString(item?.id),
@@ -318,6 +319,7 @@
             isOptional: item?.isOptional !== false,
             timing: normalizeString(item?.timing || item?.suggestedTiming),
             note: normalizeString(item?.note || item?.warningText),
+            recommendationTier: normalizeString(item?.recommendationTier || (item?.isOptional ? "optional" : "main")),
             foodAlternative: normalizeString(item?.foodAlternative),
           }))
         : [],

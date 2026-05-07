@@ -100,6 +100,7 @@
       meals: normalizeMeals(source.meals),
       supplementPreferences: normalizeSupplementPreferences(source.supplementPreferences),
       supplementNotice: String(source.supplementNotice || ""),
+      supplementCommonWarning: String(source.supplementCommonWarning || ""),
       supplements: normalizeSupplements(source.supplements),
       trainerNote: String(source.trainerNote || ""),
       disclaimer: String(source.disclaimer || DISCLAIMER),
@@ -414,6 +415,7 @@
           isOptional: item.isOptional !== false,
           timing: String(item.timing || item.suggestedTiming || ""),
           note: String(item.note || item.warningText || ""),
+          recommendationTier: String(item.recommendationTier || (item.isOptional ? "optional" : "main")),
           foodAlternative: String(item.foodAlternative || ""),
         }))
       : [];
