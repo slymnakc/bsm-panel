@@ -13,7 +13,8 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.23");
+console.log("APP VERSION: v1.0.24");
+console.log("NUTRITION PRO VERSION: v1.0.24");
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 console.log("MEASUREMENT TAB VERSION: v1");
@@ -214,6 +215,7 @@ const {
   renderTrainingReport: renderTrainingReportUi,
 } = window.BSMOutputUI;
 const {
+  prepareNutritionControls,
   renderNutritionWorkspace: renderNutritionWorkspaceUi,
   renderOutputNutritionPlan: renderOutputNutritionPlanUi,
   collectNutritionPlanEdits,
@@ -572,6 +574,8 @@ const nutritionHandlers = createNutritionHandlers({
   makeId,
   nutritionPanel,
   nutritionPlanEditor,
+  generateNutritionPdf: window.BSMNutritionPdfRenderer?.generateNutritionPdf,
+  sendNutritionPlanEmail: window.BSMNutritionEmailService?.sendNutritionPlanEmail,
 });
 
 const memberHandlers = createMemberHandlers({
@@ -607,6 +611,7 @@ function initialize() {
   populateStaticFilters();
   populateProgramStyleOptions();
   prepareRepetitionTemplateControls();
+  prepareNutritionControls?.(nutritionPanel, escapeHtml);
   initializeStateFromStorage();
   prepareOutputLayout();
   prepareMeasurementTabLayout();
@@ -2905,7 +2910,9 @@ function bindApplicationHandlers() {
       generateNutritionButton,
       saveNutritionButton,
       printNutritionButton,
+      sendNutritionMailButton: nutritionPanel?.querySelector("#sendNutritionMailButton"),
       nutritionPlanEditor,
+      nutritionPanel,
     },
     nutritionHandlers,
   );
@@ -5742,12 +5749,14 @@ function renderNutritionWorkspace() {
 
   renderNutritionWorkspaceUi(
     {
+      nutritionPanel,
       nutritionMemberSummary,
       nutritionPlanEditor,
     },
     {
       member: activeMember,
       plan: state.activeNutritionPlan || memberPlan,
+      activeProgram: state.activeProgram || activeMember?.programs?.[0]?.program || null,
     },
     escapeHtml,
     {

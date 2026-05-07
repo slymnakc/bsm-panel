@@ -8,6 +8,166 @@
 
     renderMemberSummary(targets.nutritionMemberSummary, model, escapeHtml, deps);
     renderNutritionPlan(targets.nutritionPlanEditor, model?.plan || null, escapeHtml);
+    syncNutritionControlValues(targets.nutritionPanel, model, escapeHtml);
+  }
+
+  function prepareNutritionControls(root, escapeHtml) {
+    if (!root) {
+      return;
+    }
+
+    const actions = root.querySelector(".panel-actions");
+    const saveButton = root.querySelector("#saveNutritionButton");
+    if (actions && saveButton && !root.querySelector("#sendNutritionMailButton")) {
+      saveButton.insertAdjacentHTML(
+        "afterend",
+        `<button type="button" class="ghost-button" id="sendNutritionMailButton">PDF'i Mail ile Gönder</button>`,
+      );
+    }
+
+    const memberSummary = root.querySelector("#nutritionMemberSummary");
+    if (memberSummary && !root.querySelector("#nutritionGoalSelect")) {
+      memberSummary.insertAdjacentHTML(
+        "afterend",
+        `
+          <div class="nutrition-planner-controls">
+            <p class="section-kicker">Plan Ayarları</p>
+            <label class="field compact-field">
+              <span>Beslenme hedefi</span>
+              <select id="nutritionGoalSelect"></select>
+            </label>
+            <label class="field compact-field">
+              <span>Öğün sayısı</span>
+              <select id="nutritionMealCount">
+                <option value="3">3 öğün</option>
+                <option value="4">4 öğün</option>
+                <option value="5" selected>5 öğün</option>
+                <option value="6">6 öğün</option>
+              </select>
+            </label>
+            <label class="field compact-field">
+              <span>Gün tipi</span>
+              <select id="nutritionDayType">
+                <option value="balanced" selected>Dengeli gün</option>
+                <option value="training">Antrenman günü</option>
+                <option value="rest">Dinlenme günü</option>
+              </select>
+            </label>
+            <label class="field compact-field">
+              <span>Mail adresi</span>
+              <input type="email" id="nutritionEmailInput" placeholder="uye@ornek.com" autocomplete="email" />
+            </label>
+            <div id="nutritionTargetPreview" class="nutrition-target-preview">Hedef seçildiğinde kalori ve makro ön izlemesi burada görünür.</div>
+          </div>
+        `,
+      );
+    }
+
+    const supplementUse = root.querySelector("#supplementUse");
+    if (supplementUse && supplementUse.tagName === "SELECT") {
+      supplementUse.closest("label")?.insertAdjacentHTML(
+        "beforebegin",
+        `<label class="nutrition-checkbox-control"><input type="checkbox" id="supplementUseCheckbox" value="yes" /> <span>Supplement önerisi eklensin</span></label>`,
+      );
+      supplementUse.closest("label").classList.add("is-hidden");
+    }
+
+    const supplementBlock = root.querySelector(".supplement-preferences");
+    if (supplementBlock && !root.querySelector("#supplementCategoryList")) {
+      supplementBlock.querySelector(".section-kicker")?.insertAdjacentHTML(
+        "afterend",
+        `<div id="supplementCategoryList" class="supplement-category-list"></div>`,
+      );
+    }
+
+    populateNutritionGoalSelect(root.querySelector("#nutritionGoalSelect"), escapeHtml);
+    populateSupplementCategories(root.querySelector("#supplementCategoryList"), escapeHtml);
+  }
+
+  function populateNutritionGoalSelect(select, escapeHtml) {
+    if (!select || select.options.length) {
+      return;
+    }
+
+    const goals = window.BSMNutritionGoals?.getNutritionGoals?.() || [];
+    const byCategory = goals.reduce((acc, goal) => {
+      acc[goal.category] = acc[goal.category] || [];
+      acc[goal.category].push(goal);
+      return acc;
+    }, {});
+
+    select.innerHTML = Object.entries(byCategory)
+      .map(
+        ([category, items]) => `
+          <optgroup label="${escapeHtml(category)}">
+            ${items.map((goal) => `<option value="${escapeHtml(goal.id)}">${escapeHtml(goal.label)}</option>`).join("")}
+          </optgroup>
+        `,
+      )
+      .join("");
+  }
+
+  function populateSupplementCategories(target, escapeHtml) {
+    if (!target || target.children.length) {
+      return;
+    }
+
+    const categories = window.BSMSupplementDatabase?.getSupplementCategories?.() || [];
+    target.innerHTML = categories
+      .map(
+        (category) => `
+          <label>
+            <input type="checkbox" name="supplementCategories" value="${escapeHtml(category)}" />
+            <span>${escapeHtml(category)}</span>
+          </label>
+        `,
+      )
+      .join("");
+  }
+
+  function syncNutritionControlValues(root, model, escapeHtml) {
+    if (!root) {
+      return;
+    }
+
+    const member = model?.member || null;
+    const plan = model?.plan || null;
+    const profile = member?.profile || {};
+    const fallbackGoalId = window.BSMNutritionGoals?.mapLegacyGoalToNutritionGoalId?.(profile.goal) || "general-health-form";
+    const goalSelect = root.querySelector("#nutritionGoalSelect");
+    const emailInput = root.querySelector("#nutritionEmailInput");
+
+    if (goalSelect && !goalSelect.value) {
+      goalSelect.value = plan?.nutritionGoalId || fallbackGoalId;
+    }
+
+    if (emailInput && !emailInput.value) {
+      emailInput.value = plan?.memberEmail || profile.memberEmail || profile.email || "";
+    }
+
+    renderNutritionTargetPreview(root, model, escapeHtml);
+  }
+
+  function renderNutritionTargetPreview(root, model, escapeHtml) {
+    const preview = root?.querySelector("#nutritionTargetPreview");
+    const member = model?.member;
+
+    if (!preview || !member || !window.BSMNutritionPlanEngine?.calculateNutritionTargets) {
+      return;
+    }
+
+    const preferences = collectSupplementPreferences(root);
+    const activeProgram = model?.activeProgram || member.programs?.[0]?.program || null;
+    const targets = window.BSMNutritionPlanEngine.calculateNutritionTargets(
+      { profile: member.profile || {}, latestMeasurement: member.measurements?.[0] || {}, activeProgram },
+      preferences.nutritionGoalId,
+      preferences,
+    );
+    preview.innerHTML = `
+      <strong>${escapeHtml(targets.selectedGoal.label)}</strong>
+      <span>${escapeHtml(targets.targetCalories)} kcal • P ${escapeHtml(targets.macros.protein)} g • K ${escapeHtml(targets.macros.carbs)} g • Y ${escapeHtml(targets.macros.fat)} g</span>
+      <small>Antrenman günü: ${escapeHtml(targets.trainingDayCalories)} kcal • Dinlenme günü: ${escapeHtml(targets.restDayCalories)} kcal</small>
+    `;
   }
 
   function renderMemberSummary(target, model, escapeHtml, deps) {
@@ -71,11 +231,14 @@
         </header>
         <section class="nutrition-report-summary">
           <div><span>Üye</span><strong>${escapeHtml(plan.memberName || "Üye")}</strong></div>
-          <div><span>Hedef</span><strong>${escapeHtml(formatNutritionGoal(plan.goal))}</strong></div>
+          <div><span>Hedef</span><strong>${escapeHtml(plan.nutritionGoalLabel || formatNutritionGoal(plan.goal))}</strong></div>
+          <div><span>Hedef grubu</span><strong>${escapeHtml(plan.nutritionGoalCategory || "-")}</strong></div>
           <div><span>Seviye</span><strong>${escapeHtml(formatNutritionLevel(plan.level))}</strong></div>
           <div><span>Antrenman</span><strong>${escapeHtml(plan.trainingDays || "-")} gün/hafta</strong></div>
           <div><span>BMR kaynağı</span><strong>${escapeHtml(plan.sourceSummary?.bmrSource || "Tahmini hesap")}</strong></div>
           <div><span>Koruma kalorisi</span><strong>${escapeHtml(plan.sourceSummary?.maintenanceCalories || "-")} kcal</strong></div>
+          <div><span>Gün tipi</span><strong>${escapeHtml(formatDayType(plan.dayType))}</strong></div>
+          <div><span>Öğün</span><strong>${escapeHtml(plan.mealCount || plan.meals?.length || "-")} öğün</strong></div>
         </section>
         <section class="nutrition-report-section">
           <div class="nutrition-report-section__title">
@@ -102,6 +265,7 @@
           </div>
           <div class="nutrition-intelligence nutrition-report-note-grid">
             ${(plan.intelligence || []).map((item) => `<p>${escapeHtml(item)}</p>`).join("")}
+            <p><strong>Plan mantığı:</strong> ${escapeHtml(buildPlanLogicText(plan))}</p>
           </div>
         </section>
         <section class="nutrition-report-section">
@@ -117,11 +281,18 @@
           </div>
         </section>
         <section class="nutrition-report-section nutrition-report-section--optional">
+          <div class="nutrition-report-section__title">
+            <span>04</span>
+            <div>
+              <strong>Supplement ve Alternatif Destekler</strong>
+              <small>${escapeHtml(plan.supplementNotice || "Supplement kullanımı kapalı. Plan gıda öncelikli hazırlanmıştır.")}</small>
+            </div>
+          </div>
           ${renderSupplementOutput(plan.supplements || [], escapeHtml, true)}
         </section>
         <section class="nutrition-report-section nutrition-report-section--note">
           <div class="nutrition-report-section__title">
-            <span>04</span>
+            <span>05</span>
             <div>
               <strong>Antrenör / Beslenme Notu</strong>
               <small>Üyeye verilecek kısa takip notu.</small>
@@ -160,6 +331,27 @@
     };
 
     return labels[level] || level || "Belirtilmedi";
+  }
+
+  function formatDayType(value) {
+    const labels = {
+      balanced: "Dengeli gün",
+      training: "Antrenman günü",
+      rest: "Dinlenme günü",
+    };
+
+    return labels[value] || "Dengeli gün";
+  }
+
+  function buildPlanLogicText(plan) {
+    const strategyText = {
+      deficit: "kontrollü kalori açığı",
+      surplus: "kontrollü kalori fazlası",
+      maintenance: "koruma kalorisi",
+      performance: "performans odaklı yakıt dengesi",
+    };
+    const strategy = strategyText[plan.nutritionStrategy] || "hedefe uygun kalori dengesi";
+    return `${strategy} ile protein ${plan.macros?.protein || "-"} g, karbonhidrat ${plan.macros?.carbs || "-"} g ve yağ ${plan.macros?.fat || "-"} g olarak planlandı.`;
   }
 
   function renderOutputNutritionPlan(target, plan, labelMaps, escapeHtml) {
@@ -201,11 +393,17 @@
   }
 
   function collectSupplementPreferences(root) {
+    const supplementCheckbox = root?.querySelector("#supplementUseCheckbox");
+    const supplementSelect = root?.querySelector("#supplementUse");
     return {
-      useSupplements: root?.querySelector("#supplementUse")?.value || "no",
+      nutritionGoalId: root?.querySelector("#nutritionGoalSelect")?.value || "",
+      mealCount: root?.querySelector("#nutritionMealCount")?.value || "5",
+      dayType: root?.querySelector("#nutritionDayType")?.value || "balanced",
+      useSupplements: supplementCheckbox ? (supplementCheckbox.checked ? "yes" : "no") : supplementSelect?.value || "no",
       caffeineSensitive: root?.querySelector("#caffeineSensitive")?.value || "no",
       lactoseSensitive: root?.querySelector("#lactoseSensitive")?.value || "no",
       budget: root?.querySelector("#supplementBudget")?.value || "medium",
+      supplementCategories: [...(root?.querySelectorAll('input[name="supplementCategories"]:checked') || [])].map((input) => input.value),
     };
   }
 
@@ -275,9 +473,9 @@
           .map(
             (item) => `
               <article>
-                <strong>${escapeHtml(item.name)}</strong>
-                <span>${escapeHtml(item.purpose)}</span>
-                <small>${escapeHtml(item.timing)} • ${escapeHtml(item.note)} Gıda alternatifi: ${escapeHtml(item.foodAlternative)}</small>
+                <strong>${escapeHtml(item.supplementName || item.name)}</strong>
+                <span>${escapeHtml(item.category || "Supplement")} • ${escapeHtml(item.purpose)}</span>
+                <small>${escapeHtml(item.suggestedTiming || item.timing)} • ${escapeHtml(item.suggestedDoseText || "")} • Kanıt: ${escapeHtml(item.evidenceLevel || "limited")}<br />${escapeHtml(item.warningText || item.note)} Gıda alternatifi: ${escapeHtml(item.foodAlternative)}</small>
               </article>
             `,
           )
@@ -296,6 +494,7 @@
   }
 
   window.BSMNutritionUI = {
+    prepareNutritionControls,
     renderNutritionWorkspace,
     renderNutritionPlan,
     renderOutputNutritionPlan,
