@@ -3582,6 +3582,24 @@ body.modal-open {
   color: var(--teal-deep);
 }
 
+.member-program-exercise-card__metrics .rep-pattern-metric,
+.rep-pattern-metric {
+  color: var(--ink);
+  background:
+    linear-gradient(135deg, rgba(29, 107, 116, 0.12), rgba(216, 173, 99, 0.12)),
+    #ffffff;
+  border: 1px solid rgba(29, 107, 116, 0.14);
+}
+
+.rep-pattern-metric em {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
 .member-program-exercise-card p {
   margin: 0;
   color: var(--muted);
@@ -4174,6 +4192,19 @@ body.modal-open {
 .editable-exercise-card__metrics {
   display: grid;
   gap: 10px;
+}
+
+.rep-template-preview {
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(29, 107, 116, 0.07);
+  border: 1px dashed rgba(29, 107, 116, 0.28);
+}
+
+.rep-template-preview .rep-pattern-metric {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 14px;
 }
 
 .exercise-block {

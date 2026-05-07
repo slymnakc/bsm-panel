@@ -13,7 +13,7 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.21");
+console.log("APP VERSION: v1.0.22");
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 console.log("MEASUREMENT TAB VERSION: v1");
@@ -164,6 +164,7 @@ const {
 } = window.BSMOptionData;
 const { labelMaps } = window.BSMLabelData;
 const { examplePreset } = window.BSMPresetData;
+const { repetitionModelOptions = [], repetitionPresets = [] } = window.BSMRepetitionPresetData || {};
 const { exerciseGroups, exerciseExpansionBlueprints, exerciseLibrary: baseExerciseLibrary } = window.BSMExerciseData;
 const exerciseLibrary = [...baseExerciseLibrary];
 const {
@@ -5568,6 +5569,8 @@ function renderProgram(program, options = {}) {
       muscleGroups,
       equipmentLabels,
       exerciseLibrary,
+      repetitionModelOptions,
+      repetitionPresets,
     },
   );
   const programSectionsModel = buildProgramSectionsModelService(state.activeProgram, {
@@ -5677,11 +5680,11 @@ function renderProgramEditToolbar() {
 }
 
 function normalizeEditableProgram(program) {
+  const rawData = program?.rawData || collectFormData();
+
   (program?.sessions || []).forEach((session) => {
     (session.exercises || []).forEach((exercise) => {
-      const parts = splitProgramPrescription(exercise.prescription);
-      exercise.sets = exercise.sets || normalizeEditableSet(parts.sets);
-      exercise.reps = exercise.reps || String(parts.reps || "").trim() || "8-12";
+      normalizeExerciseRepetitionScheme(exercise, rawData);
     });
   });
 }
@@ -5711,8 +5714,33 @@ function applyProgramExerciseEdit({ field, value, sessionIndex, exerciseIndex })
     return { rerender: true };
   }
 
-  if (field === "sets" || field === "reps") {
-    exercise[field] = String(value || "").trim();
+  if (field === "sets") {
+    exercise.sets = normalizeEditableSet(value);
+    normalizeExerciseRepetitionScheme(exercise, state.activeProgram.rawData || collectFormData(), { forcePresetForSet: true });
+    state.activeProgram.coverage = buildMuscleCoverage(state.activeProgram.sessions);
+    saveLastPlan(state.activeProgram);
+    return { rerender: true };
+  }
+
+  if (field === "repModel") {
+    exercise.repModel = normalizeRepModel(value);
+    normalizeExerciseRepetitionScheme(exercise, state.activeProgram.rawData || collectFormData(), { forcePresetForModel: true });
+    state.activeProgram.coverage = buildMuscleCoverage(state.activeProgram.sessions);
+    saveLastPlan(state.activeProgram);
+    return { rerender: true };
+  }
+
+  if (field === "repPresetId") {
+    applyRepetitionPresetById(exercise, value, state.activeProgram.rawData || collectFormData());
+    state.activeProgram.coverage = buildMuscleCoverage(state.activeProgram.sessions);
+    saveLastPlan(state.activeProgram);
+    return { rerender: true };
+  }
+
+  if (field === "reps") {
+    exercise.reps = String(value || "").trim();
+    exercise.repModel = "custom";
+    exercise.repPresetId = "custom";
     syncExercisePrescriptionFields(exercise);
   } else if (["rest", "tempo", "cue", "name"].includes(field)) {
     exercise[field] = String(value || "").trim();
@@ -5738,6 +5766,7 @@ function applyExerciseReplacement(session, exerciseIndex, replacement) {
       }) || [],
   };
 
+  normalizeExerciseRepetitionScheme(nextExercise, rawData, { forcePresetForModel: true });
   syncExercisePrescriptionFields(nextExercise);
   session.exercises[exerciseIndex] = nextExercise;
   session.exerciseBlocks = buildExerciseBlocks(session.exercises, rawData);
@@ -5757,7 +5786,159 @@ function syncExercisePrescriptionFields(exercise) {
   const parts = splitProgramPrescription(exercise.prescription);
   exercise.sets = normalizeEditableSet(exercise.sets || parts.sets);
   exercise.reps = String(exercise.reps || parts.reps || "").trim() || "8-12";
+  exercise.repPattern = buildRepPatternFromText(exercise.reps, exercise.sets);
+  exercise.repScheme = {
+    model: normalizeRepModel(exercise.repModel),
+    presetId: exercise.repPresetId || "custom",
+    sets: Number(exercise.sets) || 1,
+    reps: [...exercise.repPattern],
+    label: exercise.repPattern.join(" • "),
+  };
   exercise.prescription = `${exercise.sets} set x ${exercise.reps}`;
+}
+
+function normalizeExerciseRepetitionScheme(exercise, rawData = {}, options = {}) {
+  if (!exercise) {
+    return exercise;
+  }
+
+  const parts = splitProgramPrescription(exercise.prescription);
+  exercise.sets = normalizeEditableSet(exercise.sets || exercise.repScheme?.sets || parts.sets);
+  exercise.repModel = normalizeRepModel(exercise.repModel || exercise.repScheme?.model || suggestRepModelForExercise(rawData, exercise));
+
+  const currentPreset = repetitionPresets.find((preset) => preset.id === (exercise.repPresetId || exercise.repScheme?.presetId));
+  const presetStillFits =
+    currentPreset &&
+    currentPreset.model === exercise.repModel &&
+    Number(currentPreset.sets) === Number(exercise.sets) &&
+    !options.forcePresetForSet &&
+    !options.forcePresetForModel;
+  const nextPreset =
+    presetStillFits && exercise.repModel !== "custom"
+      ? currentPreset
+      : selectSuggestedRepetitionPreset(exercise, rawData);
+
+  if (exercise.repModel === "custom" || !nextPreset) {
+    exercise.repPresetId = exercise.repPresetId || "custom";
+    exercise.reps = String(exercise.reps || parts.reps || defaultRepTextForSets(exercise.sets)).trim();
+    syncExercisePrescriptionFields(exercise);
+    return exercise;
+  }
+
+  applyRepetitionPreset(exercise, nextPreset);
+  return exercise;
+}
+
+function applyRepetitionPresetById(exercise, presetId, rawData = {}) {
+  if (presetId === "custom") {
+    exercise.repModel = "custom";
+    exercise.repPresetId = "custom";
+    exercise.reps = String(exercise.reps || defaultRepTextForSets(exercise.sets)).trim();
+    syncExercisePrescriptionFields(exercise);
+    return;
+  }
+
+  const preset = repetitionPresets.find((item) => item.id === presetId) || selectSuggestedRepetitionPreset(exercise, rawData);
+
+  if (preset) {
+    applyRepetitionPreset(exercise, preset);
+  } else {
+    syncExercisePrescriptionFields(exercise);
+  }
+}
+
+function applyRepetitionPreset(exercise, preset) {
+  exercise.sets = normalizeEditableSet(preset.sets);
+  exercise.repModel = normalizeRepModel(preset.model);
+  exercise.repPresetId = preset.id;
+  exercise.reps = preset.reps.join(" • ");
+  exercise.repPattern = [...preset.reps];
+  exercise.repScheme = {
+    model: exercise.repModel,
+    presetId: preset.id,
+    sets: Number(exercise.sets) || preset.sets,
+    reps: [...preset.reps],
+    label: preset.label,
+  };
+  exercise.prescription = `${exercise.sets} set x ${exercise.reps}`;
+}
+
+function selectSuggestedRepetitionPreset(exercise, rawData = {}) {
+  const model = normalizeRepModel(exercise.repModel || suggestRepModelForExercise(rawData, exercise));
+  const sets = Number(normalizeEditableSet(exercise.sets)) || 3;
+
+  if (model === "custom") {
+    return null;
+  }
+
+  const candidates = repetitionPresets.filter((preset) => preset.model === model && Number(preset.sets) === sets);
+  const goal = rawData.goal || "";
+  const level = rawData.level || "";
+
+  return (
+    candidates.find((preset) => preset.tags?.includes(goal) && preset.tags?.includes(level)) ||
+    candidates.find((preset) => preset.tags?.includes(goal)) ||
+    candidates.find((preset) => preset.tags?.includes(level)) ||
+    candidates[0] ||
+    repetitionPresets.find((preset) => preset.model === model) ||
+    repetitionPresets[0] ||
+    null
+  );
+}
+
+function suggestRepModelForExercise(rawData = {}, exercise = {}) {
+  if (exercise.kind === "cardio" || exercise.group === "cardio") {
+    return "endurance";
+  }
+
+  if (rawData.level === "beginner") {
+    return rawData.goal === "strength" ? "strength" : "fixed";
+  }
+
+  if (rawData.level === "advanced") {
+    if (rawData.goal === "strength") {
+      return "strength";
+    }
+
+    return "advanced";
+  }
+
+  if (rawData.goal === "strength") {
+    return exercise.kind === "compound" ? "strength" : "reverse-pyramid";
+  }
+
+  if (rawData.goal === "muscle-gain") {
+    return exercise.kind === "compound" ? "pyramid" : "hypertrophy";
+  }
+
+  if (rawData.goal === "fat-loss" || rawData.goal === "conditioning") {
+    return "endurance";
+  }
+
+  return "hypertrophy";
+}
+
+function normalizeRepModel(value) {
+  const model = String(value || "").trim();
+  return repetitionModelOptions.some((option) => option.value === model) ? model : "fixed";
+}
+
+function defaultRepTextForSets(sets) {
+  const count = Number(normalizeEditableSet(sets)) || 3;
+  return Array.from({ length: count }, () => "10-12").join(" • ");
+}
+
+function buildRepPatternFromText(value, sets) {
+  const pattern = String(value || "")
+    .split(/[•,](?=\s*\d|\s*AMRAP|\s*\d+\s*sn)/i)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (pattern.length) {
+    return pattern;
+  }
+
+  return Array.from({ length: Number(normalizeEditableSet(sets)) || 1 }, () => String(value || "10-12").trim());
 }
 
 function normalizeEditableSet(value) {
@@ -5812,7 +5993,7 @@ function getCurrentProgramFromEditor() {
   weeklyPlan.querySelectorAll("[data-program-field]").forEach((field) => {
     const programField = field.dataset.programField;
 
-    if (programField === "exerciseId" || programField === "group") {
+    if (programField === "exerciseId" || programField === "group" || programField === "repModel" || programField === "repPresetId") {
       return;
     }
 
@@ -5824,6 +6005,10 @@ function getCurrentProgramFromEditor() {
       exercise[programField] = String(field.value || "").trim();
 
       if (programField === "sets" || programField === "reps") {
+        if (programField === "reps") {
+          exercise.repModel = "custom";
+          exercise.repPresetId = "custom";
+        }
         syncExercisePrescriptionFields(exercise);
       }
     }

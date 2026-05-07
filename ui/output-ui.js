@@ -186,8 +186,8 @@
               </div>
             </div>
             <div class="member-program-exercise-card__metrics">
-              <span><b>Set</b>${escapeHtml(prescription.sets)}</span>
-              <span><b>Tekrar</b>${escapeHtml(prescription.reps)}</span>
+              ${renderRepPatternMetric(exercise, prescription, escapeHtml, helpers)}
+              <span><b>Model</b>${escapeHtml(getRepModelLabel(exercise, helpers))}</span>
               <span><b>Dinlenme</b>${escapeHtml(exercise.rest || "-")}</span>
               <span><b>Tempo</b>${escapeHtml(exercise.tempo || "-")}</span>
             </div>
@@ -265,8 +265,20 @@
             <input type="number" min="1" max="8" step="1" value="${escapeHtml(prescription.sets)}" data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="sets" />
           </label>
           <label class="edit-field">
-            <span>Tekrar</span>
-            <input type="text" value="${escapeHtml(prescription.reps)}" placeholder="8-12, 10 veya AMRAP" data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="reps" />
+            <span>Tekrar modeli</span>
+            <select data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="repModel">
+              ${buildRepModelOptions(exercise, escapeHtml, helpers)}
+            </select>
+          </label>
+          <label class="edit-field">
+            <span>Hazır tekrar</span>
+            <select data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="repPresetId">
+              ${buildRepPresetOptions(exercise, prescription, escapeHtml, helpers)}
+            </select>
+          </label>
+          <label class="edit-field">
+            <span>Custom / Tekrar</span>
+            <input type="text" value="${escapeHtml(prescription.reps)}" placeholder="15 • 12 • 10 • 8 veya AMRAP" data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="reps" />
           </label>
           <label class="edit-field">
             <span>Dinlenme</span>
@@ -276,6 +288,9 @@
             <span>Tempo</span>
             <input type="text" value="${escapeHtml(exercise.tempo || "")}" placeholder="2-0-2" data-session-index="${sessionIndex}" data-exercise-index="${exerciseIndex}" data-program-field="tempo" />
           </label>
+        </div>
+        <div class="rep-template-preview">
+          ${renderRepPatternMetric(exercise, prescription, escapeHtml, helpers)}
         </div>
         <label class="edit-field">
           <span>Notlar</span>
@@ -384,6 +399,78 @@
       sets: normalizeSetValue(exercise?.sets || split.sets),
       reps: String(exercise?.reps || split.reps || "-").trim() || "-",
     };
+  }
+
+  function renderRepPatternMetric(exercise, prescription, escapeHtml, helpers) {
+    const pattern = getRepPattern(exercise, prescription);
+    const setLabel = `${escapeHtml(prescription.sets)} Sets`;
+
+    return `
+      <span class="rep-pattern-metric">
+        <b>${setLabel}</b>
+        <em>${escapeHtml(pattern.join(" • "))}</em>
+      </span>
+    `;
+  }
+
+  function getRepPattern(exercise, prescription) {
+    if (Array.isArray(exercise?.repPattern) && exercise.repPattern.length) {
+      return exercise.repPattern.map(String);
+    }
+
+    if (Array.isArray(exercise?.repScheme?.reps) && exercise.repScheme.reps.length) {
+      return exercise.repScheme.reps.map(String);
+    }
+
+    const text = String(prescription?.reps || exercise?.reps || "").trim();
+    const parts = text
+      .split(/[•,](?=\s*\d|\s*AMRAP|\s*\d+\s*sn)/i)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    return parts.length ? parts : [text || "-"];
+  }
+
+  function buildRepModelOptions(exercise, escapeHtml, helpers) {
+    const currentModel = normalizeRepModel(exercise?.repModel || exercise?.repScheme?.model, helpers);
+    const options = helpers.repetitionModelOptions || [];
+
+    return options
+      .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === currentModel ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
+      .join("");
+  }
+
+  function buildRepPresetOptions(exercise, prescription, escapeHtml, helpers) {
+    const model = normalizeRepModel(exercise?.repModel || exercise?.repScheme?.model, helpers);
+    const sets = Number(normalizeSetValue(exercise?.sets || prescription?.sets)) || 1;
+    const currentPresetId = exercise?.repPresetId || exercise?.repScheme?.presetId || "";
+    const presets = (helpers.repetitionPresets || []).filter((preset) => preset.model === model && Number(preset.sets) === sets);
+    const options = presets.map((preset) => {
+      const selected = preset.id === currentPresetId ? "selected" : "";
+      return `<option value="${escapeHtml(preset.id)}" ${selected}>${escapeHtml(preset.reps.join(" • "))}</option>`;
+    });
+
+    if (model === "custom") {
+      options.unshift(`<option value="custom" selected>Manuel giriş</option>`);
+    } else if (!options.some((option) => option.includes("selected")) && presets[0]) {
+      options[0] = options[0].replace("<option", "<option selected");
+    }
+
+    if (!options.length) {
+      options.push(`<option value="custom" selected>Manuel giriş</option>`);
+    }
+
+    return options.join("");
+  }
+
+  function getRepModelLabel(exercise, helpers) {
+    const model = normalizeRepModel(exercise?.repModel || exercise?.repScheme?.model, helpers);
+    return (helpers.repetitionModelOptions || []).find((option) => option.value === model)?.label || "Fixed";
+  }
+
+  function normalizeRepModel(value, helpers) {
+    const model = String(value || "").trim();
+    return (helpers.repetitionModelOptions || []).some((option) => option.value === model) ? model : "fixed";
   }
 
   function normalizeSetValue(value) {
