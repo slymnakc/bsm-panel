@@ -412,6 +412,86 @@
     };
   }
 
+  function attachSupplementsToMeals(meals, supplements) {
+    const mealList = (meals || []).map((meal) => ({ ...meal, supports: Array.isArray(meal.supports) ? [...meal.supports] : [] }));
+
+    (supplements || []).map(buildSupplementSupport).forEach((support) => {
+      const mealIndex = getSupportMealIndex(support, mealList);
+      if (mealList[mealIndex]) {
+        mealList[mealIndex].supports.push(support);
+      }
+    });
+
+    return mealList;
+  }
+
+  function buildSupplementSupport(item) {
+    const name = item?.supplementName || item?.name || "Supplement";
+    const text = `${name} ${item?.category || ""} ${item?.suggestedTiming || item?.timing || ""}`.toLowerCase();
+    const usageTime = getSupplementUsageTime(text, item);
+
+    return {
+      name,
+      usageTime,
+      dose: getSupplementDose(text, item),
+      water: getSupplementWater(text, usageTime),
+      purpose: getShortSupplementPurpose(item),
+      category: item?.category || "",
+      recommendationTier: item?.recommendationTier || "main",
+    };
+  }
+
+  function getSupplementUsageTime(text, item) {
+    if (/bcaa|eaa|electrolyte|intra|sodium tab|hidrasyon|elektrolit/.test(text)) return "Antrenman sırasında";
+    if (/casein|melatonin|magnesium|zma|ashwagandha|rhodiola|uyku|stres/.test(text)) return "Uyku öncesi";
+    if (/whey|protein|beef protein|vegan protein|glutamine|creatine|kreatin/.test(text)) return "Antrenmandan hemen sonra";
+    if (/caffeine|pre workout|citrulline|arginine|beta alanine|beetroot|bicarbonate/.test(text)) return "Antrenmandan 30 dk önce";
+    if (/carnitine|green tea|cla|fiber|psyllium|probiotic|prebiotic|digestive|enzyme|sindirim/.test(text)) return "İlk öğünden 15 dk önce";
+    if (/vitamin|omega|multi|d3|k2|zinc|calcium|iron|selenium|iodine|chromium|boron|mineral/.test(text)) return "Kahvaltıyla birlikte";
+    return item?.suggestedTiming || item?.timing || "Öğünle birlikte";
+  }
+
+  function getSupplementDose(text, item) {
+    if (/creatine|kreatin/.test(text)) return "5 g";
+    if (/bcaa/.test(text)) return "10 g";
+    if (/eaa/.test(text)) return "8-10 g";
+    if (/whey|protein tozu|vegan protein|beef protein/.test(text)) return "1 ölçek (30 g)";
+    if (/casein/.test(text)) return "1 ölçek (30 g)";
+    if (/electrolyte|sodium tab/.test(text)) return "1 porsiyon";
+    if (/caffeine|pre workout/.test(text)) return "100-200 mg";
+    if (/fiber|psyllium/.test(text)) return "5-10 g";
+    if (/omega/.test(text)) return "1-2 kapsül";
+    if (/vitamin|omega|multi|d3|k2|zinc|magnesium|calcium|iron|selenium|iodine|chromium|boron/.test(text)) return item?.suggestedDoseText || "1 kapsül";
+    return item?.suggestedDoseText || item?.note || "etiket dozuna göre";
+  }
+
+  function getSupplementWater(text, usageTime) {
+    if (/bcaa|eaa|electrolyte|intra|sodium/.test(text) || usageTime === "Antrenman sırasında") return "600-700 ml su";
+    if (/whey|protein|casein/.test(text)) return "250-300 ml su/süt";
+    if (/fiber|psyllium/.test(text)) return "300-400 ml su";
+    if (/creatine|kreatin/.test(text)) return "300 ml su";
+    if (/caffeine|pre workout/.test(text)) return "200 ml su";
+    return "1 bardak su";
+  }
+
+  function getShortSupplementPurpose(item) {
+    const purpose = String(item?.purpose || "").replace(/\s+/g, " ").trim();
+    if (!purpose) return "Plan hedefini desteklemek";
+    return purpose.length > 86 ? `${purpose.slice(0, 83).trim()}...` : purpose;
+  }
+
+  function getSupportMealIndex(support, meals) {
+    const time = String(support?.usageTime || "").toLowerCase();
+    if (!meals.length) return 0;
+    if (/sabah|kahvalt|ilk öğün|ilk ogun/.test(time)) return 0;
+    if (/uyku|gece/.test(time)) return meals.length - 1;
+    if (/antrenman/.test(time)) {
+      const snackIndex = meals.findIndex((meal) => /ara/i.test(meal.name || ""));
+      return snackIndex >= 0 ? snackIndex : Math.min(1, meals.length - 1);
+    }
+    return 0;
+  }
+
   function buildNutritionPlan(member, activeProgram, preferences = {}, deps = {}) {
     const profile = member?.profile || {};
     const latestMeasurement = member?.measurements?.[0] || {};
@@ -430,6 +510,7 @@
           })
         : [];
     const intelligence = buildNutritionIntelligence({ latestMeasurement, targets, preferences });
+    const mealsWithSupports = attachSupplementsToMeals(meals, supplements);
 
     return {
       id: deps.makeId ? deps.makeId("nutrition") : makeFallbackId("nutrition"),
@@ -463,7 +544,7 @@
       mealCount: meals.length,
       dayType: targets.dayType,
       intelligence,
-      meals,
+      meals: mealsWithSupports,
       supplementPreferences: normalizePreferences(preferences),
       supplementNotice:
         preferences.useSupplements === "yes"
@@ -696,6 +777,8 @@
     calculateNutritionTargets,
     generateMealPlan,
     getSupplementsByGoal,
+    attachSupplementsToMeals,
+    buildSupplementSupport,
     buildNutritionPlan,
     normalizePreferences,
   };

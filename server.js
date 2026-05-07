@@ -389,6 +389,8 @@ function createNutritionPlanPdf(planData) {
 
 function buildNutritionPdfModel(planData) {
   const plan = planData && typeof planData === "object" ? planData : {};
+  const supplements = Array.isArray(plan.supplements) ? plan.supplements : [];
+  const meals = ensureNutritionMealSupports(Array.isArray(plan.meals) ? plan.meals : [], supplements);
   return {
     title: "Sporcu Beslenme Planı",
     memberName: plan.memberName || "Üye",
@@ -406,8 +408,8 @@ function buildNutritionPdfModel(planData) {
       ["Antrenman", `${plan.trainingDays || "-"} gün/hafta`],
     ],
     intelligence: Array.isArray(plan.intelligence) ? plan.intelligence.slice(0, 5) : [],
-    meals: Array.isArray(plan.meals) ? plan.meals : [],
-    supplements: Array.isArray(plan.supplements) ? plan.supplements : [],
+    meals,
+    supplements,
     supplementNotice: plan.supplementNotice || "Supplement kullanımı kapalı. Plan gıda öncelikli hazırlanmıştır.",
     supplementCommonWarning:
       plan.supplementCommonWarning ||
@@ -415,6 +417,85 @@ function buildNutritionPdfModel(planData) {
     trainerNote: plan.trainerNote || "",
     disclaimer: plan.disclaimer || "",
   };
+}
+
+function ensureNutritionMealSupports(meals, supplements) {
+  const mealList = meals.map((meal) => ({ ...meal, supports: Array.isArray(meal.supports) ? [...meal.supports] : [] }));
+  const hasSupports = mealList.some((meal) => meal.supports.length);
+
+  if (hasSupports || !supplements.length) {
+    return mealList;
+  }
+
+  supplements.forEach((item) => {
+    const support = buildNutritionSupplementSupport(item);
+    const index = getNutritionSupportMealIndex(support, mealList);
+    mealList[index]?.supports.push(support);
+  });
+
+  return mealList;
+}
+
+function buildNutritionSupplementSupport(item) {
+  const name = item?.supplementName || item?.name || "Supplement";
+  const text = `${name} ${item?.category || ""} ${item?.suggestedTiming || item?.timing || ""}`.toLowerCase();
+  const usageTime = getNutritionSupplementUsageTime(text, item);
+  return {
+    name,
+    usageTime,
+    dose: getNutritionSupplementDose(text, item),
+    water: getNutritionSupplementWater(text, usageTime),
+    purpose: shortText(item?.purpose || "Plan hedefini desteklemek", 86),
+  };
+}
+
+function getNutritionSupplementUsageTime(text, item) {
+  if (/bcaa|eaa|electrolyte|intra|sodium|hidrasyon|elektrolit/.test(text)) return "Antrenman sırasında";
+  if (/casein|melatonin|magnesium|zma|ashwagandha|rhodiola|uyku|stres/.test(text)) return "Uyku öncesi";
+  if (/whey|protein|beef protein|vegan protein|glutamine|creatine|kreatin/.test(text)) return "Antrenmandan hemen sonra";
+  if (/caffeine|pre workout|citrulline|arginine|beta alanine|beetroot|bicarbonate/.test(text)) return "Antrenmandan 30 dk önce";
+  if (/carnitine|green tea|cla|fiber|psyllium|probiotic|prebiotic|digestive|enzyme|sindirim/.test(text)) return "İlk öğünden 15 dk önce";
+  if (/vitamin|omega|multi|d3|k2|zinc|calcium|iron|selenium|iodine|chromium|boron|mineral/.test(text)) return "Kahvaltıyla birlikte";
+  return item?.suggestedTiming || item?.timing || "Öğünle birlikte";
+}
+
+function getNutritionSupplementDose(text, item) {
+  if (/creatine|kreatin/.test(text)) return "5 g";
+  if (/bcaa/.test(text)) return "10 g";
+  if (/eaa/.test(text)) return "8-10 g";
+  if (/whey|protein tozu|vegan protein|beef protein|casein/.test(text)) return "1 ölçek (30 g)";
+  if (/electrolyte|sodium/.test(text)) return "1 porsiyon";
+  if (/caffeine|pre workout/.test(text)) return "100-200 mg";
+  if (/fiber|psyllium/.test(text)) return "5-10 g";
+  if (/omega/.test(text)) return "1-2 kapsül";
+  if (/vitamin|omega|multi|d3|k2|zinc|magnesium|calcium|iron|selenium|iodine|chromium|boron/.test(text)) return item?.suggestedDoseText || "1 kapsül";
+  return item?.suggestedDoseText || item?.note || "etiket dozuna göre";
+}
+
+function getNutritionSupplementWater(text, usageTime) {
+  if (/bcaa|eaa|electrolyte|intra|sodium/.test(text) || usageTime === "Antrenman sırasında") return "600-700 ml su";
+  if (/whey|protein|casein/.test(text)) return "250-300 ml su/süt";
+  if (/fiber|psyllium/.test(text)) return "300-400 ml su";
+  if (/creatine|kreatin/.test(text)) return "300 ml su";
+  if (/caffeine|pre workout/.test(text)) return "200 ml su";
+  return "1 bardak su";
+}
+
+function getNutritionSupportMealIndex(support, meals) {
+  const time = String(support?.usageTime || "").toLowerCase();
+  if (!meals.length) return 0;
+  if (/sabah|kahvalt|ilk öğün|ilk ogun/.test(time)) return 0;
+  if (/uyku|gece/.test(time)) return meals.length - 1;
+  if (/antrenman/.test(time)) {
+    const snackIndex = meals.findIndex((meal) => /ara/i.test(meal.name || ""));
+    return snackIndex >= 0 ? snackIndex : Math.min(1, meals.length - 1);
+  }
+  return 0;
+}
+
+function shortText(value, maxLength) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength - 3).trim()}...` : text;
 }
 
 function buildNutritionPdfPages(model) {
@@ -453,37 +534,20 @@ function buildNutritionPdfPages(model) {
   y -= 28;
 
   model.meals.forEach((meal, index) => {
-    if (y < 132) {
+    const rowHeight = getNutritionMealRowHeight(meal);
+    if (y < rowHeight + 84) {
       finishPage();
       startPage();
       drawNutritionPdfSectionTitle(commands, "Günlük Öğün Planı", y);
       y -= 28;
     }
     drawNutritionMealRow(commands, meal, index + 1, y);
-    y -= 62;
+    y -= rowHeight + 8;
   });
 
   if (y < 190) {
     finishPage();
     startPage();
-  }
-
-  drawNutritionPdfSectionTitle(commands, "Supplement ve Notlar", y);
-  y -= 26;
-  addText(commands, 44, y, model.supplementNotice, 8, "#384d55", 92);
-  y -= 24;
-
-  const mainSupplements = model.supplements.filter((item) => item.recommendationTier !== "optional").slice(0, 5);
-  const optionalSupplements = model.supplements.filter((item) => item.recommendationTier === "optional").slice(0, 3);
-
-  if (!mainSupplements.length && !optionalSupplements.length) {
-    drawNutritionSupplementRow(commands, { supplementName: "Supplement kapalı", purpose: "Plan gıda öncelikli hazırlanmıştır.", suggestedTiming: "", suggestedDoseText: "" }, y);
-    y -= 44;
-  } else {
-    y = drawNutritionSupplementGroup(commands, "Ana öneriler", mainSupplements, y);
-    y = drawNutritionSupplementGroup(commands, "Opsiyonel destekler", optionalSupplements, y);
-    addText(commands, 44, y, model.supplementCommonWarning, 7, "#5c6c72", 94);
-    y -= 36;
   }
 
   if (y < 150) {
@@ -517,12 +581,32 @@ function drawNutritionMacroCards(commands, metrics, y) {
 }
 
 function drawNutritionMealRow(commands, meal, index, y) {
-  drawRect(commands, 42, y - 52, 511, 56, "#ffffff", "#d9e5e3");
-  drawRect(commands, 42, y - 52, 32, 56, "#1d6b74");
+  const rowHeight = getNutritionMealRowHeight(meal);
+  drawRect(commands, 42, y - rowHeight + 4, 511, rowHeight, "#ffffff", "#d9e5e3");
+  drawRect(commands, 42, y - rowHeight + 4, 32, rowHeight, "#1d6b74");
   addText(commands, 51, y - 22, String(index), 12, "#ffffff");
   addText(commands, 84, y - 10, meal.name || `Öğün ${index}`, 9.5, "#082b35", 32);
   addText(commands, 84, y - 25, meal.foods || "-", 7, "#384d55", 82);
   addText(commands, 84, y - 40, `${meal.calories || "-"} kcal | P ${meal.protein || "-"} g | K ${meal.carbs || "-"} g | Y ${meal.fat || "-"} g`, 7, "#1d6b74", 82);
+  drawNutritionMealSupports(commands, meal.supports || [], y - 56);
+}
+
+function getNutritionMealRowHeight(meal) {
+  const supportCount = Array.isArray(meal?.supports) ? Math.min(meal.supports.length, 5) : 0;
+  return supportCount ? 60 + supportCount * 18 : 56;
+}
+
+function drawNutritionMealSupports(commands, supports, y) {
+  const visibleSupports = (supports || []).slice(0, 5);
+  if (!visibleSupports.length) {
+    return;
+  }
+
+  addText(commands, 84, y, "Destekler", 6.8, "#d8ad63", 18);
+  visibleSupports.forEach((support, index) => {
+    const line = `${support.name || "Supplement"} - ${support.usageTime || "Öğünle birlikte"} - ${support.dose || ""} - ${support.water || "1 bardak su"} - ${support.purpose || "Plan hedefini desteklemek"}`;
+    addText(commands, 132, y - index * 18, line, 6.1, "#384d55", 78);
+  });
 }
 
 function drawNutritionSupplementRow(commands, item, y) {
