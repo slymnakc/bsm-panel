@@ -23,6 +23,10 @@
   }
 
   function loadSupabaseMembers() {
+    if (window.BSMSupabaseSyncService?.loadMembers) {
+      return window.BSMSupabaseSyncService.loadMembers().then((members) => normalizeMembersPayload(members));
+    }
+
     const supabaseClient = getSupabaseClient();
 
     if (!supabaseClient?.from) {
@@ -78,6 +82,10 @@
   }
 
   function saveMeasurementToSupabase(member, measurement) {
+    if (window.BSMSupabaseSyncService?.persistMeasurement) {
+      return window.BSMSupabaseSyncService.persistMeasurement(member, measurement);
+    }
+
     const supabaseClient = getSupabaseClient();
 
     if (!supabaseClient?.from) {
@@ -120,7 +128,27 @@
   }
 
   function syncMembersToSupabase(members) {
+    if (window.BSMSupabaseSyncService?.persistMembers) {
+      window.BSMSupabaseSyncService
+        .persistMembers(members)
+        .then((result) => {
+          if (!result?.ok) {
+            syncMembersToLegacySupabase(members);
+          }
+        })
+        .catch((error) => {
+          console.warn("Supabase production sync error", error);
+          syncMembersToLegacySupabase(members);
+        });
+      return;
+    }
+
+    syncMembersToLegacySupabase(members);
+  }
+
+  function syncMembersToLegacySupabase(members) {
     const supabaseClient = getSupabaseClient();
+
 
     if (!supabaseClient?.from) {
       return;
@@ -278,7 +306,19 @@
       return nextMember;
     }
 
+    const currentUpdatedAt = getMemberUpdatedScore(currentMember);
+    const nextUpdatedAt = getMemberUpdatedScore(nextMember);
+
+    if (currentUpdatedAt !== nextUpdatedAt) {
+      return nextUpdatedAt > currentUpdatedAt ? nextMember : currentMember;
+    }
+
     return scoreMemberCompleteness(nextMember) > scoreMemberCompleteness(currentMember) ? nextMember : currentMember;
+  }
+
+  function getMemberUpdatedScore(member) {
+    const parsed = new Date(member?.updatedAt || member?.updated_at || member?.createdAt || member?.created_at || 0);
+    return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
   }
 
   function scoreMemberCompleteness(member) {
