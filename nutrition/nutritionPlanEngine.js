@@ -425,6 +425,238 @@
     return mealList;
   }
 
+  function buildNutritionSchedule(preferences = {}, mealCount = 5) {
+    const wakeMinutes = parseTimeToMinutes(preferences.wakeTime, 7 * 60 + 30);
+    const firstMealMinutes = parseTimeToMinutes(preferences.firstMealTime, 8 * 60 + 30);
+    const workoutMinutes = parseTimeToMinutes(preferences.workoutTime, 18 * 60 + 30);
+    const sleepMinutes = normalizeFutureMinutes(parseTimeToMinutes(preferences.sleepTime, 23 * 60 + 30), firstMealMinutes);
+    const cardioMinutes = preferences.cardioTime ? normalizeFutureMinutes(parseTimeToMinutes(preferences.cardioTime, 0), wakeMinutes) : null;
+    const fastingEnabled = isEnabled(preferences.fastingEnabled);
+    const fastingWindow = normalizeFastingWindow(preferences.fastingWindow || "16:8");
+    const eatingHours = fastingEnabled ? Number(fastingWindow.split(":")[1]) || 8 : null;
+    const latestMealLimit = fastingEnabled
+      ? Math.min(sleepMinutes - 60, firstMealMinutes + eatingHours * 60 - 35)
+      : sleepMinutes - 75;
+    const minimumSpreadEnd = firstMealMinutes + Math.max(90, (mealCount - 1) * 75);
+    const resolvedLastMealMinutes = fastingEnabled ? Math.max(minimumSpreadEnd, latestMealLimit) : Math.max(minimumSpreadEnd, latestMealLimit);
+
+    return {
+      wakeTime: formatMinutesToTime(wakeMinutes),
+      firstMealTime: formatMinutesToTime(firstMealMinutes),
+      workoutTime: formatMinutesToTime(workoutMinutes),
+      sleepTime: formatMinutesToTime(sleepMinutes),
+      cardioTime: cardioMinutes === null ? "" : formatMinutesToTime(cardioMinutes),
+      fastingEnabled: fastingEnabled ? "yes" : "no",
+      fastingWindow,
+      trainingMoment: getTrainingMoment(workoutMinutes),
+      mealCount: clamp(Number(mealCount || 5), 3, 6),
+      wakeMinutes,
+      firstMealMinutes,
+      workoutMinutes,
+      sleepMinutes,
+      cardioMinutes,
+      lastMealMinutes: resolvedLastMealMinutes,
+    };
+  }
+
+  function applyScheduleToMeals(meals, schedule) {
+    const mealList = Array.isArray(meals) ? meals : [];
+    const mealTimes = distributeMealTimes(schedule.firstMealMinutes, schedule.lastMealMinutes, mealList.length);
+    const workoutMinutes = normalizeFutureMinutes(schedule.workoutMinutes, schedule.wakeMinutes);
+    const preIndex = schedule.trainingMoment === "morning" ? -1 : findPreWorkoutMealIndex(mealTimes, workoutMinutes);
+    const postIndex = schedule.trainingMoment === "morning" ? 0 : findPostWorkoutMealIndex(mealTimes, workoutMinutes, preIndex);
+    const lateSleep = schedule.sleepMinutes % 1440 >= 23 * 60 || schedule.sleepMinutes % 1440 <= 2 * 60;
+
+    const scheduledMeals = mealList.map((meal, index) => {
+      let timeMinutes = mealTimes[index] || schedule.firstMealMinutes;
+      let scheduleRole = "meal";
+      let timingLabel = meal.name || `Öğün ${index + 1}`;
+
+      if (index === preIndex && schedule.trainingMoment !== "morning") {
+        timeMinutes = Math.min(timeMinutes, workoutMinutes - 55);
+        scheduleRole = "pre-workout";
+        timingLabel = "Pre Workout";
+      }
+
+      if (index === postIndex) {
+        timeMinutes = Math.max(timeMinutes, workoutMinutes + 35);
+        scheduleRole = "post-workout";
+        timingLabel = schedule.trainingMoment === "morning" ? "Post Workout Kahvaltı" : "Post Workout";
+      }
+
+      if (lateSleep && index === mealList.length - 1 && scheduleRole === "meal") {
+        timeMinutes = Math.max(timeMinutes, schedule.sleepMinutes - 60);
+        scheduleRole = "night-protein";
+        timingLabel = "Gece Protein Öğünü";
+      }
+
+      const scheduledMeal = {
+        ...meal,
+        time: formatMinutesToTime(timeMinutes),
+        timingLabel,
+        scheduleRole,
+        supports: [],
+      };
+
+      return scheduledMeal;
+    });
+
+    mealList
+      .flatMap((meal) => meal.supports || [])
+      .forEach((support) => {
+        const targetIndex = getScheduledSupportMealIndex(support, scheduledMeals, preIndex, postIndex);
+        const targetMeal = scheduledMeals[targetIndex] || scheduledMeals[0];
+        if (!targetMeal) {
+          return;
+        }
+        targetMeal.supports.push({
+        ...support,
+          time: getSupportClockTime(support, targetMeal, schedule),
+        });
+      });
+
+    return scheduledMeals;
+  }
+
+  function getScheduledSupportMealIndex(support, meals, preIndex, postIndex) {
+    const usage = String(support?.usageTime || support?.timing || "").toLowerCase();
+    if (!meals.length) return 0;
+    if (/uyku|gece/.test(usage)) return meals.length - 1;
+    if (/hemen sonra|sonra/.test(usage) && /antrenman/.test(usage)) return Math.max(0, postIndex);
+    if (/sirasinda|sırasında|sÄ±rasÄ±nda|30 dk|30 dakika|önce|Ã¶nce/.test(usage) && /antrenman/.test(usage)) {
+      return preIndex >= 0 ? preIndex : Math.max(0, postIndex);
+    }
+    if (/ilk|kahvalt|sabah/.test(usage)) return 0;
+    return 0;
+  }
+
+  function buildNutritionTimeline(meals, schedule) {
+    const items = [
+      { time: schedule.wakeTime, sortMinutes: schedule.wakeMinutes, kind: "wake", title: "Uyanış", meta: "Su + güne hazırlık" },
+      { time: schedule.workoutTime, sortMinutes: normalizeFutureMinutes(schedule.workoutMinutes, schedule.wakeMinutes), kind: "workout", title: "Antrenman", meta: getTrainingMomentLabel(schedule.trainingMoment) },
+      { time: schedule.sleepTime, sortMinutes: schedule.sleepMinutes, kind: "sleep", title: "Uyku", meta: schedule.fastingEnabled === "yes" ? `${schedule.fastingWindow} IF düzeni` : "Toparlanma" },
+    ];
+
+    if (schedule.cardioTime) {
+      items.push({ time: schedule.cardioTime, sortMinutes: schedule.cardioMinutes, kind: "cardio", title: "Kardiyo", meta: "Opsiyonel kardiyo bloğu" });
+    }
+
+    (meals || []).forEach((meal, index) => {
+      const sortMinutes = normalizeFutureMinutes(parseTimeToMinutes(meal.time, schedule.firstMealMinutes), schedule.wakeMinutes);
+      items.push({
+        time: meal.time || formatMinutesToTime(sortMinutes),
+        sortMinutes,
+        kind: meal.scheduleRole || "meal",
+        title: meal.timingLabel || meal.name || `Öğün ${index + 1}`,
+        meta: `${meal.calories || "-"} kcal | P ${meal.protein || "-"} g | K ${meal.carbs || "-"} g | Y ${meal.fat || "-"} g`,
+      });
+    });
+
+    return items
+      .sort((a, b) => a.sortMinutes - b.sortMinutes)
+      .map(({ sortMinutes, ...item }) => item);
+  }
+
+  function distributeMealTimes(startMinutes, endMinutes, count) {
+    const safeCount = Math.max(1, Number(count) || 1);
+    if (safeCount === 1) {
+      return [startMinutes];
+    }
+
+    const safeEnd = Math.max(startMinutes + (safeCount - 1) * 75, endMinutes);
+    const interval = (safeEnd - startMinutes) / (safeCount - 1);
+    return Array.from({ length: safeCount }, (_, index) => Math.round((startMinutes + interval * index) / 5) * 5);
+  }
+
+  function findPreWorkoutMealIndex(mealTimes, workoutMinutes) {
+    let selected = mealTimes.findIndex((time) => time >= workoutMinutes - 110 && time <= workoutMinutes - 30);
+    if (selected >= 0) return selected;
+    selected = mealTimes.reduce((best, time, index) => (time < workoutMinutes ? index : best), -1);
+    return selected >= 0 ? selected : 0;
+  }
+
+  function findPostWorkoutMealIndex(mealTimes, workoutMinutes, preIndex) {
+    const selected = mealTimes.findIndex((time, index) => index !== preIndex && time >= workoutMinutes + 25);
+    if (selected >= 0) return selected;
+    return Math.max(0, Math.min(mealTimes.length - 1, preIndex + 1));
+  }
+
+  function getSupportClockTime(support, meal, schedule) {
+    const usage = String(support?.usageTime || support?.timing || "").toLowerCase();
+    const workoutMinutes = normalizeFutureMinutes(schedule.workoutMinutes, schedule.wakeMinutes);
+    const firstMealMinutes = parseTimeToMinutes(schedule.firstMealTime, schedule.firstMealMinutes);
+
+    if (/sirasinda|sırasında|sÄ±rasÄ±nda|intra|antrenman sırasında|antrenman s/.test(usage)) {
+      return formatMinutesToTime(workoutMinutes + 25);
+    }
+
+    if (/hemen sonra|sonra/.test(usage) && /antrenman/.test(usage)) {
+      return formatMinutesToTime(workoutMinutes + 15);
+    }
+
+    if (/30 dk|30 dakika|önce|Ã¶nce/.test(usage) && /antrenman/.test(usage)) {
+      return formatMinutesToTime(workoutMinutes - 30);
+    }
+
+    if (/uyku|gece/.test(usage)) {
+      return formatMinutesToTime(schedule.sleepMinutes - 30);
+    }
+
+    if (/ilk|kahvalt|sabah/.test(usage)) {
+      return formatMinutesToTime(firstMealMinutes - (/15/.test(usage) ? 15 : 0));
+    }
+
+    return meal.time || schedule.firstMealTime;
+  }
+
+  function parseTimeToMinutes(value, fallbackMinutes) {
+    const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) {
+      return fallbackMinutes;
+    }
+
+    const hours = clamp(Number(match[1]), 0, 23);
+    const minutes = clamp(Number(match[2]), 0, 59);
+    return hours * 60 + minutes;
+  }
+
+  function formatMinutesToTime(value) {
+    const minutesInDay = 24 * 60;
+    const normalized = ((Math.round(value) % minutesInDay) + minutesInDay) % minutesInDay;
+    const hours = String(Math.floor(normalized / 60)).padStart(2, "0");
+    const minutes = String(normalized % 60).padStart(2, "0");
+    return `${hours}:${minutes}`;
+  }
+
+  function normalizeFutureMinutes(value, baseMinutes) {
+    let result = Number(value) || 0;
+    while (result < baseMinutes - 120) {
+      result += 24 * 60;
+    }
+    return result;
+  }
+
+  function normalizeFastingWindow(value) {
+    return ["14:10", "16:8", "18:6"].includes(value) ? value : "16:8";
+  }
+
+  function isEnabled(value) {
+    return value === true || value === "yes" || value === "on";
+  }
+
+  function getTrainingMoment(workoutMinutes) {
+    const minutes = workoutMinutes % (24 * 60);
+    if (minutes < 11 * 60) return "morning";
+    if (minutes >= 17 * 60) return "evening";
+    return "midday";
+  }
+
+  function getTrainingMomentLabel(moment) {
+    if (moment === "morning") return "Sabah antrenmanı";
+    if (moment === "evening") return "Akşam antrenmanı";
+    return "Gün ortası antrenmanı";
+  }
+
   function buildSupplementSupport(item) {
     const name = item?.supplementName || item?.name || "Supplement";
     const text = `${name} ${item?.category || ""} ${item?.suggestedTiming || item?.timing || ""}`.toLowerCase();
@@ -511,6 +743,9 @@
         : [];
     const intelligence = buildNutritionIntelligence({ latestMeasurement, targets, preferences });
     const mealsWithSupports = attachSupplementsToMeals(meals, supplements);
+    const schedule = buildNutritionSchedule(preferences, mealsWithSupports.length);
+    const scheduledMeals = applyScheduleToMeals(mealsWithSupports, schedule);
+    const timeline = buildNutritionTimeline(scheduledMeals, schedule);
 
     return {
       id: deps.makeId ? deps.makeId("nutrition") : makeFallbackId("nutrition"),
@@ -544,7 +779,9 @@
       mealCount: meals.length,
       dayType: targets.dayType,
       intelligence,
-      meals: mealsWithSupports,
+      schedule: stripScheduleInternals(schedule),
+      timeline,
+      meals: scheduledMeals,
       supplementPreferences: normalizePreferences(preferences),
       supplementNotice:
         preferences.useSupplements === "yes"
@@ -725,12 +962,37 @@
       nutritionGoalId: preferences.nutritionGoalId || "",
       mealCount: clamp(Number(preferences.mealCount || 5), 3, 6),
       dayType: normalizeDayType(preferences.dayType),
+      wakeTime: normalizeTimeValue(preferences.wakeTime, "07:30"),
+      firstMealTime: normalizeTimeValue(preferences.firstMealTime, "08:30"),
+      workoutTime: normalizeTimeValue(preferences.workoutTime, "18:30"),
+      sleepTime: normalizeTimeValue(preferences.sleepTime, "23:30"),
+      cardioTime: normalizeTimeValue(preferences.cardioTime, ""),
+      fastingEnabled: isEnabled(preferences.fastingEnabled) ? "yes" : "no",
+      fastingWindow: normalizeFastingWindow(preferences.fastingWindow || "16:8"),
       useSupplements: preferences.useSupplements === "yes" ? "yes" : "no",
       caffeineSensitive: preferences.caffeineSensitive === "yes" ? "yes" : "no",
       lactoseSensitive: preferences.lactoseSensitive === "yes" ? "yes" : "no",
       budget: ["low", "medium", "high"].includes(preferences.budget) ? preferences.budget : "medium",
       supplementCategories: Array.isArray(preferences.supplementCategories) ? preferences.supplementCategories : [],
     };
+  }
+
+  function normalizeTimeValue(value, fallback) {
+    if (value === "" && fallback === "") return "";
+    return /^\d{2}:\d{2}$/.test(String(value || "")) ? String(value) : fallback;
+  }
+
+  function stripScheduleInternals(schedule) {
+    const {
+      wakeMinutes,
+      firstMealMinutes,
+      workoutMinutes,
+      sleepMinutes,
+      cardioMinutes,
+      lastMealMinutes,
+      ...publicSchedule
+    } = schedule || {};
+    return publicSchedule;
   }
 
   function normalizeDayType(value) {
@@ -779,6 +1041,9 @@
     getSupplementsByGoal,
     attachSupplementsToMeals,
     buildSupplementSupport,
+    buildNutritionSchedule,
+    applyScheduleToMeals,
+    buildNutritionTimeline,
     buildNutritionPlan,
     normalizePreferences,
   };
