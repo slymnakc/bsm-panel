@@ -98,6 +98,9 @@
 
   function bindNavigationHandlers(elements, handlers) {
     bindIf(elements.studioNav, "click", handlers.handleScreenNavClick);
+    elements.studioNav?.querySelectorAll?.("button[data-screen-target]").forEach((button) => {
+      bindIf(button, "click", handlers.handleScreenNavClick);
+    });
     bindIf(elements.workspaceTabs, "click", handlers.handleWorkspaceTabClick);
     bindIf(elements.exerciseSearch, "input", handlers.handleExerciseSearch);
     bindIf(elements.libraryGroupFilter, "change", handlers.handleLibraryFilterChange);

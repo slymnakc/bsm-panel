@@ -332,9 +332,21 @@ function serveStatic(req, res) {
   const ext = path.extname(filePath).toLowerCase();
   res.writeHead(200, {
     "Content-Type": MIME_TYPES[ext] || "application/octet-stream",
-    "Cache-Control": ext === ".html" ? "no-cache" : "public, max-age=3600",
+    "Cache-Control": getStaticCacheControl(ext),
   });
   fs.createReadStream(filePath).pipe(res);
+}
+
+function getStaticCacheControl(ext) {
+  if ([".html", ".js", ".css"].includes(ext)) {
+    return "no-store, no-cache, must-revalidate, proxy-revalidate";
+  }
+
+  if ([".gif", ".png", ".jpg", ".jpeg", ".svg", ".ico"].includes(ext)) {
+    return "public, max-age=3600";
+  }
+
+  return "no-cache";
 }
 
 function createPremiumProgramPdf({ title, memberName, programText, programData }) {

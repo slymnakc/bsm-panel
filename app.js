@@ -13,8 +13,8 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.26");
-console.log("NUTRITION PRO VERSION: v1.0.26");
+console.log("APP VERSION: v1.0.29");
+console.log("NUTRITION PRO VERSION: v1.0.29");
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 console.log("MEASUREMENT TAB VERSION: v1");
@@ -615,8 +615,8 @@ function initialize() {
   initializeStateFromStorage();
   prepareOutputLayout();
   prepareMeasurementTabLayout();
-  syncStartupUi();
   bindApplicationHandlers();
+  syncStartupUi();
   hydrateInitialSession();
   setActiveScreen(inferScreenFromHash(window.location.hash), { silent: true });
   syncMembersFromSupabase();

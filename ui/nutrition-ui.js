@@ -185,8 +185,6 @@
       return;
     }
 
-    const displayPlan = withMealSupportFallback(plan);
-
     target.innerHTML = `
       <article class="nutrition-member-card">
         <div>
@@ -217,6 +215,8 @@
       `;
       return;
     }
+
+    const displayPlan = withMealSupportFallback(plan);
 
     target.innerHTML = `
       <div class="nutrition-plan-card nutrition-report-card" data-nutrition-plan-id="${escapeHtml(plan.id)}">
