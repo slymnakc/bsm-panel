@@ -405,6 +405,12 @@ function buildNutritionPdfModel(planData) {
   const meals = ensureNutritionMealSupports(Array.isArray(plan.meals) ? plan.meals : [], supplements);
   const schedule = normalizeNutritionPdfSchedule(plan.schedule || plan.supplementPreferences || {});
   const timeline = Array.isArray(plan.timeline) && plan.timeline.length ? plan.timeline : buildNutritionPdfTimeline(meals, schedule);
+  const measurementNote =
+    plan.sourceSummary?.measurementConnectionText ||
+    plan.sourceSummary?.measurementStatus ||
+    "Tanita/ölçüm verisi bulunmadığı için plan hedef ve seviye bilgisine göre oluşturuldu.";
+  const intelligenceItems = [measurementNote, ...(Array.isArray(plan.intelligence) ? plan.intelligence : [])].filter(Boolean);
+
   return {
     title: "Sporcu Beslenme Planı",
     memberName: plan.memberName || "Üye",
@@ -418,10 +424,10 @@ function buildNutritionPdfModel(planData) {
       ["Protein", `${plan.macros?.protein || "-"} g`],
       ["Karbonhidrat", `${plan.macros?.carbs || "-"} g`],
       ["Yağ", `${plan.macros?.fat || "-"} g`],
-      ["BMR", `${plan.sourceSummary?.bmr || "-"} kcal`],
+      ["BMR", `${plan.sourceSummary?.bmr || "-"} kcal (${plan.sourceSummary?.bmrSource || "Formül bazlı tahmin"})`],
       ["Antrenman", `${plan.trainingDays || "-"} gün/hafta`],
     ],
-    intelligence: Array.isArray(plan.intelligence) ? plan.intelligence.slice(0, 5) : [],
+    intelligence: [...new Set(intelligenceItems)].slice(0, 5),
     schedule,
     timeline,
     meals,

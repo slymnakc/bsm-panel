@@ -17,7 +17,7 @@
 
   function calculateNutritionTargets(memberData, selectedGoalId, preferences = {}) {
     const profile = memberData?.profile || {};
-    const latestMeasurement = memberData?.latestMeasurement || {};
+    const latestMeasurement = normalizeNutritionMeasurement(memberData?.latestMeasurement || {});
     const activeProgram = memberData?.activeProgram || null;
     const fallbackGoalId = window.BSMNutritionGoals?.mapLegacyGoalToNutritionGoalId?.(profile.goal || activeProgram?.rawData?.goal);
     const selectedGoal = window.BSMNutritionGoals?.getNutritionGoalById?.(selectedGoalId || fallbackGoalId) || getNutritionGoals()[0];
@@ -26,8 +26,9 @@
     const height = firstNumber(latestMeasurement.height, activeProgram?.rawData?.height, 170);
     const age = firstNumber(latestMeasurement.age, calculateAgeFromBirthDate(latestMeasurement.birthDate), 35);
     const gender = normalizeGender(latestMeasurement.gender || profile.gender);
-    const bmr = firstNumber(latestMeasurement.bmr) || estimateBmr({ weight, height, age, gender });
-    const bmrSource = firstNumber(latestMeasurement.bmr) ? "Tanita BMR" : "Mifflin-St Jeor tahmini";
+    const bmrFromMeasurement = firstNumber(latestMeasurement.bmr);
+    const bmr = bmrFromMeasurement || estimateBmr({ weight, height, age, gender });
+    const bmrSource = bmrFromMeasurement ? "Tanita BMR" : "Formül bazlı tahmin";
     const maintenanceCalories = Math.round(bmr * getActivityMultiplier(trainingDays));
     const adjustedDelta = adjustDeltaForMeasurement(selectedGoal.calorieDelta, selectedGoal.strategy, latestMeasurement);
     const baseCalories = Math.max(1100, Math.round(maintenanceCalories + adjustedDelta));
@@ -41,6 +42,8 @@
     const macros = calculateMacros({
       calories: targetCalories,
       weight,
+      leanBodyMass: latestMeasurement.leanBodyMass,
+      bodyFatPercentage: latestMeasurement.fat,
       proteinPerKg: selectedGoal.proteinPerKg,
       fatPerKg: selectedGoal.fatPerKg,
       strategy: selectedGoal.strategy,
@@ -55,6 +58,14 @@
       trainingDays,
       bmr,
       bmrSource,
+      hasMeasurement: latestMeasurement.hasMeasurement,
+      hasMeasurementBmr: Boolean(bmrFromMeasurement),
+      measurement: latestMeasurement,
+      measurementStatus: latestMeasurement.hasMeasurement
+        ? "Ölçüm bazlı hesaplama aktif"
+        : "Tanita/ölçüm verisi bulunmadığı için plan hedef ve seviye bilgisine göre oluşturuldu.",
+      measurementConnectionText: buildMeasurementConnectionText(latestMeasurement, targetCalories),
+      measurementFingerprint: buildMeasurementFingerprint(latestMeasurement),
       level: profile.level || activeProgram?.rawData?.level || "",
       maintenanceCalories,
       baseCalories,
@@ -726,7 +737,7 @@
 
   function buildNutritionPlan(member, activeProgram, preferences = {}, deps = {}) {
     const profile = member?.profile || {};
-    const latestMeasurement = member?.measurements?.[0] || {};
+    const latestMeasurement = getLatestNutritionMeasurement(member);
     const fallbackGoalId = window.BSMNutritionGoals?.mapLegacyGoalToNutritionGoalId?.(profile.goal || activeProgram?.rawData?.goal);
     const selectedGoalId = preferences.nutritionGoalId || fallbackGoalId;
     const targets = calculateNutritionTargets({ profile, latestMeasurement, activeProgram }, selectedGoalId, preferences);
@@ -771,8 +782,20 @@
         height: targets.height || "",
         age: targets.age || "",
         gender: targets.gender || "belirsiz",
-        targetCalories: targets.targetCalories,
+        targetCalories: mealTotals.calories,
         targetMacros: targets.macros,
+        hasMeasurement: targets.hasMeasurement,
+        hasMeasurementBmr: targets.hasMeasurementBmr,
+        measurementStatus: targets.measurementStatus,
+        measurementConnectionText: buildMeasurementConnectionText(targets.measurement, mealTotals.calories),
+        measurementFingerprint: targets.measurementFingerprint,
+        fat: targets.measurement.fat || "",
+        fatMass: targets.measurement.fatMass || "",
+        muscleMass: targets.measurement.muscleMass || "",
+        leanBodyMass: targets.measurement.leanBodyMass || "",
+        visceralFat: targets.measurement.visceralFat || "",
+        metabolicAge: targets.measurement.metabolicAge || "",
+        measurementDate: targets.measurement.date || targets.measurement.measuredAt || "",
       },
       calories: mealTotals.calories,
       macros: mealTotals.macros,
@@ -795,9 +818,12 @@
     };
   }
 
-  function calculateMacros({ calories, weight, proteinPerKg, fatPerKg, strategy }) {
+  function calculateMacros({ calories, weight, leanBodyMass, bodyFatPercentage, proteinPerKg, fatPerKg, strategy }) {
     const safeWeight = weight || 75;
-    const protein = Math.round(safeWeight * (proteinPerKg || 1.9));
+    const highBodyFat = Number(bodyFatPercentage) >= 28;
+    const proteinBaseWeight = highBodyFat && leanBodyMass ? Math.max(leanBodyMass * 1.08, safeWeight * 0.72) : safeWeight;
+    const adjustedProteinPerKg = strategy === "deficit" && highBodyFat ? Math.max(2.05, proteinPerKg || 2.05) : proteinPerKg || 1.9;
+    const protein = Math.round(proteinBaseWeight * adjustedProteinPerKg);
     const fat = Math.round(safeWeight * (fatPerKg || 0.85));
     const minimumCarbs = strategy === "deficit" ? 70 : strategy === "performance" ? 130 : 90;
     const carbs = Math.max(minimumCarbs, Math.round((calories - protein * 4 - fat * 9) / 4));
@@ -807,9 +833,10 @@
 
   function buildNutritionIntelligence({ latestMeasurement, targets, preferences }) {
     const notes = [];
-    const fat = Number(latestMeasurement?.fat);
-    const muscleMass = Number(latestMeasurement?.muscleMass);
-    const visceralFat = Number(latestMeasurement?.visceralFat);
+    const measurement = targets.measurement || normalizeNutritionMeasurement(latestMeasurement);
+    const fat = Number(measurement?.fat);
+    const muscleMass = Number(measurement?.muscleMass);
+    const visceralFat = Number(measurement?.visceralFat);
     const goalLabel = targets.selectedGoal?.label || "seçilen hedef";
     const levelText = String(targets.level || "").toLowerCase();
 
@@ -817,7 +844,7 @@
       notes.push("Uyarı: Yarışma definasyonu ileri seviye takip gerektirir; başlangıç seviyesinde daha sürdürülebilir yağ kaybı hedefiyle ilerlemek daha güvenlidir.");
     }
 
-    notes.push(`${goalLabel} için kalori hedefi ${targets.bmrSource} ve haftalık ${targets.trainingDays} antrenman gününe göre hesaplandı.`);
+    notes.push(targets.hasMeasurement ? `${goalLabel} için kalori hedefi son ölçüm/Tanita verisi, ${targets.bmrSource} ve haftalık ${targets.trainingDays} antrenman gününe göre hesaplandı.` : targets.measurementStatus);
 
     if (Number.isFinite(fat) && fat >= 30) {
       notes.push("Yağ oranı yüksek göründüğü için kalori açığı kontrollü tutuldu; performansı korumak için protein yüksek planlandı.");
@@ -835,7 +862,7 @@
       notes.push("Antrenman günü seçildiği için karbonhidratlar performans ve toparlanmayı destekleyecek şekilde düzenlendi.");
     }
 
-    if (!latestMeasurement?.bmr) {
+    if (!targets.hasMeasurementBmr) {
       notes.push("Tanita BMR bulunmadığı için hesaplama tahmini yapılmıştır; ölçüm güncellendikçe plan netleşir.");
     }
 
@@ -957,6 +984,83 @@
     return "Öncelik düzenli öğün, yeterli su, kaliteli protein ve uyku rutini olmalıdır.";
   }
 
+  function getLatestNutritionMeasurement(member) {
+    const measurements = Array.isArray(member?.measurements) ? member.measurements : [];
+    const latest = measurements
+      .filter((item) => item && typeof item === "object")
+      .sort((a, b) => getMeasurementTimeValue(b) - getMeasurementTimeValue(a))[0];
+    return normalizeNutritionMeasurement(latest || member?.latestMeasurement || {});
+  }
+
+  function normalizeNutritionMeasurement(raw = {}) {
+    const source = raw && typeof raw === "object" ? raw : {};
+    const weight = firstNumberByKeys(source, ["weight", "kilo", "bodyWeight", "body_weight"]);
+    const fat = firstNumberByKeys(source, ["fat", "bodyFat", "bodyFatPercentage", "fatPercent", "body_fat_percentage", "yağOranı", "yagOrani"]);
+    const fatMass = firstNumberByKeys(source, ["fatMass", "fat_mass", "yağKütlesi", "yagKutlesi"]);
+    const fatFreeMass = firstNumberByKeys(source, ["fatFreeMass", "fat_free_mass", "leanMass", "leanBodyMass", "fatFree"]);
+    const muscleMass = firstNumberByKeys(source, ["muscleMass", "muscle_mass", "kasKütlesi", "kasKutlesi"]);
+    const calculatedLeanMass = fatFreeMass || (weight && fat ? Math.max(0, weight * (1 - fat / 100)) : 0);
+    const bmr = firstNumberByKeys(source, ["bmr", "BMR", "basalMetabolicRate", "basal_metabolic_rate", "metabolism", "metabolizmaHizi"]);
+
+    return {
+      ...source,
+      weight,
+      height: firstNumberByKeys(source, ["height", "boy"]),
+      age: firstNumberByKeys(source, ["age", "yaş", "yas"]),
+      gender: source.gender || source.cinsiyet || "",
+      fat,
+      fatMass,
+      fatFreeMass: calculatedLeanMass,
+      leanBodyMass: calculatedLeanMass,
+      muscleMass,
+      bodyWater: firstNumberByKeys(source, ["bodyWater", "body_water", "water", "vücutSuyu", "vucutSuyu"]),
+      bmi: firstNumberByKeys(source, ["bmi", "BMI"]),
+      bmr,
+      metabolicAge: firstNumberByKeys(source, ["metabolicAge", "metabolic_age", "metabolizmaYaşı", "metabolizmaYasi"]),
+      visceralFat: firstNumberByKeys(source, ["visceralFat", "visceral_fat", "visceralRating", "içYağ", "icYag"]),
+      boneMass: firstNumberByKeys(source, ["boneMass", "bone_mass", "kemikKütlesi", "kemikKutlesi"]),
+      date: source.date || source.measuredAt || source.measured_at || source.createdAtIso || source.created_at || "",
+      source: source.source || "",
+      hasMeasurement: Boolean(weight || fat || fatMass || muscleMass || bmr || source.date || source.measuredAt || source.createdAtIso),
+      segments: source.segments || source.segmental || {},
+      resistance: source.resistance || source.impedance || {},
+    };
+  }
+
+  function firstNumberByKeys(source, keys) {
+    for (const key of keys) {
+      const value = source?.[key];
+      const parsed = Number(String(value ?? "").replace(",", "."));
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+    return 0;
+  }
+
+  function buildMeasurementConnectionText(measurement, targetCalories) {
+    if (!measurement?.hasMeasurement) {
+      return "Tanita/ölçüm verisi bulunmadığı için plan hedef ve seviye bilgisine göre oluşturuldu.";
+    }
+
+    const values = [
+      measurement.weight ? `${Math.round(measurement.weight * 10) / 10} kg` : "",
+      measurement.fat ? `%${Math.round(measurement.fat * 10) / 10} yağ` : "",
+      measurement.bmr ? `BMR ${Math.round(measurement.bmr)} kcal` : "",
+    ].filter(Boolean);
+
+    return `Son ölçüm: ${values.join(" | ") || "ölçüm verisi alındı"}. Bu değerlere göre günlük hedef: ${Math.round(targetCalories)} kcal.`;
+  }
+
+  function buildMeasurementFingerprint(measurement) {
+    if (!measurement?.hasMeasurement) return "";
+    return [measurement.date, measurement.weight, measurement.fat, measurement.muscleMass, measurement.bmr].filter(Boolean).join("|");
+  }
+
+  function getMeasurementTimeValue(measurement) {
+    const dateValue = measurement?.date || measurement?.measuredAt || measurement?.measured_at || measurement?.createdAtIso || measurement?.created_at || "";
+    const time = Date.parse(dateValue);
+    return Number.isFinite(time) ? time : 0;
+  }
+
   function normalizePreferences(preferences = {}) {
     return {
       nutritionGoalId: preferences.nutritionGoalId || "",
@@ -1044,6 +1148,8 @@
     buildNutritionSchedule,
     applyScheduleToMeals,
     buildNutritionTimeline,
+    getLatestNutritionMeasurement,
+    normalizeNutritionMeasurement,
     buildNutritionPlan,
     normalizePreferences,
   };

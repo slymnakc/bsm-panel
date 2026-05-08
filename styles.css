@@ -8918,3 +8918,318 @@ textarea:focus {
     border-radius: 7px;
   }
 }
+
+/* Nutrition planner screen-only layout hardening. PDF/print rules above stay isolated. */
+@media screen {
+  .nutrition-panel {
+    width: min(1680px, calc(100% - 28px));
+    max-width: none;
+    margin-inline: auto;
+    padding: 0 0 36px;
+    overflow: visible;
+  }
+
+  .nutrition-panel > .results__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 22px;
+    padding: 22px 24px;
+    border: 1px solid rgba(18, 79, 84, 0.1);
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at top left, rgba(13, 190, 176, 0.13), transparent 34%),
+      linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(246, 251, 250, 0.96));
+    box-shadow: 0 18px 48px rgba(8, 32, 41, 0.08);
+  }
+
+  .nutrition-panel > .results__header > div:first-child {
+    max-width: 760px;
+  }
+
+  .nutrition-panel > .results__header h2 {
+    margin: 4px 0 8px;
+    color: #072c35;
+    letter-spacing: -0.035em;
+  }
+
+  .nutrition-panel .panel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    min-width: min(100%, 380px);
+  }
+
+  .nutrition-panel .panel-actions button {
+    min-height: 44px;
+    white-space: nowrap;
+  }
+
+  .nutrition-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 400px) minmax(700px, 1fr);
+    align-items: start;
+    gap: 24px;
+    width: 100%;
+    overflow: visible;
+  }
+
+  .nutrition-side-card {
+    position: sticky;
+    top: 16px;
+    width: 100%;
+    max-width: 420px;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 26px;
+  }
+
+  .nutrition-editor {
+    min-width: 0;
+    width: 100%;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .nutrition-plan-card,
+  .nutrition-report-card,
+  .nutrition-report-section,
+  .nutrition-meal-card,
+  .nutrition-note-field,
+  .nutrition-intelligence {
+    height: auto;
+    min-width: 0;
+    overflow: visible !important;
+  }
+
+  .nutrition-plan-card {
+    border-radius: 30px;
+  }
+
+  .nutrition-report-hero {
+    align-items: center;
+    gap: 18px;
+  }
+
+  .nutrition-report-summary {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    overflow: visible;
+  }
+
+  .nutrition-measurement-impact {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+    gap: 16px;
+    align-items: center;
+    margin-top: 14px;
+    padding: 16px;
+    border: 1px solid rgba(14, 116, 111, 0.16);
+    border-radius: 22px;
+    background:
+      linear-gradient(135deg, rgba(242, 250, 249, 0.98), rgba(255, 255, 255, 0.98)),
+      radial-gradient(circle at top right, rgba(218, 177, 84, 0.14), transparent 42%);
+    box-shadow: 0 14px 34px rgba(11, 44, 52, 0.07);
+  }
+
+  .nutrition-measurement-impact.is-empty {
+    border-color: rgba(143, 154, 166, 0.22);
+    background: linear-gradient(135deg, #f8fafc, #ffffff);
+  }
+
+  .nutrition-measurement-impact strong {
+    display: block;
+    margin: 8px 0 5px;
+    color: #082c35;
+    font-size: 1rem;
+  }
+
+  .nutrition-measurement-impact small {
+    color: #53616c;
+    line-height: 1.5;
+  }
+
+  .nutrition-measurement-impact__badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 6px 10px;
+    border-radius: 999px;
+    color: #0b5b56;
+    background: rgba(15, 190, 176, 0.12);
+    font-size: 0.74rem;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+  }
+
+  .nutrition-measurement-impact.is-empty .nutrition-measurement-impact__badge {
+    color: #607080;
+    background: rgba(120, 133, 148, 0.13);
+  }
+
+  .nutrition-measurement-impact__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .nutrition-measurement-impact__grid span {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid rgba(12, 59, 69, 0.08);
+    border-radius: 16px;
+    color: #5d6b76;
+    background: rgba(255, 255, 255, 0.86);
+    font-size: 0.76rem;
+    font-weight: 800;
+  }
+
+  .nutrition-measurement-impact__grid b {
+    display: block;
+    margin-bottom: 4px;
+    color: #0b3944;
+    font-size: 1.12rem;
+    line-height: 1;
+  }
+
+  .nutrition-report-macros {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .nutrition-report-meals,
+  .nutrition-meal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+    gap: 18px;
+    align-items: start;
+    overflow: visible;
+  }
+
+  .nutrition-meal-card {
+    gap: 14px;
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .nutrition-meal-card__header,
+  .nutrition-meal-card__macros {
+    min-width: 0;
+  }
+
+  .nutrition-meal-card textarea,
+  .nutrition-note-field textarea {
+    min-height: 88px;
+    height: auto;
+    overflow: visible;
+    resize: vertical;
+  }
+
+  .nutrition-meal-supports {
+    gap: 8px;
+  }
+
+  .nutrition-meal-support {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .nutrition-planner-controls,
+  .supplement-preferences {
+    gap: 14px;
+  }
+
+  .nutrition-control-grid,
+  .nutrition-schedule-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .supplement-category-list {
+    grid-template-columns: 1fr;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .nutrition-target-preview {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    overflow: visible;
+  }
+
+  .nutrition-preview-flow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .nutrition-member-card__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nutrition-measurement-sync-warning {
+    grid-column: 1 / -1;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(218, 177, 84, 0.32);
+    border-radius: 16px;
+    color: #7a4f00;
+    background: rgba(255, 244, 214, 0.75);
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+}
+
+@media screen and (max-width: 1180px) {
+  .nutrition-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .nutrition-side-card {
+    position: static;
+    max-width: none;
+  }
+
+  .nutrition-editor {
+    min-width: 0;
+  }
+
+  .nutrition-measurement-impact {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media screen and (max-width: 760px) {
+  .nutrition-panel {
+    width: calc(100% - 16px);
+    padding-bottom: 24px;
+  }
+
+  .nutrition-panel > .results__header {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .nutrition-panel .panel-actions {
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+  }
+
+  .nutrition-panel .panel-actions button {
+    width: 100%;
+  }
+
+  .nutrition-control-grid,
+  .nutrition-schedule-controls,
+  .nutrition-measurement-impact__grid,
+  .nutrition-member-card__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .nutrition-report-hero {
+    grid-template-columns: 1fr;
+  }
+}
