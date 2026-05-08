@@ -31,77 +31,89 @@
         "afterend",
         `
           <div class="nutrition-planner-controls">
-            <p class="section-kicker">Plan Ayarları</p>
-            <label class="field compact-field">
-              <span>Beslenme hedefi</span>
-              <select id="nutritionGoalSelect"></select>
-            </label>
-            <label class="field compact-field">
-              <span>Öğün sayısı</span>
-              <select id="nutritionMealCount">
-                <option value="3">3 öğün</option>
-                <option value="4">4 öğün</option>
-                <option value="5" selected>5 öğün</option>
-                <option value="6">6 öğün</option>
-              </select>
-            </label>
-            <label class="field compact-field">
-              <span>Gün tipi</span>
-              <select id="nutritionDayType">
-                <option value="balanced" selected>Dengeli gün</option>
-                <option value="training">Antrenman günü</option>
-                <option value="rest">Dinlenme günü</option>
-              </select>
-            </label>
-            <div class="nutrition-schedule-controls" aria-label="Saat bazlÄ± beslenme akÄ±ÅŸÄ±">
+            <div class="nutrition-control-card nutrition-control-card--primary">
+              <p class="section-kicker">Plan Ayarları</p>
               <label class="field compact-field">
-                <span>Uyanma saati</span>
-                <input type="time" id="nutritionWakeTime" value="07:30" />
+                <span>Beslenme hedefi</span>
+                <select id="nutritionGoalSelect"></select>
               </label>
-              <label class="field compact-field">
-                <span>Ä°lk Ã¶ÄŸÃ¼n saati</span>
-                <input type="time" id="nutritionFirstMealTime" value="08:30" />
-              </label>
-              <label class="field compact-field">
-                <span>Antrenman saati</span>
-                <input type="time" id="nutritionWorkoutTime" value="18:30" />
-              </label>
-              <label class="field compact-field">
-                <span>Uyku saati</span>
-                <input type="time" id="nutritionSleepTime" value="23:30" />
-              </label>
-              <label class="field compact-field">
-                <span>Kardiyo saati (opsiyonel)</span>
-                <input type="time" id="nutritionCardioTime" />
-              </label>
-              <label class="nutrition-checkbox-control nutrition-checkbox-control--inline">
-                <input type="checkbox" id="nutritionFastingEnabled" />
-                <span>Intermittent fasting</span>
-              </label>
-              <label class="field compact-field">
-                <span>IF penceresi</span>
-                <select id="nutritionFastingWindow">
-                  <option value="14:10">14:10</option>
-                  <option value="16:8" selected>16:8</option>
-                  <option value="18:6">18:6</option>
-                </select>
-              </label>
+              <div class="nutrition-control-grid">
+                <label class="field compact-field">
+                  <span>Öğün sayısı</span>
+                  <select id="nutritionMealCount">
+                    <option value="3">3 öğün</option>
+                    <option value="4">4 öğün</option>
+                    <option value="5" selected>5 öğün</option>
+                    <option value="6">6 öğün</option>
+                  </select>
+                </label>
+                <label class="field compact-field">
+                  <span>Gün tipi</span>
+                  <select id="nutritionDayType">
+                    <option value="balanced" selected>Dengeli gün</option>
+                    <option value="training">Antrenman günü</option>
+                    <option value="rest">Dinlenme günü</option>
+                  </select>
+                </label>
+              </div>
             </div>
-            <label class="field compact-field">
+
+            <div class="nutrition-control-card">
+              <p class="section-kicker">Saat Bazlı Akış</p>
+              <div class="nutrition-schedule-controls" aria-label="Saat bazlı beslenme akışı">
+                <label class="field compact-field">
+                  <span>Uyanma</span>
+                  <input type="time" id="nutritionWakeTime" value="07:30" />
+                </label>
+                <label class="field compact-field">
+                  <span>İlk öğün</span>
+                  <input type="time" id="nutritionFirstMealTime" value="08:30" />
+                </label>
+                <label class="field compact-field">
+                  <span>Antrenman</span>
+                  <input type="time" id="nutritionWorkoutTime" value="18:30" />
+                </label>
+                <label class="field compact-field">
+                  <span>Kardiyo</span>
+                  <input type="time" id="nutritionCardioTime" />
+                </label>
+                <label class="field compact-field">
+                  <span>Uyku</span>
+                  <input type="time" id="nutritionSleepTime" value="23:30" />
+                </label>
+                <label class="nutrition-checkbox-control nutrition-checkbox-control--inline nutrition-if-toggle">
+                  <input type="checkbox" id="nutritionFastingEnabled" />
+                  <span>Intermittent fasting</span>
+                </label>
+                <label class="field compact-field">
+                  <span>IF penceresi</span>
+                  <select id="nutritionFastingWindow">
+                    <option value="14:10">14:10</option>
+                    <option value="16:8" selected>16:8</option>
+                    <option value="18:6">18:6</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <label class="field compact-field nutrition-email-field">
               <span>Mail adresi</span>
               <input type="email" id="nutritionEmailInput" placeholder="uye@ornek.com" autocomplete="email" />
             </label>
-            <div id="nutritionTargetPreview" class="nutrition-target-preview">Hedef seçildiğinde kalori ve makro ön izlemesi burada görünür.</div>
+
+            <div id="nutritionTargetPreview" class="nutrition-target-preview">
+              Hedef seçildiğinde kalori, makro ve zamanlama ön izlemesi burada görünür.
+            </div>
           </div>
         `,
       );
     }
 
     const supplementUse = root.querySelector("#supplementUse");
-    if (supplementUse && supplementUse.tagName === "SELECT") {
+    if (supplementUse && supplementUse.tagName === "SELECT" && !root.querySelector("#supplementUseCheckbox")) {
       supplementUse.closest("label")?.insertAdjacentHTML(
         "beforebegin",
-        `<label class="nutrition-checkbox-control"><input type="checkbox" id="supplementUseCheckbox" value="yes" /> <span>Supplement önerisi eklensin</span></label>`,
+        `<label class="supplement-master-toggle"><input type="checkbox" id="supplementUseCheckbox" value="yes" /> <span><b>Supplement önerisi eklensin</b><small>Destekler öğün kartlarının içinde saatli olarak gösterilir.</small></span></label>`,
       );
       supplementUse.closest("label").classList.add("is-hidden");
     }
@@ -150,9 +162,13 @@
     target.innerHTML = categories
       .map(
         (category) => `
-          <label>
+          <label class="supplement-toggle-card">
             <input type="checkbox" name="supplementCategories" value="${escapeHtml(category)}" />
-            <span>${escapeHtml(category)}</span>
+            <span class="supplement-toggle-card__icon">${escapeHtml(getSupplementCategoryIcon(category))}</span>
+            <span class="supplement-toggle-card__text">
+              <strong>${escapeHtml(category)}</strong>
+              <small>${escapeHtml(getSupplementCategoryHint(category))}</small>
+            </span>
           </label>
         `,
       )
@@ -168,34 +184,40 @@
     const plan = model?.plan || null;
     const profile = member?.profile || {};
     const fallbackGoalId = window.BSMNutritionGoals?.mapLegacyGoalToNutritionGoalId?.(profile.goal) || "general-health-form";
-    const goalSelect = root.querySelector("#nutritionGoalSelect");
-    const emailInput = root.querySelector("#nutritionEmailInput");
+    const preferences = plan?.supplementPreferences || {};
+    const forcePlanSync = Boolean(plan?.id) && root.dataset.nutritionPlanSyncId !== String(plan.id || "");
 
-    if (goalSelect && !goalSelect.value) {
-      goalSelect.value = plan?.nutritionGoalId || fallbackGoalId;
-    }
+    setControlValue(root.querySelector("#nutritionGoalSelect"), plan?.nutritionGoalId || preferences.nutritionGoalId || fallbackGoalId, forcePlanSync);
+    setControlValue(root.querySelector("#nutritionMealCount"), String(plan?.mealCount || preferences.mealCount || 5), forcePlanSync);
+    setControlValue(root.querySelector("#nutritionDayType"), plan?.dayType || preferences.dayType || "balanced", forcePlanSync);
 
-    if (emailInput && !emailInput.value) {
-      emailInput.value = plan?.memberEmail || profile.memberEmail || profile.email || "";
-    }
-
-    const schedule = plan?.schedule || plan?.supplementPreferences || {};
-    const forceScheduleSync = Boolean(plan?.schedule) && root.dataset.nutritionSchedulePlanId !== String(plan.id || "");
-    setControlValue(root.querySelector("#nutritionWakeTime"), schedule.wakeTime || "07:30", forceScheduleSync);
-    setControlValue(root.querySelector("#nutritionFirstMealTime"), schedule.firstMealTime || "08:30", forceScheduleSync);
-    setControlValue(root.querySelector("#nutritionWorkoutTime"), schedule.workoutTime || "18:30", forceScheduleSync);
-    setControlValue(root.querySelector("#nutritionSleepTime"), schedule.sleepTime || "23:30", forceScheduleSync);
-    setControlValue(root.querySelector("#nutritionCardioTime"), schedule.cardioTime || "", forceScheduleSync);
-    setControlValue(root.querySelector("#nutritionFastingWindow"), schedule.fastingWindow || "16:8", forceScheduleSync);
+    const schedule = plan?.schedule || preferences || {};
+    setControlValue(root.querySelector("#nutritionWakeTime"), schedule.wakeTime || "07:30", forcePlanSync);
+    setControlValue(root.querySelector("#nutritionFirstMealTime"), schedule.firstMealTime || "08:30", forcePlanSync);
+    setControlValue(root.querySelector("#nutritionWorkoutTime"), schedule.workoutTime || "18:30", forcePlanSync);
+    setControlValue(root.querySelector("#nutritionSleepTime"), schedule.sleepTime || "23:30", forcePlanSync);
+    setControlValue(root.querySelector("#nutritionCardioTime"), schedule.cardioTime || "", forcePlanSync);
+    setControlValue(root.querySelector("#nutritionFastingWindow"), schedule.fastingWindow || "16:8", forcePlanSync);
 
     const fastingInput = root.querySelector("#nutritionFastingEnabled");
-    if (fastingInput && (forceScheduleSync || !fastingInput.dataset.synced)) {
+    if (fastingInput && (forcePlanSync || !fastingInput.dataset.synced)) {
       fastingInput.checked = schedule.fastingEnabled === "yes";
       fastingInput.dataset.synced = "true";
     }
 
-    if (forceScheduleSync) {
-      root.dataset.nutritionSchedulePlanId = String(plan.id || "");
+    const supplementCheckbox = root.querySelector("#supplementUseCheckbox");
+    if (supplementCheckbox && (forcePlanSync || !supplementCheckbox.dataset.synced)) {
+      supplementCheckbox.checked = preferences.useSupplements === "yes" || Boolean(plan?.supplements?.length);
+      supplementCheckbox.dataset.synced = "true";
+    }
+
+    const emailInput = root.querySelector("#nutritionEmailInput");
+    if (emailInput && !emailInput.value) {
+      emailInput.value = plan?.memberEmail || profile.memberEmail || profile.email || "";
+    }
+
+    if (forcePlanSync) {
+      root.dataset.nutritionPlanSyncId = String(plan.id || "");
     }
 
     renderNutritionTargetPreview(root, model, escapeHtml);
@@ -216,10 +238,21 @@
       preferences.nutritionGoalId,
       preferences,
     );
+
     preview.innerHTML = `
-      <strong>${escapeHtml(targets.selectedGoal.label)}</strong>
-      <span>${escapeHtml(targets.targetCalories)} kcal • P ${escapeHtml(targets.macros.protein)} g • K ${escapeHtml(targets.macros.carbs)} g • Y ${escapeHtml(targets.macros.fat)} g</span>
-      <small>Antrenman günü: ${escapeHtml(targets.trainingDayCalories)} kcal • Dinlenme günü: ${escapeHtml(targets.restDayCalories)} kcal</small>
+      <div>
+        <strong>${escapeHtml(targets.selectedGoal.label)}</strong>
+        <span>${escapeHtml(targets.targetCalories)} kcal • P ${escapeHtml(targets.macros.protein)} g • K ${escapeHtml(targets.macros.carbs)} g • Y ${escapeHtml(targets.macros.fat)} g</span>
+        <small>Antrenman günü: ${escapeHtml(targets.trainingDayCalories)} kcal • Dinlenme günü: ${escapeHtml(targets.restDayCalories)} kcal</small>
+      </div>
+      <div class="nutrition-preview-flow">
+        ${renderTimelinePreviewChip(preferences.wakeTime, "Uyanış", escapeHtml)}
+        ${renderTimelinePreviewChip(preferences.firstMealTime, "İlk öğün", escapeHtml)}
+        ${renderTimelinePreviewChip(preferences.workoutTime, "Antrenman", escapeHtml)}
+        ${preferences.cardioTime ? renderTimelinePreviewChip(preferences.cardioTime, "Kardiyo", escapeHtml) : ""}
+        ${renderTimelinePreviewChip(preferences.sleepTime, "Uyku", escapeHtml)}
+        ${preferences.fastingEnabled === "yes" ? `<span class="nutrition-preview-chip">IF ${escapeHtml(preferences.fastingWindow || "16:8")}</span>` : ""}
+      </div>
     `;
   }
 
@@ -231,8 +264,9 @@
 
     if (!member) {
       target.innerHTML = `
-        <div class="empty-state compact-empty">
-          Beslenme planı için önce bir üye seçin. Ölçüm varsa kalori ve makro hesapları daha isabetli yapılır.
+        <div class="nutrition-member-empty">
+          <strong>Önce üye seçin</strong>
+          <span>Beslenme planı aktif üyenin ölçüm, hedef ve antrenman sıklığına göre hazırlanır.</span>
         </div>
       `;
       return;
@@ -262,8 +296,10 @@
 
     if (!plan) {
       target.innerHTML = `
-        <div class="empty-state compact-empty">
-          Henüz beslenme planı oluşturulmadı. Üye verilerini kontrol edip "Beslenme Planı Oluştur" düğmesine basın.
+        <div class="nutrition-plan-placeholder">
+          <p class="section-kicker">Canlı Önizleme</p>
+          <h3>Henüz beslenme planı oluşturulmadı.</h3>
+          <span>Sol taraftan hedef, saat akışı ve supplement tercihlerini seçip "Beslenme Planı Oluştur" düğmesine basın.</span>
         </div>
       `;
       return;
@@ -276,14 +312,15 @@
         <header class="nutrition-report-hero">
           <div>
             <p class="section-kicker">Bahçeşehir Spor Merkezi</p>
-            <h3>Sporcu Beslenme Planı Raporu</h3>
-            <span>${escapeHtml(plan.memberName || "Üye")} için hedef, ölçüm ve antrenman sıklığına göre hazırlanmış uygulanabilir plan.</span>
+            <h3>Sporcu Beslenme Planı</h3>
+            <span>${escapeHtml(plan.memberName || "Üye")} için hedef, ölçüm, antrenman sıklığı ve günlük saat akışına göre hazırlanmış uygulanabilir plan.</span>
           </div>
           <div class="nutrition-report-stamp">
             <strong>BSM</strong>
             <span>${escapeHtml(plan.createdAt || "")}</span>
           </div>
         </header>
+
         <section class="nutrition-report-summary">
           <div><span>Üye</span><strong>${escapeHtml(plan.memberName || "Üye")}</strong></div>
           <div><span>Hedef</span><strong>${escapeHtml(plan.nutritionGoalLabel || formatNutritionGoal(plan.goal))}</strong></div>
@@ -295,7 +332,8 @@
           <div><span>Gün tipi</span><strong>${escapeHtml(formatDayType(plan.dayType))}</strong></div>
           <div><span>Öğün</span><strong>${escapeHtml(plan.mealCount || plan.meals?.length || "-")} öğün</strong></div>
         </section>
-        <section class="nutrition-report-section">
+
+        <section class="nutrition-report-section nutrition-report-section--macros">
           <div class="nutrition-report-section__title">
             <span>01</span>
             <div>
@@ -310,11 +348,23 @@
             ${renderEditableMetric("Yağ", "fat", plan.macros?.fat, "g", escapeHtml)}
           </div>
         </section>
-        <section class="nutrition-report-section">
+
+        <section class="nutrition-report-section nutrition-report-section--timeline">
           <div class="nutrition-report-section__title">
             <span>02</span>
             <div>
-              <strong>Diyetisyen Notu / Plan Mantığı</strong>
+              <strong>Saat Bazlı Günlük Akış</strong>
+              <small>Öğün, antrenman, kardiyo, uyku ve destek zamanlaması tek çizgide.</small>
+            </div>
+          </div>
+          ${renderNutritionTimeline(displayPlan.timeline || [], escapeHtml)}
+        </section>
+
+        <section class="nutrition-report-section">
+          <div class="nutrition-report-section__title">
+            <span>03</span>
+            <div>
+              <strong>Plan Mantığı</strong>
               <small>Ölçüm ve hedef verisine göre kısa profesyonel yorum.</small>
             </div>
           </div>
@@ -323,32 +373,23 @@
             <p><strong>Plan mantığı:</strong> ${escapeHtml(buildPlanLogicText(plan))}</p>
           </div>
         </section>
+
         <section class="nutrition-report-section">
           <div class="nutrition-report-section__title">
-            <span>03</span>
+            <span>04</span>
             <div>
               <strong>Günlük Öğün Planı</strong>
               <small>Pratik porsiyonlar, yaklaşık enerji ve makro dağılımı.</small>
             </div>
           </div>
-          ${renderNutritionTimeline(displayPlan.timeline || [], escapeHtml)}
           <div class="nutrition-meal-grid nutrition-report-meals">
             ${(displayPlan.meals || []).map((meal, index) => renderMealEditor(meal, index, escapeHtml)).join("")}
           </div>
         </section>
-        <section class="nutrition-report-section nutrition-report-section--optional is-hidden" aria-hidden="true">
-          <div class="nutrition-report-section__title">
-            <span>04</span>
-            <div>
-              <strong></strong>
-              <small>${escapeHtml(plan.supplementNotice || "Supplement kullanımı kapalı. Plan gıda öncelikli hazırlanmıştır.")}</small>
-            </div>
-          </div>
-          ${renderSupplementOutput(plan.supplements || [], escapeHtml, true, plan)}
-        </section>
+
         <section class="nutrition-report-section nutrition-report-section--note">
           <div class="nutrition-report-section__title">
-            <span>04</span>
+            <span>05</span>
             <div>
               <strong>Antrenör / Beslenme Notu</strong>
               <small>Üyeye verilecek kısa takip notu.</small>
@@ -359,6 +400,7 @@
             <textarea id="nutritionTrainerNoteInput" rows="3" maxlength="420">${escapeHtml(plan.trainerNote || "")}</textarea>
           </label>
         </section>
+
         <footer class="nutrition-report-footer">
           <p class="nutrition-disclaimer">${escapeHtml(plan.disclaimer || "")}</p>
           <small>Bahçeşehir Spor Merkezi | Sporcu Beslenmesi Raporu</small>
@@ -489,12 +531,12 @@
   }
 
   function renderNutritionTimeline(items, escapeHtml) {
-    const visibleItems = Array.isArray(items) ? items.slice(0, 10) : [];
+    const visibleItems = Array.isArray(items) ? items.slice(0, 12) : [];
 
     if (!visibleItems.length) {
       return `
         <div class="nutrition-timeline nutrition-timeline--empty">
-          Saat bazlÄ± akÄ±ÅŸ plan oluÅŸturulduÄŸunda otomatik gÃ¶rÃ¼nÃ¼r.
+          Saat bazlı akış plan oluşturulduğunda otomatik görünür.
         </div>
       `;
     }
@@ -506,7 +548,7 @@
             (item) => `
               <article class="nutrition-timeline-item nutrition-timeline-item--${escapeHtml(item.kind || "meal")}">
                 <strong>${escapeHtml(item.time || "--:--")}</strong>
-                <span>${escapeHtml(item.title || "Plan adÄ±mÄ±")}</span>
+                <span>${escapeHtml(item.title || "Plan adımı")}</span>
                 <small>${escapeHtml(item.meta || "")}</small>
               </article>
             `,
@@ -524,7 +566,7 @@
             <span>Saat</span>
             <input type="time" value="${escapeHtml(meal.time || "")}" data-meal-index="${index}" data-meal-field="time" />
           </label>
-          <span class="nutrition-meal-role">${escapeHtml(meal.timingLabel || meal.name || `Ã–ÄŸÃ¼n ${index + 1}`)}</span>
+          <span class="nutrition-meal-role">${escapeHtml(meal.timingLabel || meal.name || `Öğün ${index + 1}`)}</span>
         </div>
         <label class="edit-field">
           <span>Öğün adı</span>
@@ -560,7 +602,7 @@
             (item) => `
               <span class="nutrition-meal-support">
                 <b>${escapeHtml(item.name || "Supplement")}</b>
-                <small>${escapeHtml(item.usageTime || item.timing || "Öğünle birlikte")} — ${escapeHtml(item.dose || item.suggestedDoseText || "")} — ${escapeHtml(item.water || "1 bardak su")} — ${escapeHtml(item.purpose || "Plan hedefini desteklemek")}</small>
+                <small>${escapeHtml(item.time || item.usageTime || item.timing || "Öğünle birlikte")} — ${escapeHtml(item.dose || item.suggestedDoseText || "")} — ${escapeHtml(item.water || "1 bardak su")} — ${escapeHtml(item.purpose || "Plan hedefini desteklemek")}</small>
               </span>
             `,
           )
@@ -633,78 +675,25 @@
     return mealList;
   }
 
-  function renderSupplementOutput(supplements, escapeHtml, editableContext, plan = {}) {
-    if (!supplements.length) {
-      return editableContext ? `<div class="nutrition-supplements empty-state compact-empty">Supplement kullanımı kapalı. Plan gıda öncelikli hazırlandı.</div>` : "";
-    }
-
-    const mainSupplements = supplements.filter((item) => item.recommendationTier !== "optional").slice(0, 5);
-    const optionalSupplements = supplements.filter((item) => item.recommendationTier === "optional").slice(0, 3);
-    const commonWarning =
-      plan.supplementCommonWarning ||
-      "Supplementler opsiyoneldir; ilaç kullanan, hamile/emziren, kronik hastalığı olan veya özel sağlık durumu bulunan kişiler kullanım öncesi hekim/diyetisyen görüşü almalıdır.";
-    const renderGroup = (title, items) =>
-      items.length
-        ? `
-          <div class="nutrition-supplements__group">
-            <h5>${escapeHtml(title)}</h5>
-            ${items.map((item) => renderSupplementCard(item, escapeHtml)).join("")}
-          </div>
-        `
-        : "";
-
-    return `
-      <div class="nutrition-supplements">
-        <h4>Supplement Tercihi</h4>
-        ${renderGroup("Ana öneriler", mainSupplements)}
-        ${renderGroup("Opsiyonel destekler", optionalSupplements)}
-        <p class="nutrition-supplements__warning">${escapeHtml(commonWarning)}</p>
-      </div>
-    `;
-  }
-
-  function renderSupplementCard(item, escapeHtml) {
-    return `
-      <article>
-        <strong>${escapeHtml(item.supplementName || item.name)}</strong>
-        <span>${escapeHtml(item.category || "Supplement")} • ${escapeHtml(item.purpose)}</span>
-        <small>${escapeHtml(item.suggestedTiming || item.timing)} • ${escapeHtml(item.suggestedDoseText || item.note || "")} • Kanıt: ${escapeHtml(item.evidenceLevel || "limited")}<br />Gıda alternatifi: ${escapeHtml(item.foodAlternative || "Dengeli ana öğün, yeterli protein ve düzenli su tüketimi.")}</small>
-      </article>
-    `;
-  }
-
-  function readNumber(value) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  function setControlValue(control, value, force = false) {
-    if (!control || (!force && control.value)) {
-      return;
-    }
-
-    control.value = value;
-  }
-
   function buildEditableTimeline(plan) {
     const schedule = plan?.schedule || {};
     const items = [];
 
     if (schedule.wakeTime) {
-      items.push({ time: schedule.wakeTime, kind: "wake", title: "UyanÄ±ÅŸ", meta: "GÃ¼ne hazÄ±rlÄ±k" });
+      items.push({ time: schedule.wakeTime, kind: "wake", title: "Uyanış", meta: "Güne hazırlık" });
     }
 
     (plan?.meals || []).forEach((meal, index) => {
       items.push({
         time: meal.time || "",
         kind: meal.scheduleRole || "meal",
-        title: meal.timingLabel || meal.name || `Ã–ÄŸÃ¼n ${index + 1}`,
+        title: meal.timingLabel || meal.name || `Öğün ${index + 1}`,
         meta: `${meal.calories || "-"} kcal | P ${meal.protein || "-"} g | K ${meal.carbs || "-"} g | Y ${meal.fat || "-"} g`,
       });
     });
 
     if (schedule.workoutTime) {
-      items.push({ time: schedule.workoutTime, kind: "workout", title: "Antrenman", meta: "Performans bloÄŸu" });
+      items.push({ time: schedule.workoutTime, kind: "workout", title: "Antrenman", meta: "Performans bloğu" });
     }
 
     if (schedule.cardioTime) {
@@ -720,9 +709,45 @@
       .sort((a, b) => timeToSortValue(a.time) - timeToSortValue(b.time));
   }
 
-  function timeToSortValue(value) {
-    const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
-    return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
+  function renderTimelinePreviewChip(time, label, escapeHtml) {
+    return `<span class="nutrition-preview-chip"><b>${escapeHtml(time || "--:--")}</b>${escapeHtml(label)}</span>`;
+  }
+
+  function getSupplementCategoryIcon(category) {
+    const text = String(category || "").toLowerCase();
+    if (text.includes("protein")) return "P";
+    if (text.includes("amino")) return "AA";
+    if (text.includes("performans")) return "PR";
+    if (text.includes("yağ")) return "Y";
+    if (text.includes("vitamin")) return "V";
+    if (text.includes("mineral")) return "M";
+    if (text.includes("eklem")) return "E";
+    if (text.includes("sindirim")) return "S";
+    if (text.includes("uyku") || text.includes("stres")) return "Z";
+    if (text.includes("hidrasyon") || text.includes("elektrolit")) return "H";
+    return "✓";
+  }
+
+  function getSupplementCategoryHint(category) {
+    const text = String(category || "").toLowerCase();
+    if (text.includes("protein")) return "Whey, casein, vegan protein";
+    if (text.includes("performans")) return "Creatine, caffeine, beta alanine";
+    if (text.includes("hidrasyon") || text.includes("elektrolit")) return "Sıvı ve mineral desteği";
+    if (text.includes("vitamin") || text.includes("mineral")) return "Genel mikro besin desteği";
+    return "Hedefe uygun opsiyonel destek";
+  }
+
+  function setControlValue(control, value, force = false) {
+    if (!control || (!force && control.value)) {
+      return;
+    }
+
+    control.value = value;
+  }
+
+  function readNumber(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
   function sumEditedMeals(meals) {
@@ -737,6 +762,11 @@
       }),
       { calories: 0, macros: { protein: 0, carbs: 0, fat: 0 } },
     );
+  }
+
+  function timeToSortValue(value) {
+    const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+    return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
   }
 
   function cloneData(value) {

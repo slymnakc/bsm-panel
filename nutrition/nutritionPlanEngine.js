@@ -479,7 +479,7 @@
       }
 
       if (index === postIndex) {
-        timeMinutes = Math.max(timeMinutes, workoutMinutes + 35);
+        timeMinutes = Math.min(workoutMinutes + 45, schedule.sleepMinutes - 60);
         scheduleRole = "post-workout";
         timingLabel = schedule.trainingMoment === "morning" ? "Post Workout Kahvaltı" : "Post Workout";
       }
@@ -523,7 +523,7 @@
     if (!meals.length) return 0;
     if (/uyku|gece/.test(usage)) return meals.length - 1;
     if (/hemen sonra|sonra/.test(usage) && /antrenman/.test(usage)) return Math.max(0, postIndex);
-    if (/sirasinda|sırasında|sÄ±rasÄ±nda|30 dk|30 dakika|önce|Ã¶nce/.test(usage) && /antrenman/.test(usage)) {
+    if (/sirasinda|sırasında|30 dk|30 dakika|önce/.test(usage) && /antrenman/.test(usage)) {
       return preIndex >= 0 ? preIndex : Math.max(0, postIndex);
     }
     if (/ilk|kahvalt|sabah/.test(usage)) return 0;
@@ -576,7 +576,7 @@
   }
 
   function findPostWorkoutMealIndex(mealTimes, workoutMinutes, preIndex) {
-    const selected = mealTimes.findIndex((time, index) => index !== preIndex && time >= workoutMinutes + 25);
+    const selected = mealTimes.findIndex((time, index) => index !== preIndex && time >= workoutMinutes - 5);
     if (selected >= 0) return selected;
     return Math.max(0, Math.min(mealTimes.length - 1, preIndex + 1));
   }
@@ -586,7 +586,7 @@
     const workoutMinutes = normalizeFutureMinutes(schedule.workoutMinutes, schedule.wakeMinutes);
     const firstMealMinutes = parseTimeToMinutes(schedule.firstMealTime, schedule.firstMealMinutes);
 
-    if (/sirasinda|sırasında|sÄ±rasÄ±nda|intra|antrenman sırasında|antrenman s/.test(usage)) {
+    if (/sirasinda|sırasında|intra|antrenman sırasında|antrenman s/.test(usage)) {
       return formatMinutesToTime(workoutMinutes + 25);
     }
 
@@ -594,7 +594,7 @@
       return formatMinutesToTime(workoutMinutes + 15);
     }
 
-    if (/30 dk|30 dakika|önce|Ã¶nce/.test(usage) && /antrenman/.test(usage)) {
+    if (/30 dk|30 dakika|önce/.test(usage) && /antrenman/.test(usage)) {
       return formatMinutesToTime(workoutMinutes - 30);
     }
 
