@@ -357,7 +357,8 @@
             (itemGoals.includes(goal?.id) ? 8 : 0) +
             itemGoals.reduce((sum, token) => sum + (goalTokens.has(token) ? 3 : 0), 0) +
             (item.evidenceLevel === "strong" ? 2 : item.evidenceLevel === "moderate" ? 1 : 0) +
-            (item.isOptional === false ? 1 : 0),
+            (item.isOptional === false ? 1 : 0) +
+            getSupplementPriorityBonus(item, goal, selectedCategories),
         };
       })
       .filter((entry) => entry.score > 0)
@@ -371,10 +372,94 @@
       2,
     );
 
-    return [
+    const selectedSupplements = [
       ...mainEntries.map(({ item }) => mapSupplementForPlan(item, "main")),
       ...optionalEntries.map(({ item }) => mapSupplementForPlan(item, "optional")),
-    ].slice(0, limit);
+    ];
+
+    return normalizeSupplementStack(selectedSupplements).slice(0, limit);
+  }
+
+  function getSupplementPriorityBonus(item, goal, selectedCategories = []) {
+    const goalText = `${goal?.id || ""} ${goal?.strategy || ""} ${goal?.category || ""} ${goal?.label || ""} ${(goal?.tags || []).join(" ")}`.toLowerCase();
+    const name = `${item?.supplementName || item?.name || ""}`.toLowerCase();
+    let bonus = selectedCategories.includes(item?.category) ? 3 : 0;
+
+    if (isFatLossGoalText(goalText) && isFatBurnerSupplement(item)) {
+      bonus += 4;
+    }
+
+    if (isFatBurnerSupplement(item) && /l-?carnitine|green tea|cla/.test(name)) {
+      bonus += 2;
+    }
+
+    if (isStimulantSupplement(item) && /caffeine|pre workout|guarana|yohimbine/.test(name)) {
+      bonus -= 1;
+    }
+
+    return bonus;
+  }
+
+  function isFatLossGoalText(text) {
+    return /fat-loss|deficit|cut|lean|yağ|yag|bel|abdominal|visceral/.test(String(text || "").toLowerCase());
+  }
+
+  function isFatBurnerSupplement(item) {
+    const text = `${item?.supplementName || item?.name || ""} ${item?.category || ""} ${item?.purpose || ""}`.toLowerCase();
+    return /yağ yak|yag yak|fat burn|l-?carnitine|green tea|cla|capsaicin|yohimbine|forskolin|garcinia|yerba mate|guarana|chromium|apple cider/.test(text);
+  }
+
+  function isFatBurnerText(text, item) {
+    const haystack = `${text || ""} ${item?.supplementName || item?.name || ""} ${item?.category || ""}`.toLowerCase();
+    return /yağ yak|yag yak|fat burn|l-?carnitine|green tea|cla|capsaicin|yohimbine|forskolin|garcinia|yerba mate|guarana|chromium|apple cider/.test(haystack);
+  }
+
+  function isStimulantSupplement(item) {
+    const text = `${item?.supplementName || item?.name || ""} ${item?.category || ""}`.toLowerCase();
+    return /caffeine|pre workout|guarana|yerba mate|mate|yohimbine|green tea/.test(text);
+  }
+
+  function isProteinPowder(item) {
+    const text = `${item?.supplementName || item?.name || ""}`.toLowerCase();
+    return /whey|casein|beef protein|vegan protein|pea protein|rice protein|egg white protein|ready protein shake|clear whey/.test(text);
+  }
+
+  function normalizeSupplementName(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/\s*\+\s*/g, " + ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function normalizeSupplementStack(supplements) {
+    const seenNames = new Set();
+    let hasStimulant = false;
+    let hasProteinPowder = false;
+
+    return (Array.isArray(supplements) ? supplements : []).filter((item) => {
+      const nameKey = normalizeSupplementName(item?.supplementName || item?.name);
+      if (!nameKey || seenNames.has(nameKey)) {
+        return false;
+      }
+
+      if (isProteinPowder(item)) {
+        if (hasProteinPowder) {
+          return false;
+        }
+        hasProteinPowder = true;
+      }
+
+      if (isStimulantSupplement(item)) {
+        if (hasStimulant) {
+          return false;
+        }
+        hasStimulant = true;
+      }
+
+      seenNames.add(nameKey);
+      return true;
+    });
   }
 
   function pickDiverseSupplementEntries(entries, limit, existingEntries = [], maxPerCategory = 1) {
@@ -426,7 +511,7 @@
   function attachSupplementsToMeals(meals, supplements) {
     const mealList = (meals || []).map((meal) => ({ ...meal, supports: Array.isArray(meal.supports) ? [...meal.supports] : [] }));
 
-    (supplements || []).map(buildSupplementSupport).forEach((support) => {
+    normalizeSupplementStack(supplements || []).map(buildSupplementSupport).forEach((support) => {
       const mealIndex = getSupportMealIndex(support, mealList);
       if (mealList[mealIndex]) {
         mealList[mealIndex].supports.push(support);
@@ -515,7 +600,7 @@
     mealList
       .flatMap((meal) => meal.supports || [])
       .forEach((support) => {
-        const targetIndex = getScheduledSupportMealIndex(support, scheduledMeals, preIndex, postIndex);
+        const targetIndex = getScheduledSupportMealIndex(support, scheduledMeals, preIndex, postIndex, schedule);
         const targetMeal = scheduledMeals[targetIndex] || scheduledMeals[0];
         if (!targetMeal) {
           return;
@@ -529,10 +614,13 @@
     return scheduledMeals;
   }
 
-  function getScheduledSupportMealIndex(support, meals, preIndex, postIndex) {
+  function getScheduledSupportMealIndex(support, meals, preIndex, postIndex, schedule) {
     const usage = String(support?.usageTime || support?.timing || "").toLowerCase();
     if (!meals.length) return 0;
     if (/uyku|gece/.test(usage)) return meals.length - 1;
+    if (/kardiyo|cardio/.test(usage)) {
+      return findNearestMealIndexByMinutes(meals, schedule?.cardioMinutes ?? schedule?.workoutMinutes, schedule);
+    }
     if (/hemen sonra|sonra/.test(usage) && /antrenman/.test(usage)) return Math.max(0, postIndex);
     if (/sirasinda|sırasında|30 dk|30 dakika|önce/.test(usage) && /antrenman/.test(usage)) {
       return preIndex >= 0 ? preIndex : Math.max(0, postIndex);
@@ -592,10 +680,40 @@
     return Math.max(0, Math.min(mealTimes.length - 1, preIndex + 1));
   }
 
+  function findNearestMealIndexByMinutes(meals, targetMinutes, schedule = {}) {
+    if (!meals.length) {
+      return 0;
+    }
+
+    const baseMinutes = schedule.wakeMinutes ?? schedule.firstMealMinutes ?? 0;
+    const normalizedTarget = normalizeFutureMinutes(Number(targetMinutes) || 0, baseMinutes);
+    let selectedIndex = 0;
+    let selectedDistance = Number.POSITIVE_INFINITY;
+
+    meals.forEach((meal, index) => {
+      const mealMinutes = normalizeFutureMinutes(parseTimeToMinutes(meal.time, schedule.firstMealMinutes || baseMinutes), baseMinutes);
+      const distance = Math.abs(mealMinutes - normalizedTarget);
+      if (distance < selectedDistance) {
+        selectedDistance = distance;
+        selectedIndex = index;
+      }
+    });
+
+    return selectedIndex;
+  }
+
   function getSupportClockTime(support, meal, schedule) {
     const usage = String(support?.usageTime || support?.timing || "").toLowerCase();
     const workoutMinutes = normalizeFutureMinutes(schedule.workoutMinutes, schedule.wakeMinutes);
+    const cardioMinutes =
+      schedule.cardioMinutes === null || schedule.cardioMinutes === undefined
+        ? null
+        : normalizeFutureMinutes(schedule.cardioMinutes, schedule.wakeMinutes);
     const firstMealMinutes = parseTimeToMinutes(schedule.firstMealTime, schedule.firstMealMinutes);
+
+    if (/kardiyo|cardio/.test(usage)) {
+      return formatMinutesToTime((cardioMinutes ?? workoutMinutes) - 30);
+    }
 
     if (/sirasinda|sırasında|intra|antrenman sırasında|antrenman s/.test(usage)) {
       return formatMinutesToTime(workoutMinutes + 25);
@@ -688,8 +806,9 @@
     if (/bcaa|eaa|electrolyte|intra|sodium tab|hidrasyon|elektrolit/.test(text)) return "Antrenman sırasında";
     if (/casein|melatonin|magnesium|zma|ashwagandha|rhodiola|uyku|stres/.test(text)) return "Uyku öncesi";
     if (/whey|protein|beef protein|vegan protein|glutamine|creatine|kreatin/.test(text)) return "Antrenmandan hemen sonra";
+    if (isFatBurnerText(text, item)) return "Kardiyo/antrenmandan 30 dk önce";
     if (/caffeine|pre workout|citrulline|arginine|beta alanine|beetroot|bicarbonate/.test(text)) return "Antrenmandan 30 dk önce";
-    if (/carnitine|green tea|cla|fiber|psyllium|probiotic|prebiotic|digestive|enzyme|sindirim/.test(text)) return "İlk öğünden 15 dk önce";
+    if (/fiber|psyllium|probiotic|prebiotic|digestive|enzyme|sindirim/.test(text)) return "İlk öğünden 15 dk önce";
     if (/vitamin|omega|multi|d3|k2|zinc|calcium|iron|selenium|iodine|chromium|boron|mineral/.test(text)) return "Kahvaltıyla birlikte";
     return item?.suggestedTiming || item?.timing || "Öğünle birlikte";
   }
@@ -702,6 +821,7 @@
     if (/casein/.test(text)) return "1 ölçek (30 g)";
     if (/electrolyte|sodium tab/.test(text)) return "1 porsiyon";
     if (/caffeine|pre workout/.test(text)) return "100-200 mg";
+    if (isFatBurnerText(text, item)) return "etiket dozuna göre";
     if (/fiber|psyllium/.test(text)) return "5-10 g";
     if (/omega/.test(text)) return "1-2 kapsül";
     if (/vitamin|omega|multi|d3|k2|zinc|magnesium|calcium|iron|selenium|iodine|chromium|boron/.test(text)) return item?.suggestedDoseText || "1 kapsül";
@@ -728,7 +848,7 @@
     if (!meals.length) return 0;
     if (/sabah|kahvalt|ilk öğün|ilk ogun/.test(time)) return 0;
     if (/uyku|gece/.test(time)) return meals.length - 1;
-    if (/antrenman/.test(time)) {
+    if (/kardiyo|cardio|antrenman/.test(time)) {
       const snackIndex = meals.findIndex((meal) => /ara/i.test(meal.name || ""));
       return snackIndex >= 0 ? snackIndex : Math.min(1, meals.length - 1);
     }

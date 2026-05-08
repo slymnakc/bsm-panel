@@ -74,7 +74,7 @@
       showStatus("Beslenme planı üye dosyasına kaydedildi.", "success");
     }
 
-    function handlePrintNutritionPlan() {
+    async function handlePrintNutritionPlan() {
       const editedPlan = collectNutritionPlanEdits(nutritionPlanEditor, state.activeNutritionPlan);
 
       if (editedPlan) {
@@ -82,9 +82,10 @@
         renderNutritionWorkspace();
       }
 
+      showStatus("Premium beslenme PDF'i hazırlanıyor...", "success");
       const result = generateNutritionPdf
-        ? generateNutritionPdf(state.activeNutritionPlan, { windowObject })
-        : (windowObject.print(), { ok: true });
+        ? await generateNutritionPdf(state.activeNutritionPlan, { windowObject })
+        : (windowObject.print(), { ok: true, message: "Eski yazdırma fallback'i açıldı." });
 
       if (result?.message) {
         showStatus(result.message, result.ok === false ? "error" : "success");
