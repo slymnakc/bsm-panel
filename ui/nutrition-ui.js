@@ -234,7 +234,7 @@
     const preferences = collectSupplementPreferences(root);
     const activeProgram = model?.activeProgram || member.programs?.[0]?.program || null;
     const targets = window.BSMNutritionPlanEngine.calculateNutritionTargets(
-      { profile: member.profile || {}, latestMeasurement: member.measurements?.[0] || {}, activeProgram },
+      { profile: member.profile || {}, latestMeasurement: getLatestMeasurementForNutrition(member), activeProgram },
       preferences.nutritionGoalId,
       preferences,
     );
@@ -244,6 +244,7 @@
         <strong>${escapeHtml(targets.selectedGoal.label)}</strong>
         <span>${escapeHtml(targets.targetCalories)} kcal • P ${escapeHtml(targets.macros.protein)} g • K ${escapeHtml(targets.macros.carbs)} g • Y ${escapeHtml(targets.macros.fat)} g</span>
         <small>Antrenman günü: ${escapeHtml(targets.trainingDayCalories)} kcal • Dinlenme günü: ${escapeHtml(targets.restDayCalories)} kcal</small>
+        <small>${escapeHtml(targets.measurementConnectionText || targets.measurementStatus || "")}</small>
       </div>
       <div class="nutrition-preview-flow">
         ${renderTimelinePreviewChip(preferences.wakeTime, "Uyanış", escapeHtml)}
@@ -259,8 +260,9 @@
   function renderMemberSummary(target, model, escapeHtml, deps) {
     const member = model?.member || null;
     const profile = member?.profile || {};
-    const latestMeasurement = member?.measurements?.[0] || null;
+    const latestMeasurement = getLatestMeasurementForNutrition(member);
     const goalLabel = deps.labelMaps?.goal?.[profile.goal] || profile.goal || "Belirtilmedi";
+    const staleNutrition = hasNewerMeasurementForNutrition(model?.plan, latestMeasurement);
 
     if (!member) {
       target.innerHTML = `
@@ -285,6 +287,11 @@
           <span><strong>${escapeHtml(latestMeasurement?.muscleMass || "-")}</strong>Kas kg</span>
           <span><strong>${escapeHtml(latestMeasurement?.bmr || "-")}</strong>BMR</span>
         </div>
+        ${
+          staleNutrition
+            ? `<div class="nutrition-measurement-sync-warning">Yeni ölçüm bulundu, beslenme planını güncellemeniz önerilir.</div>`
+            : ""
+        }
       </article>
     `;
   }
@@ -313,7 +320,7 @@
           <div>
             <p class="section-kicker">Bahçeşehir Spor Merkezi</p>
             <h3>Sporcu Beslenme Planı</h3>
-            <span>${escapeHtml(plan.memberName || "Üye")} için hedef, ölçüm, antrenman sıklığı ve günlük saat akışına göre hazırlanmış uygulanabilir plan.</span>
+            <span>${escapeHtml(plan.memberName || "Üye")} için ${escapeHtml(plan.nutritionGoalLabel || formatNutritionGoal(plan.goal))} hedefi, ölçüm, antrenman sıklığı ve günlük saat akışına göre hazırlanmış uygulanabilir plan.</span>
           </div>
           <div class="nutrition-report-stamp">
             <strong>BSM</strong>
@@ -322,16 +329,13 @@
         </header>
 
         <section class="nutrition-report-summary">
-          <div><span>Üye</span><strong>${escapeHtml(plan.memberName || "Üye")}</strong></div>
-          <div><span>Hedef</span><strong>${escapeHtml(plan.nutritionGoalLabel || formatNutritionGoal(plan.goal))}</strong></div>
-          <div><span>Hedef grubu</span><strong>${escapeHtml(plan.nutritionGoalCategory || "-")}</strong></div>
-          <div><span>Seviye</span><strong>${escapeHtml(formatNutritionLevel(plan.level))}</strong></div>
-          <div><span>Antrenman</span><strong>${escapeHtml(plan.trainingDays || "-")} gün/hafta</strong></div>
-          <div><span>BMR kaynağı</span><strong>${escapeHtml(plan.sourceSummary?.bmrSource || "Tahmini hesap")}</strong></div>
           <div><span>Koruma kalorisi</span><strong>${escapeHtml(plan.sourceSummary?.maintenanceCalories || "-")} kcal</strong></div>
           <div><span>Gün tipi</span><strong>${escapeHtml(formatDayType(plan.dayType))}</strong></div>
-          <div><span>Öğün</span><strong>${escapeHtml(plan.mealCount || plan.meals?.length || "-")} öğün</strong></div>
+          <div><span>Öğün sayısı</span><strong>${escapeHtml(plan.mealCount || plan.meals?.length || "-")} öğün</strong></div>
+          <div><span>Günlük kalori</span><strong>${escapeHtml(plan.calories || plan.sourceSummary?.targetCalories || "-")} kcal</strong></div>
         </section>
+
+        ${renderMeasurementImpactCard(plan, escapeHtml)}
 
         <section class="nutrition-report-section nutrition-report-section--macros">
           <div class="nutrition-report-section__title">
@@ -406,6 +410,32 @@
           <small>Bahçeşehir Spor Merkezi | Sporcu Beslenmesi Raporu</small>
         </footer>
       </div>
+    `;
+  }
+
+  function renderMeasurementImpactCard(plan, escapeHtml) {
+    const summary = plan?.sourceSummary || {};
+    const hasMeasurement = Boolean(summary.hasMeasurement);
+    const statusLabel = hasMeasurement ? "Ölçüm bazlı hesaplama aktif" : "Ölçüm verisi yok";
+    const detailText =
+      summary.measurementConnectionText ||
+      summary.measurementStatus ||
+      "Tanita/ölçüm verisi bulunmadığı için plan hedef ve seviye bilgisine göre oluşturuldu.";
+
+    return `
+      <section class="nutrition-measurement-impact ${hasMeasurement ? "is-active" : "is-empty"}">
+        <div>
+          <span class="nutrition-measurement-impact__badge">${escapeHtml(statusLabel)}</span>
+          <strong>${escapeHtml(hasMeasurement ? "Son ölçüm beslenme hesabına bağlandı" : "Hedef ve seviye bazlı tahmin")}</strong>
+          <small>${escapeHtml(detailText)}</small>
+        </div>
+        <div class="nutrition-measurement-impact__grid">
+          <span><b>${escapeHtml(summary.bmr || "-")}</b>BMR</span>
+          <span><b>${escapeHtml(summary.maintenanceCalories || "-")}</b>Koruma</span>
+          <span><b>${escapeHtml(summary.targetCalories || plan?.calories || "-")}</b>Hedef</span>
+          <span><b>${escapeHtml(summary.fat || "-")}</b>Yağ %</span>
+        </div>
+      </section>
     `;
   }
 
@@ -771,6 +801,44 @@
 
   function cloneData(value) {
     return JSON.parse(JSON.stringify(value));
+  }
+
+  function getLatestMeasurementForNutrition(member) {
+    if (window.BSMNutritionPlanEngine?.getLatestNutritionMeasurement) {
+      return window.BSMNutritionPlanEngine.getLatestNutritionMeasurement(member);
+    }
+
+    const measurements = Array.isArray(member?.measurements) ? member.measurements : [];
+    const latest = measurements
+      .filter((item) => item && typeof item === "object")
+      .sort((a, b) => getMeasurementTimestamp(b) - getMeasurementTimestamp(a))[0];
+
+    return latest || member?.latestMeasurement || null;
+  }
+
+  function hasNewerMeasurementForNutrition(plan, measurement) {
+    const savedFingerprint = String(plan?.sourceSummary?.measurementFingerprint || "");
+    const currentFingerprint = buildMeasurementFingerprintForUi(measurement);
+    return Boolean(savedFingerprint && currentFingerprint && savedFingerprint !== currentFingerprint);
+  }
+
+  function buildMeasurementFingerprintForUi(measurement) {
+    if (!measurement) {
+      return "";
+    }
+
+    const weight = measurement.weight || measurement.kilo || "";
+    const fat = measurement.fat || measurement.bodyFatPercentage || measurement.fatPercent || "";
+    const muscle = measurement.muscleMass || measurement.kasKutlesi || "";
+    const bmr = measurement.bmr || measurement.BMR || measurement.basalMetabolicRate || "";
+    const date = measurement.date || measurement.measuredAt || measurement.measured_at || measurement.createdAtIso || "";
+    return [date, weight, fat, muscle, bmr].filter(Boolean).join("|");
+  }
+
+  function getMeasurementTimestamp(measurement) {
+    const dateValue = measurement?.date || measurement?.measuredAt || measurement?.measured_at || measurement?.createdAtIso || measurement?.created_at || "";
+    const time = Date.parse(dateValue);
+    return Number.isFinite(time) ? time : 0;
   }
 
   window.BSMNutritionUI = {
