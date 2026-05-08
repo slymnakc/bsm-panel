@@ -13,8 +13,8 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.29");
-console.log("NUTRITION PRO VERSION: v1.0.29");
+console.log("APP VERSION: v1.0.30");
+console.log("NUTRITION PRO VERSION: v1.0.30-timeflow");
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 console.log("MEASUREMENT TAB VERSION: v1");

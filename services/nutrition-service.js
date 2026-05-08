@@ -96,6 +96,8 @@
       },
       mealCount: toNumber(source.mealCount) || (Array.isArray(source.meals) ? source.meals.length : 5),
       dayType: ["balanced", "training", "rest"].includes(source.dayType) ? source.dayType : "balanced",
+      schedule: normalizeNutritionSchedule(source.schedule || source.supplementPreferences),
+      timeline: normalizeNutritionTimeline(source.timeline),
       intelligence: Array.isArray(source.intelligence) ? source.intelligence.map(String) : [],
       meals: normalizeMeals(source.meals),
       supplementPreferences: normalizeSupplementPreferences(source.supplementPreferences),
@@ -367,6 +369,13 @@
       nutritionGoalId: String(preferences.nutritionGoalId || ""),
       mealCount: toNumber(preferences.mealCount) || 5,
       dayType: ["balanced", "training", "rest"].includes(preferences.dayType) ? preferences.dayType : "balanced",
+      wakeTime: normalizeTimeValue(preferences.wakeTime, "07:30"),
+      firstMealTime: normalizeTimeValue(preferences.firstMealTime, "08:30"),
+      workoutTime: normalizeTimeValue(preferences.workoutTime, "18:30"),
+      sleepTime: normalizeTimeValue(preferences.sleepTime, "23:30"),
+      cardioTime: normalizeTimeValue(preferences.cardioTime, ""),
+      fastingEnabled: preferences.fastingEnabled === "yes" ? "yes" : "no",
+      fastingWindow: ["14:10", "16:8", "18:6"].includes(preferences.fastingWindow) ? preferences.fastingWindow : "16:8",
       useSupplements: preferences.useSupplements === "yes" ? "yes" : "no",
       caffeineSensitive: preferences.caffeineSensitive === "yes" ? "yes" : "no",
       lactoseSensitive: preferences.lactoseSensitive === "yes" ? "yes" : "no",
@@ -381,6 +390,9 @@
 
     return source.map((mealItem, index) => ({
       name: String(mealItem.name || fallback[index]?.name || `Öğün ${index + 1}`),
+      time: normalizeTimeValue(mealItem.time, ""),
+      timingLabel: String(mealItem.timingLabel || mealItem.name || fallback[index]?.name || `Öğün ${index + 1}`),
+      scheduleRole: String(mealItem.scheduleRole || "meal"),
       foods: upgradeLegacyMealFoods(mealItem.foods || fallback[index]?.foods || ""),
       calories: toNumber(mealItem.calories) || 0,
       protein: toNumber(mealItem.protein) || 0,
@@ -399,6 +411,7 @@
     return Array.isArray(supports)
       ? supports.map((item) => ({
           name: String(item.name || item.supplementName || "Supplement"),
+          time: normalizeTimeValue(item.time, ""),
           usageTime: String(item.usageTime || item.timing || item.suggestedTiming || "Öğünle birlikte"),
           dose: String(item.dose || item.suggestedDoseText || item.note || ""),
           water: String(item.water || "1 bardak su"),
@@ -407,6 +420,37 @@
           recommendationTier: String(item.recommendationTier || "main"),
         }))
       : [];
+  }
+
+  function normalizeNutritionSchedule(schedule = {}) {
+    const source = schedule && typeof schedule === "object" ? schedule : {};
+    return {
+      wakeTime: normalizeTimeValue(source.wakeTime, "07:30"),
+      firstMealTime: normalizeTimeValue(source.firstMealTime, "08:30"),
+      workoutTime: normalizeTimeValue(source.workoutTime, "18:30"),
+      sleepTime: normalizeTimeValue(source.sleepTime, "23:30"),
+      cardioTime: normalizeTimeValue(source.cardioTime, ""),
+      fastingEnabled: source.fastingEnabled === "yes" ? "yes" : "no",
+      fastingWindow: ["14:10", "16:8", "18:6"].includes(source.fastingWindow) ? source.fastingWindow : "16:8",
+      trainingMoment: String(source.trainingMoment || ""),
+    };
+  }
+
+  function normalizeNutritionTimeline(timeline) {
+    return Array.isArray(timeline)
+      ? timeline
+          .filter((item) => item && typeof item === "object")
+          .map((item) => ({
+            time: normalizeTimeValue(item.time, ""),
+            kind: String(item.kind || "meal"),
+            title: String(item.title || "Plan adımı"),
+            meta: String(item.meta || ""),
+          }))
+      : [];
+  }
+
+  function normalizeTimeValue(value, fallback = "") {
+    return /^\d{2}:\d{2}$/.test(String(value || "")) ? String(value) : fallback;
   }
 
   function upgradeLegacyMealFoods(foods) {

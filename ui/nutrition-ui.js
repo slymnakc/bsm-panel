@@ -53,6 +53,40 @@
                 <option value="rest">Dinlenme günü</option>
               </select>
             </label>
+            <div class="nutrition-schedule-controls" aria-label="Saat bazlÄ± beslenme akÄ±ÅŸÄ±">
+              <label class="field compact-field">
+                <span>Uyanma saati</span>
+                <input type="time" id="nutritionWakeTime" value="07:30" />
+              </label>
+              <label class="field compact-field">
+                <span>Ä°lk Ã¶ÄŸÃ¼n saati</span>
+                <input type="time" id="nutritionFirstMealTime" value="08:30" />
+              </label>
+              <label class="field compact-field">
+                <span>Antrenman saati</span>
+                <input type="time" id="nutritionWorkoutTime" value="18:30" />
+              </label>
+              <label class="field compact-field">
+                <span>Uyku saati</span>
+                <input type="time" id="nutritionSleepTime" value="23:30" />
+              </label>
+              <label class="field compact-field">
+                <span>Kardiyo saati (opsiyonel)</span>
+                <input type="time" id="nutritionCardioTime" />
+              </label>
+              <label class="nutrition-checkbox-control nutrition-checkbox-control--inline">
+                <input type="checkbox" id="nutritionFastingEnabled" />
+                <span>Intermittent fasting</span>
+              </label>
+              <label class="field compact-field">
+                <span>IF penceresi</span>
+                <select id="nutritionFastingWindow">
+                  <option value="14:10">14:10</option>
+                  <option value="16:8" selected>16:8</option>
+                  <option value="18:6">18:6</option>
+                </select>
+              </label>
+            </div>
             <label class="field compact-field">
               <span>Mail adresi</span>
               <input type="email" id="nutritionEmailInput" placeholder="uye@ornek.com" autocomplete="email" />
@@ -143,6 +177,25 @@
 
     if (emailInput && !emailInput.value) {
       emailInput.value = plan?.memberEmail || profile.memberEmail || profile.email || "";
+    }
+
+    const schedule = plan?.schedule || plan?.supplementPreferences || {};
+    const forceScheduleSync = Boolean(plan?.schedule) && root.dataset.nutritionSchedulePlanId !== String(plan.id || "");
+    setControlValue(root.querySelector("#nutritionWakeTime"), schedule.wakeTime || "07:30", forceScheduleSync);
+    setControlValue(root.querySelector("#nutritionFirstMealTime"), schedule.firstMealTime || "08:30", forceScheduleSync);
+    setControlValue(root.querySelector("#nutritionWorkoutTime"), schedule.workoutTime || "18:30", forceScheduleSync);
+    setControlValue(root.querySelector("#nutritionSleepTime"), schedule.sleepTime || "23:30", forceScheduleSync);
+    setControlValue(root.querySelector("#nutritionCardioTime"), schedule.cardioTime || "", forceScheduleSync);
+    setControlValue(root.querySelector("#nutritionFastingWindow"), schedule.fastingWindow || "16:8", forceScheduleSync);
+
+    const fastingInput = root.querySelector("#nutritionFastingEnabled");
+    if (fastingInput && (forceScheduleSync || !fastingInput.dataset.synced)) {
+      fastingInput.checked = schedule.fastingEnabled === "yes";
+      fastingInput.dataset.synced = "true";
+    }
+
+    if (forceScheduleSync) {
+      root.dataset.nutritionSchedulePlanId = String(plan.id || "");
     }
 
     renderNutritionTargetPreview(root, model, escapeHtml);
@@ -278,6 +331,7 @@
               <small>Pratik porsiyonlar, yaklaşık enerji ve makro dağılımı.</small>
             </div>
           </div>
+          ${renderNutritionTimeline(displayPlan.timeline || [], escapeHtml)}
           <div class="nutrition-meal-grid nutrition-report-meals">
             ${(displayPlan.meals || []).map((meal, index) => renderMealEditor(meal, index, escapeHtml)).join("")}
           </div>
@@ -383,6 +437,9 @@
     };
     edited.meals = (edited.meals || []).map((meal, index) => ({
       ...meal,
+      time: root.querySelector(`[data-meal-index="${index}"][data-meal-field="time"]`)?.value || meal.time || "",
+      timingLabel: meal.timingLabel || meal.name,
+      scheduleRole: meal.scheduleRole || "meal",
       name: root.querySelector(`[data-meal-index="${index}"][data-meal-field="name"]`)?.value?.trim() || meal.name,
       foods: root.querySelector(`[data-meal-index="${index}"][data-meal-field="foods"]`)?.value?.trim() || meal.foods,
       calories: readNumber(root.querySelector(`[data-meal-index="${index}"][data-meal-field="calories"]`)?.value) || meal.calories,
@@ -394,6 +451,7 @@
     const editedTotals = sumEditedMeals(edited.meals);
     edited.calories = editedTotals.calories;
     edited.macros = editedTotals.macros;
+    edited.timeline = buildEditableTimeline(edited);
     edited.trainerNote = root.querySelector("#nutritionTrainerNoteInput")?.value?.trim() || "";
     return edited;
   }
@@ -405,6 +463,13 @@
       nutritionGoalId: root?.querySelector("#nutritionGoalSelect")?.value || "",
       mealCount: root?.querySelector("#nutritionMealCount")?.value || "5",
       dayType: root?.querySelector("#nutritionDayType")?.value || "balanced",
+      wakeTime: root?.querySelector("#nutritionWakeTime")?.value || "07:30",
+      firstMealTime: root?.querySelector("#nutritionFirstMealTime")?.value || "08:30",
+      workoutTime: root?.querySelector("#nutritionWorkoutTime")?.value || "18:30",
+      sleepTime: root?.querySelector("#nutritionSleepTime")?.value || "23:30",
+      cardioTime: root?.querySelector("#nutritionCardioTime")?.value || "",
+      fastingEnabled: root?.querySelector("#nutritionFastingEnabled")?.checked ? "yes" : "no",
+      fastingWindow: root?.querySelector("#nutritionFastingWindow")?.value || "16:8",
       useSupplements: supplementCheckbox ? (supplementCheckbox.checked ? "yes" : "no") : supplementSelect?.value || "no",
       caffeineSensitive: root?.querySelector("#caffeineSensitive")?.value || "no",
       lactoseSensitive: root?.querySelector("#lactoseSensitive")?.value || "no",
@@ -423,9 +488,44 @@
     `;
   }
 
+  function renderNutritionTimeline(items, escapeHtml) {
+    const visibleItems = Array.isArray(items) ? items.slice(0, 10) : [];
+
+    if (!visibleItems.length) {
+      return `
+        <div class="nutrition-timeline nutrition-timeline--empty">
+          Saat bazlÄ± akÄ±ÅŸ plan oluÅŸturulduÄŸunda otomatik gÃ¶rÃ¼nÃ¼r.
+        </div>
+      `;
+    }
+
+    return `
+      <div class="nutrition-timeline">
+        ${visibleItems
+          .map(
+            (item) => `
+              <article class="nutrition-timeline-item nutrition-timeline-item--${escapeHtml(item.kind || "meal")}">
+                <strong>${escapeHtml(item.time || "--:--")}</strong>
+                <span>${escapeHtml(item.title || "Plan adÄ±mÄ±")}</span>
+                <small>${escapeHtml(item.meta || "")}</small>
+              </article>
+            `,
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
   function renderMealEditor(meal, index, escapeHtml) {
     return `
       <article class="nutrition-meal-card">
+        <div class="nutrition-meal-card__header">
+          <label class="edit-field nutrition-time-field">
+            <span>Saat</span>
+            <input type="time" value="${escapeHtml(meal.time || "")}" data-meal-index="${index}" data-meal-field="time" />
+          </label>
+          <span class="nutrition-meal-role">${escapeHtml(meal.timingLabel || meal.name || `Ã–ÄŸÃ¼n ${index + 1}`)}</span>
+        </div>
         <label class="edit-field">
           <span>Öğün adı</span>
           <input type="text" value="${escapeHtml(meal.name || "")}" data-meal-index="${index}" data-meal-field="name" />
@@ -496,13 +596,24 @@
     const hasMealSupports = meals.some((meal) => Array.isArray(meal.supports) && meal.supports.length);
 
     if (hasMealSupports || !Array.isArray(plan?.supplements) || !plan.supplements.length) {
-      return plan;
+      return ensureNutritionTimeline(plan);
     }
 
     const attach = window.BSMNutritionPlanEngine?.attachSupplementsToMeals;
-    return {
+    return ensureNutritionTimeline({
       ...plan,
       meals: typeof attach === "function" ? attach(meals, plan.supplements) : attachSupportsLocally(meals, plan.supplements),
+    });
+  }
+
+  function ensureNutritionTimeline(plan) {
+    if (Array.isArray(plan?.timeline) && plan.timeline.length) {
+      return plan;
+    }
+
+    return {
+      ...plan,
+      timeline: buildEditableTimeline(plan),
     };
   }
 
@@ -565,6 +676,53 @@
   function readNumber(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function setControlValue(control, value, force = false) {
+    if (!control || (!force && control.value)) {
+      return;
+    }
+
+    control.value = value;
+  }
+
+  function buildEditableTimeline(plan) {
+    const schedule = plan?.schedule || {};
+    const items = [];
+
+    if (schedule.wakeTime) {
+      items.push({ time: schedule.wakeTime, kind: "wake", title: "UyanÄ±ÅŸ", meta: "GÃ¼ne hazÄ±rlÄ±k" });
+    }
+
+    (plan?.meals || []).forEach((meal, index) => {
+      items.push({
+        time: meal.time || "",
+        kind: meal.scheduleRole || "meal",
+        title: meal.timingLabel || meal.name || `Ã–ÄŸÃ¼n ${index + 1}`,
+        meta: `${meal.calories || "-"} kcal | P ${meal.protein || "-"} g | K ${meal.carbs || "-"} g | Y ${meal.fat || "-"} g`,
+      });
+    });
+
+    if (schedule.workoutTime) {
+      items.push({ time: schedule.workoutTime, kind: "workout", title: "Antrenman", meta: "Performans bloÄŸu" });
+    }
+
+    if (schedule.cardioTime) {
+      items.push({ time: schedule.cardioTime, kind: "cardio", title: "Kardiyo", meta: "Opsiyonel kardiyo" });
+    }
+
+    if (schedule.sleepTime) {
+      items.push({ time: schedule.sleepTime, kind: "sleep", title: "Uyku", meta: "Toparlanma" });
+    }
+
+    return items
+      .filter((item) => item.time)
+      .sort((a, b) => timeToSortValue(a.time) - timeToSortValue(b.time));
+  }
+
+  function timeToSortValue(value) {
+    const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+    return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
   }
 
   function sumEditedMeals(meals) {

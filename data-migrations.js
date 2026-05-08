@@ -289,11 +289,16 @@
       },
       mealCount: toNumberOrFallback(raw.mealCount, Array.isArray(raw.meals) ? raw.meals.length : 0),
       dayType: normalizeString(raw.dayType, "balanced"),
+      schedule: normalizeNutritionSchedule(raw.schedule || raw.supplementPreferences),
+      timeline: normalizeNutritionTimeline(raw.timeline),
       intelligence: normalizeStringArray(raw.intelligence),
       meals: Array.isArray(raw.meals)
         ? raw.meals.map((meal, index) => ({
             name: normalizeString(meal?.name, `Öğün ${index + 1}`),
             foods: normalizeString(meal?.foods),
+            time: normalizeTimeValue(meal?.time),
+            timingLabel: normalizeString(meal?.timingLabel || meal?.name, `Öğün ${index + 1}`),
+            scheduleRole: normalizeString(meal?.scheduleRole, "meal"),
             calories: toNumberOrFallback(meal?.calories, 0),
             protein: toNumberOrFallback(meal?.protein, 0),
             carbs: toNumberOrFallback(meal?.carbs, 0),
@@ -329,10 +334,42 @@
     };
   }
 
+  function normalizeNutritionSchedule(schedule = {}) {
+    const source = schedule && typeof schedule === "object" ? schedule : {};
+    return {
+      wakeTime: normalizeTimeValue(source.wakeTime, "07:30"),
+      firstMealTime: normalizeTimeValue(source.firstMealTime, "08:30"),
+      workoutTime: normalizeTimeValue(source.workoutTime, "18:30"),
+      sleepTime: normalizeTimeValue(source.sleepTime, "23:30"),
+      cardioTime: normalizeTimeValue(source.cardioTime),
+      fastingEnabled: source.fastingEnabled === "yes" ? "yes" : "no",
+      fastingWindow: ["14:10", "16:8", "18:6"].includes(source.fastingWindow) ? source.fastingWindow : "16:8",
+      trainingMoment: normalizeString(source.trainingMoment),
+    };
+  }
+
+  function normalizeNutritionTimeline(timeline) {
+    return Array.isArray(timeline)
+      ? timeline
+          .filter((item) => item && typeof item === "object")
+          .map((item) => ({
+            time: normalizeTimeValue(item.time),
+            kind: normalizeString(item.kind, "meal"),
+            title: normalizeString(item.title, "Plan adımı"),
+            meta: normalizeString(item.meta),
+          }))
+      : [];
+  }
+
+  function normalizeTimeValue(value, fallback = "") {
+    return /^\d{2}:\d{2}$/.test(String(value || "")) ? String(value) : fallback;
+  }
+
   function normalizeMealSupports(supports) {
     return Array.isArray(supports)
       ? supports.map((item) => ({
           name: normalizeString(item?.name || item?.supplementName, "Supplement"),
+          time: normalizeTimeValue(item?.time),
           usageTime: normalizeString(item?.usageTime || item?.timing || item?.suggestedTiming, "Öğünle birlikte"),
           dose: normalizeString(item?.dose || item?.suggestedDoseText || item?.note),
           water: normalizeString(item?.water, "1 bardak su"),

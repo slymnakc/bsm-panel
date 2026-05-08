@@ -376,7 +376,7 @@ function createPremiumProgramPdf({ title, memberName, programText, programData }
 
 function createNutritionPlanPdf(planData) {
   const model = buildNutritionPdfModel(planData);
-  const pages = buildNutritionPdfPages(model).slice(0, 5);
+  const pages = buildNutritionPdfPagesV2(model).slice(0, 5);
   const objects = [];
   const pageIds = pages.map((_, index) => 4 + index * 2);
   const contentIds = pages.map((_, index) => 5 + index * 2);
@@ -403,6 +403,8 @@ function buildNutritionPdfModel(planData) {
   const plan = planData && typeof planData === "object" ? planData : {};
   const supplements = Array.isArray(plan.supplements) ? plan.supplements : [];
   const meals = ensureNutritionMealSupports(Array.isArray(plan.meals) ? plan.meals : [], supplements);
+  const schedule = normalizeNutritionPdfSchedule(plan.schedule || plan.supplementPreferences || {});
+  const timeline = Array.isArray(plan.timeline) && plan.timeline.length ? plan.timeline : buildNutritionPdfTimeline(meals, schedule);
   return {
     title: "Sporcu Beslenme Planı",
     memberName: plan.memberName || "Üye",
@@ -420,6 +422,8 @@ function buildNutritionPdfModel(planData) {
       ["Antrenman", `${plan.trainingDays || "-"} gün/hafta`],
     ],
     intelligence: Array.isArray(plan.intelligence) ? plan.intelligence.slice(0, 5) : [],
+    schedule,
+    timeline,
     meals,
     supplements,
     supplementNotice: plan.supplementNotice || "Supplement kullanımı kapalı. Plan gıda öncelikli hazırlanmıştır.",
@@ -446,6 +450,53 @@ function ensureNutritionMealSupports(meals, supplements) {
   });
 
   return mealList;
+}
+
+function normalizeNutritionPdfSchedule(schedule = {}) {
+  const source = schedule && typeof schedule === "object" ? schedule : {};
+  return {
+    wakeTime: normalizePdfTime(source.wakeTime, "07:30"),
+    firstMealTime: normalizePdfTime(source.firstMealTime, "08:30"),
+    workoutTime: normalizePdfTime(source.workoutTime, "18:30"),
+    sleepTime: normalizePdfTime(source.sleepTime, "23:30"),
+    cardioTime: normalizePdfTime(source.cardioTime, ""),
+    fastingEnabled: source.fastingEnabled === "yes" ? "yes" : "no",
+    fastingWindow: ["14:10", "16:8", "18:6"].includes(source.fastingWindow) ? source.fastingWindow : "16:8",
+  };
+}
+
+function buildNutritionPdfTimeline(meals, schedule) {
+  const items = [
+    { time: schedule.wakeTime, kind: "wake", title: "Uyanış", meta: "Güne hazırlık" },
+    { time: schedule.workoutTime, kind: "workout", title: "Antrenman", meta: "Performans bloğu" },
+    { time: schedule.sleepTime, kind: "sleep", title: "Uyku", meta: schedule.fastingEnabled === "yes" ? `IF ${schedule.fastingWindow}` : "Toparlanma" },
+  ];
+
+  if (schedule.cardioTime) {
+    items.push({ time: schedule.cardioTime, kind: "cardio", title: "Kardiyo", meta: "Opsiyonel" });
+  }
+
+  meals.forEach((meal, index) => {
+    items.push({
+      time: normalizePdfTime(meal.time, schedule.firstMealTime),
+      kind: meal.scheduleRole || "meal",
+      title: meal.timingLabel || meal.name || `Öğün ${index + 1}`,
+      meta: `${meal.calories || "-"} kcal | P ${meal.protein || "-"} g | K ${meal.carbs || "-"} g | Y ${meal.fat || "-"} g`,
+    });
+  });
+
+  return items
+    .filter((item) => item.time)
+    .sort((a, b) => pdfTimeToMinutes(a.time) - pdfTimeToMinutes(b.time));
+}
+
+function normalizePdfTime(value, fallback = "") {
+  return /^\d{2}:\d{2}$/.test(String(value || "")) ? String(value) : fallback;
+}
+
+function pdfTimeToMinutes(value) {
+  const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
 }
 
 function buildNutritionSupplementSupport(item) {
@@ -508,6 +559,93 @@ function getNutritionSupportMealIndex(support, meals) {
 function shortText(value, maxLength) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   return text.length > maxLength ? `${text.slice(0, maxLength - 3).trim()}...` : text;
+}
+
+function buildNutritionPdfPagesV2(model) {
+  const pages = [];
+  let commands = [];
+  let y = 704;
+  let pageNumber = 0;
+
+  function startPage() {
+    pageNumber += 1;
+    commands = [];
+    drawPageHeader(commands, { title: model.title, generatedAt: model.generatedAt }, pageNumber);
+    y = 704;
+  }
+
+  function finishPage() {
+    if (!commands.length) {
+      return;
+    }
+    drawPageFooter(commands, pageNumber);
+    pages.push(commands.join("\n"));
+  }
+
+  function ensureSpace(requiredHeight, sectionTitle = "") {
+    if (y >= requiredHeight + 74) {
+      return y;
+    }
+    finishPage();
+    startPage();
+    if (sectionTitle) {
+      drawNutritionPdfSectionTitle(commands, sectionTitle, y);
+      y -= 26;
+    }
+    return y;
+  }
+
+  startPage();
+  drawSummaryBlock(commands, { summary: model.summary, memberName: model.memberName });
+  y = 606;
+
+  drawNutritionPdfSectionTitle(commands, "Kalori ve Makro Özeti", y);
+  y -= 26;
+  drawNutritionMacroCards(commands, model.summary.slice(2, 6), y);
+  y -= 62;
+
+  drawNutritionPdfSectionTitle(commands, "Saat Bazlı Günlük Akış", y);
+  y -= 24;
+  y = drawNutritionTimelinePdf(commands, model.timeline, y);
+
+  ensureSpace(95, "Plan Mantığı");
+  if (y <= 640) {
+    drawNutritionPdfSectionTitle(commands, "Plan Mantığı", y);
+    y -= 24;
+  }
+  y = drawNutritionNotesGrid(commands, model.intelligence, y);
+
+  ensureSpace(190, "Günlük Öğün Planı");
+  if (y <= 640) {
+    drawNutritionPdfSectionTitle(commands, "Günlük Öğün Planı", y);
+    y -= 24;
+  }
+  const mealItems = Array.isArray(model.meals) ? model.meals : [];
+  for (let index = 0; index < mealItems.length; index += 2) {
+    const left = mealItems[index];
+    const right = mealItems[index + 1];
+    const rowHeight = Math.max(getNutritionMealCardHeight(left), getNutritionMealCardHeight(right));
+    if (y < rowHeight + 86) {
+      finishPage();
+      startPage();
+      drawNutritionPdfSectionTitle(commands, "Günlük Öğün Planı", y);
+      y -= 24;
+    }
+    drawNutritionMealCard(commands, left, index + 1, 42, y, 250, rowHeight);
+    if (right) {
+      drawNutritionMealCard(commands, right, index + 2, 303, y, 250, rowHeight);
+    }
+    y -= rowHeight + 9;
+  }
+
+  ensureSpace(118, "Antrenör / Beslenme Notu");
+  drawNutritionPdfSectionTitle(commands, "Antrenör / Beslenme Notu", y);
+  y -= 24;
+  addText(commands, 44, y, model.trainerNote || "Plan düzenli takip edilmelidir.", 8, "#384d55", 96);
+  y -= 34;
+  addText(commands, 44, y, model.disclaimer, 6.8, "#5c6c72", 102);
+  finishPage();
+  return pages;
 }
 
 function buildNutritionPdfPages(model) {
@@ -574,6 +712,117 @@ function buildNutritionPdfPages(model) {
   addText(commands, 44, y, model.disclaimer, 7, "#5c6c72", 98);
   finishPage();
   return pages;
+}
+
+function drawNutritionTimelinePdf(commands, timeline, y) {
+  const items = (Array.isArray(timeline) ? timeline : []).slice(0, 9);
+  const cardWidth = 166;
+  const cardHeight = 34;
+  const gapX = 8;
+  const gapY = 8;
+
+  if (!items.length) {
+    drawRect(commands, 42, y - 34, 511, 38, "#f6faf9", "#d9e5e3");
+    addText(commands, 54, y - 13, "Saat bazlı akış plan oluşturulduğunda otomatik görünür.", 8, "#384d55", 84);
+    return y - 46;
+  }
+
+  items.forEach((item, index) => {
+    const column = index % 3;
+    const row = Math.floor(index / 3);
+    const x = 42 + column * (cardWidth + gapX);
+    const top = y - row * (cardHeight + gapY);
+    const accent = getNutritionTimelineColor(item.kind);
+    drawRect(commands, x, top - cardHeight + 4, cardWidth, cardHeight, "#ffffff", "#d9e5e3");
+    drawRect(commands, x, top - cardHeight + 4, 5, cardHeight, accent);
+    addText(commands, x + 12, top - 9, item.time || "--:--", 9, accent, 10);
+    addText(commands, x + 58, top - 9, item.title || "Plan", 7.5, "#082b35", 22);
+    addText(commands, x + 58, top - 22, item.meta || "", 6.2, "#5c6c72", 24);
+  });
+
+  return y - Math.ceil(items.length / 3) * (cardHeight + gapY) - 8;
+}
+
+function getNutritionTimelineColor(kind) {
+  const colors = {
+    wake: "#d8ad63",
+    workout: "#1d6b74",
+    cardio: "#1976d2",
+    sleep: "#384d55",
+    "pre-workout": "#d8ad63",
+    "post-workout": "#0f6a65",
+    "night-protein": "#6c5ce7",
+  };
+  return colors[kind] || "#1d6b74";
+}
+
+function drawNutritionNotesGrid(commands, notes, y) {
+  const visibleNotes = (Array.isArray(notes) ? notes : []).slice(0, 4);
+  if (!visibleNotes.length) {
+    return y;
+  }
+
+  visibleNotes.forEach((note, index) => {
+    const column = index % 2;
+    const row = Math.floor(index / 2);
+    const x = 42 + column * 258;
+    const top = y - row * 44;
+    drawRect(commands, x, top - 36, 247, 38, "#ffffff", "#d9e5e3");
+    drawRect(commands, x, top - 36, 5, 38, index % 2 ? "#d8ad63" : "#1d6b74");
+    addText(commands, x + 12, top - 11, note, 6.7, "#384d55", 44);
+  });
+
+  return y - Math.ceil(visibleNotes.length / 2) * 44 - 8;
+}
+
+function drawNutritionMealCardGrid(commands, meals, y, ensureSpace) {
+  const items = Array.isArray(meals) ? meals : [];
+  const cardWidth = 250;
+  const gapX = 11;
+  const gapY = 9;
+
+  for (let index = 0; index < items.length; index += 2) {
+    const left = items[index];
+    const right = items[index + 1];
+    const rowHeight = Math.max(getNutritionMealCardHeight(left), getNutritionMealCardHeight(right));
+    y = ensureSpace(rowHeight + 12, "Günlük Öğün Planı") || y;
+    drawNutritionMealCard(commands, left, index + 1, 42, y, cardWidth, rowHeight);
+    if (right) {
+      drawNutritionMealCard(commands, right, index + 2, 42 + cardWidth + gapX, y, cardWidth, rowHeight);
+    }
+    y -= rowHeight + gapY;
+  }
+
+  return y;
+}
+
+function getNutritionMealCardHeight(meal) {
+  const supportCount = Array.isArray(meal?.supports) ? Math.min(meal.supports.length, 3) : 0;
+  const foodLength = String(meal?.foods || "").length;
+  return 86 + supportCount * 15 + (foodLength > 92 ? 10 : 0);
+}
+
+function drawNutritionMealCard(commands, meal, index, x, y, width, height) {
+  if (!meal) {
+    return;
+  }
+
+  drawRect(commands, x, y - height + 4, width, height, "#ffffff", "#d9e5e3");
+  drawRect(commands, x, y - height + 4, 6, height, getNutritionTimelineColor(meal.scheduleRole));
+  drawRect(commands, x + 12, y - 24, 42, 20, "#eef7f5", "#d9e5e3");
+  addText(commands, x + 20, y - 11, meal.time || "--:--", 7.5, "#1d6b74", 8);
+  addText(commands, x + 62, y - 8, meal.timingLabel || meal.name || `Öğün ${index}`, 8.4, "#082b35", 28);
+  addText(commands, x + 62, y - 22, `${meal.calories || "-"} kcal | P ${meal.protein || "-"} g | K ${meal.carbs || "-"} g | Y ${meal.fat || "-"} g`, 6.6, "#1d6b74", 34);
+  addText(commands, x + 14, y - 42, meal.foods || "-", 6.5, "#384d55", 42);
+
+  const supports = (meal.supports || []).slice(0, 3);
+  if (supports.length) {
+    addText(commands, x + 14, y - 68, "Destekler", 6.4, "#d8ad63", 16);
+    supports.forEach((support, supportIndex) => {
+      const line = `${support.time || support.usageTime || ""} ${support.name || "Supplement"} - ${support.dose || ""} - ${support.water || "1 bardak su"}`;
+      addText(commands, x + 62, y - 68 - supportIndex * 14, line, 5.8, "#384d55", 34);
+    });
+  }
 }
 
 function drawNutritionPdfSectionTitle(commands, title, y) {
