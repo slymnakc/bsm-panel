@@ -32,8 +32,10 @@
       return;
     }
 
-    target.innerHTML = (items || []).length
-      ? items
+    const compactItems = (items || []).slice(0, 5);
+
+    target.innerHTML = compactItems.length
+      ? compactItems
           .map(
             (item) => `
               <div class="activity-item activity-item--${escapeHtml(item.type || "default")}">
@@ -54,8 +56,10 @@
       return;
     }
 
-    target.innerHTML = (alerts || []).length
-      ? alerts
+    const compactAlerts = (alerts || []).slice(0, 3);
+
+    target.innerHTML = compactAlerts.length
+      ? compactAlerts
           .map(
             (alert) => `
               <article class="coach-alert coach-alert--${escapeHtml(alert.severity || "info")}">
@@ -69,7 +73,9 @@
             `,
           )
           .join("") +
-        `<button type="button" class="ghost-button mini-button dashboard-list-more" data-quick-action="open-builder">Tümünü Gör</button>`
+        ((alerts || []).length > compactAlerts.length
+          ? `<button type="button" class="ghost-button mini-button dashboard-list-more" data-quick-action="open-builder">Tümünü Gör</button>`
+          : "")
       : `<div class="empty-state compact-empty">Şu anda kritik uyarı yok. Ölçüm ve program kayıtları geldikçe otomatik takip burada görünür.</div>`;
   }
 
@@ -116,8 +122,10 @@
       return;
     }
 
-    target.innerHTML = (tasks || []).length
-      ? tasks
+    const compactTasks = (tasks || []).slice(0, 3);
+
+    target.innerHTML = compactTasks.length
+      ? compactTasks
           .map(
             (task) => `
               <article class="coach-task-item coach-task-item--${escapeHtml(task.tone)}">
@@ -139,7 +147,9 @@
             `,
           )
           .join("") +
-        `<button type="button" class="ghost-button mini-button dashboard-list-more" data-quick-action="open-builder">Tümünü Gör</button>`
+        ((tasks || []).length > compactTasks.length
+          ? `<button type="button" class="ghost-button mini-button dashboard-list-more" data-quick-action="open-builder">Tümünü Gör</button>`
+          : "")
       : `<div class="empty-state compact-empty">Bugün için kritik koç görevi görünmüyor.</div>`;
   }
 
