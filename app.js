@@ -13,9 +13,9 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.33");
-console.log("UI/UX SIMPLIFICATION VERSION: v1.0.33");
-console.log("NUTRITION PRO VERSION: v1.0.33-layout-measurement-sync");
+console.log("APP VERSION: v1.0.34");
+console.log("UI/UX SIMPLIFICATION VERSION: v1.0.34");
+console.log("NUTRITION PRO VERSION: v1.0.34-member-supplement-wizard");
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 console.log("MEASUREMENT TAB VERSION: v1");

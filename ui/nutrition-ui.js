@@ -128,6 +128,56 @@
 
     populateNutritionGoalSelect(root.querySelector("#nutritionGoalSelect"), escapeHtml);
     populateSupplementCategories(root.querySelector("#supplementCategoryList"), escapeHtml);
+    prepareSupplementWizard(root);
+  }
+
+  function prepareSupplementWizard(root) {
+    const block = root?.querySelector(".supplement-preferences");
+
+    if (!block || block.dataset.wizardReady === "true") {
+      return;
+    }
+
+    const masterToggle = block.querySelector(".supplement-master-toggle");
+    const hiddenUseLabel = block.querySelector("#supplementUse")?.closest("label");
+    const categoryList = block.querySelector("#supplementCategoryList");
+    const caffeineField = block.querySelector("#caffeineSensitive")?.closest("label");
+    const lactoseField = block.querySelector("#lactoseSensitive")?.closest("label");
+    const budgetField = block.querySelector("#supplementBudget")?.closest("label");
+    const note = [...block.children].find((child) => child.tagName === "SMALL" && !child.closest("label"));
+
+    block.dataset.wizardReady = "true";
+    block.classList.add("nutrition-supplement-wizard");
+    block.innerHTML = `
+      <div class="supplement-wizard-header">
+        <p class="section-kicker">Supplement Wizard</p>
+        <h3>Destek Tercihi</h3>
+        <span>Önce kullanımı açın, sonra kategori ve hassasiyetleri seçin.</span>
+      </div>
+      <div class="supplement-wizard-steps" aria-label="Supplement tercih adımları">
+        <span class="is-active"><b>1</b> Kullanım</span>
+        <span><b>2</b> Kategori</span>
+        <span><b>3</b> Güvenlik</span>
+      </div>
+      <section class="supplement-wizard-panel supplement-wizard-panel--use"></section>
+      <details class="supplement-wizard-panel supplement-wizard-panel--categories">
+        <summary>Kategori seçimi</summary>
+      </details>
+      <details class="supplement-wizard-panel supplement-wizard-panel--safety">
+        <summary>Hassasiyet ve bütçe</summary>
+      </details>
+    `;
+
+    const usePanel = block.querySelector(".supplement-wizard-panel--use");
+    const categoryPanel = block.querySelector(".supplement-wizard-panel--categories");
+    const safetyPanel = block.querySelector(".supplement-wizard-panel--safety");
+
+    [masterToggle, hiddenUseLabel].filter(Boolean).forEach((node) => usePanel.appendChild(node));
+    if (categoryList) {
+      categoryPanel.appendChild(categoryList);
+    }
+
+    [caffeineField, lactoseField, budgetField, note].filter(Boolean).forEach((node) => safetyPanel.appendChild(node));
   }
 
   function populateNutritionGoalSelect(select, escapeHtml) {
