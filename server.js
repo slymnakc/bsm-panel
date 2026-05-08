@@ -23,6 +23,8 @@ const MIME_TYPES = {
 
 const server = http.createServer(async (req, res) => {
   setCorsHeaders(res);
+  const requestUrl = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+  const pathname = requestUrl.pathname;
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
@@ -30,17 +32,27 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.url === "/api/health") {
+  if (pathname === "/api/health") {
     sendJson(res, 200, { ok: true, service: "bsm-panel" });
     return;
   }
 
-  if ((req.url === "/api/send-program-email" || req.url === "/api/send-program-mail") && req.method === "POST") {
+  if (pathname === "/api/program-pdf" && req.method === "POST") {
+    await handleDownloadProgramPdf(req, res);
+    return;
+  }
+
+  if (pathname === "/api/nutrition-pdf" && req.method === "POST") {
+    await handleDownloadNutritionPdf(req, res);
+    return;
+  }
+
+  if ((pathname === "/api/send-program-email" || pathname === "/api/send-program-mail") && req.method === "POST") {
     await handleSendProgramMail(req, res);
     return;
   }
 
-  if (req.url === "/api/send-nutrition-email" && req.method === "POST") {
+  if (pathname === "/api/send-nutrition-email" && req.method === "POST") {
     await handleSendNutritionMail(req, res);
     return;
   }
@@ -105,16 +117,10 @@ async function handleSendProgramMail(req, res) {
     }
 
     const memberName = sanitizeText(payload.memberName || "Üye");
-    const programText = sanitizeText(payload.programText || "");
     let pdfBuffer;
 
     try {
-      pdfBuffer = createPremiumProgramPdf({
-        title: "Bahçeşehir Spor Merkezi Antrenman Programı",
-        memberName,
-        programText,
-        programData: payload.programData,
-      });
+      pdfBuffer = createProgramPdfBuffer(payload);
     } catch (error) {
       console.error("Program PDF generation error", error);
       sendJson(res, 500, { ok: false, message: "PDF oluşturulamadığı için mail gönderilmedi.", pdfCreated: false });
@@ -188,6 +194,71 @@ async function handleSendProgramMail(req, res) {
   }
 }
 
+async function handleDownloadProgramPdf(req, res) {
+  try {
+    const payload = await readJsonBody(req);
+    const validationError = validateProgramPdfPayload(payload);
+
+    if (validationError) {
+      sendJson(res, 400, { ok: false, message: validationError });
+      return;
+    }
+
+    let pdfBuffer;
+
+    try {
+      pdfBuffer = createProgramPdfBuffer(payload);
+    } catch (error) {
+      console.error("Program PDF download generation error", error);
+      sendJson(res, 500, { ok: false, message: "Program PDF'i oluşturulamadı. Lütfen program verisini kontrol edip tekrar deneyin." });
+      return;
+    }
+
+    if (!Buffer.isBuffer(pdfBuffer) || !pdfBuffer.length) {
+      sendJson(res, 500, { ok: false, message: "Program PDF'i oluşturulamadı. PDF içeriği boş döndü." });
+      return;
+    }
+
+    const memberName = sanitizeText(payload.memberName || payload.programData?.memberName || "uye");
+    sendPdf(res, pdfBuffer, `antrenman-programi-${slugifyFilenamePart(memberName)}.pdf`);
+  } catch (error) {
+    console.error("Program PDF download endpoint error", error);
+    sendJson(res, 500, { ok: false, message: error.message || "Program PDF'i oluşturulurken hata oluştu." });
+  }
+}
+
+async function handleDownloadNutritionPdf(req, res) {
+  try {
+    const payload = await readJsonBody(req);
+
+    if (!payload || typeof payload !== "object" || !payload.planData || typeof payload.planData !== "object") {
+      sendJson(res, 400, { ok: false, message: "PDF için geçerli bir beslenme planı gerekli." });
+      return;
+    }
+
+    let pdfBuffer;
+
+    try {
+      pdfBuffer = createNutritionPdfBuffer(payload.planData);
+    } catch (error) {
+      console.error("Nutrition PDF download generation error", error);
+      sendJson(res, 500, { ok: false, message: "Beslenme PDF'i oluşturulamadı. Lütfen plan verisini kontrol edip tekrar deneyin." });
+      return;
+    }
+
+    if (!Buffer.isBuffer(pdfBuffer) || !pdfBuffer.length) {
+      sendJson(res, 500, { ok: false, message: "Beslenme PDF'i oluşturulamadı. PDF içeriği boş döndü." });
+      return;
+    }
+
+    const memberName = sanitizeText(payload.memberName || payload.planData.memberName || "uye");
+    sendPdf(res, pdfBuffer, `sporcu-beslenme-plani-${slugifyFilenamePart(memberName)}.pdf`);
+  } catch (error) {
+    console.error("Nutrition PDF download endpoint error", error);
+    sendJson(res, 500, { ok: false, message: error.message || "Beslenme PDF'i oluşturulurken hata oluştu." });
+  }
+}
+
 async function handleSendNutritionMail(req, res) {
   try {
     const payload = await readJsonBody(req);
@@ -215,7 +286,7 @@ async function handleSendNutritionMail(req, res) {
 
     let pdfBuffer;
     try {
-      pdfBuffer = createNutritionPlanPdf(payload.planData);
+      pdfBuffer = createNutritionPdfBuffer(payload.planData);
     } catch (error) {
       console.error("Nutrition PDF generation error", error);
       sendJson(res, 500, { ok: false, message: "PDF oluşturulamadığı için mail gönderilmedi.", pdfCreated: false });
@@ -283,6 +354,18 @@ function validateMailPayload(payload) {
 
   if (!payload.programText) {
     return "Mail eki için program verisi bulunamadı.";
+  }
+
+  return "";
+}
+
+function validateProgramPdfPayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    return "Geçersiz PDF isteği.";
+  }
+
+  if (!payload.programText && !payload.programData) {
+    return "PDF için program verisi bulunamadı.";
   }
 
   return "";
@@ -374,7 +457,20 @@ function createPremiumProgramPdf({ title, memberName, programText, programData }
   return buildPdf(objects);
 }
 
+function createProgramPdfBuffer(payload = {}) {
+  return createPremiumProgramPdf({
+    title: "Bahçeşehir Spor Merkezi Antrenman Programı",
+    memberName: sanitizeText(payload.memberName || payload.programData?.memberName || "Üye"),
+    programText: sanitizeText(payload.programText || ""),
+    programData: payload.programData,
+  });
+}
+
 function createNutritionPlanPdf(planData) {
+  return createNutritionPdfBuffer(planData);
+}
+
+function createNutritionPdfBuffer(planData) {
   const model = buildNutritionPdfModel(planData);
   const pages = buildNutritionPdfPagesV2(model).slice(0, 5);
   const objects = [];
@@ -402,8 +498,8 @@ function createNutritionPlanPdf(planData) {
 function buildNutritionPdfModel(planData) {
   const plan = planData && typeof planData === "object" ? planData : {};
   const supplements = Array.isArray(plan.supplements) ? plan.supplements : [];
-  const meals = ensureNutritionMealSupports(Array.isArray(plan.meals) ? plan.meals : [], supplements);
   const schedule = normalizeNutritionPdfSchedule(plan.schedule || plan.supplementPreferences || {});
+  const meals = ensureNutritionMealSupports(Array.isArray(plan.meals) ? plan.meals : [], supplements, schedule);
   const timeline = Array.isArray(plan.timeline) && plan.timeline.length ? plan.timeline : buildNutritionPdfTimeline(meals, schedule);
   const measurementNote =
     plan.sourceSummary?.measurementConnectionText ||
@@ -413,6 +509,8 @@ function buildNutritionPdfModel(planData) {
 
   return {
     title: "Sporcu Beslenme Planı",
+    summarySubtitle: "Üyeye verilecek sade sporcu beslenme planı",
+    footerText: "Bahçeşehir Spor Merkezi | Sporcu Beslenme Planı",
     memberName: plan.memberName || "Üye",
     goal: plan.nutritionGoalLabel || plan.goal || "Beslenme hedefi",
     category: plan.nutritionGoalCategory || "",
@@ -441,33 +539,124 @@ function buildNutritionPdfModel(planData) {
   };
 }
 
-function ensureNutritionMealSupports(meals, supplements) {
-  const mealList = meals.map((meal) => ({ ...meal, supports: Array.isArray(meal.supports) ? [...meal.supports] : [] }));
-  const hasSupports = mealList.some((meal) => meal.supports.length);
+function ensureNutritionMealSupports(meals, supplements, schedule = {}) {
+  const sourceMeals = Array.isArray(meals) ? meals : [];
+  const mealList = sourceMeals.map((meal) => ({ ...meal, supports: [] }));
+  const existingSupports = sourceMeals.flatMap((meal) => (Array.isArray(meal.supports) ? meal.supports : []));
+  const sourceSupports = existingSupports.length
+    ? existingSupports.map(normalizeNutritionSupplementSupport)
+    : normalizeNutritionSupplementStack(supplements).map(buildNutritionSupplementSupport);
 
-  if (hasSupports || !supplements.length) {
+  if (!sourceSupports.length) {
     return mealList;
   }
 
-  supplements.forEach((item) => {
-    const support = buildNutritionSupplementSupport(item);
-    const index = getNutritionSupportMealIndex(support, mealList);
-    mealList[index]?.supports.push(support);
+  normalizeNutritionSupplementStack(sourceSupports).forEach((support) => {
+    const index = getNutritionSupportMealIndex(support, mealList, schedule);
+    const targetMeal = mealList[index] || mealList[0];
+    if (!targetMeal) {
+      return;
+    }
+
+    targetMeal.supports.push({
+      ...support,
+      time: getNutritionSupportClockTime(support, targetMeal, schedule),
+    });
   });
 
   return mealList;
 }
 
+function normalizeNutritionSupplementSupport(support) {
+  const item = support && typeof support === "object" ? support : {};
+  const rebuilt = buildNutritionSupplementSupport({
+    ...item,
+    supplementName: item.supplementName || item.name,
+    suggestedTiming: item.suggestedTiming || item.timing || item.usageTime,
+    suggestedDoseText: item.suggestedDoseText || item.note || item.dose,
+  });
+
+  return {
+    ...item,
+    ...rebuilt,
+    recommendationTier: item.recommendationTier || rebuilt.recommendationTier || "main",
+  };
+}
+
+function normalizeNutritionSupplementStack(items) {
+  const seenNames = new Set();
+  let hasStimulant = false;
+  let hasProteinPowder = false;
+
+  return (Array.isArray(items) ? items : []).filter((item) => {
+    const nameKey = normalizeNutritionSupplementName(item?.supplementName || item?.name);
+    if (!nameKey || seenNames.has(nameKey)) {
+      return false;
+    }
+
+    if (isNutritionProteinPowder(item)) {
+      if (hasProteinPowder) {
+        return false;
+      }
+      hasProteinPowder = true;
+    }
+
+    if (isNutritionStimulantSupplement(item)) {
+      if (hasStimulant) {
+        return false;
+      }
+      hasStimulant = true;
+    }
+
+    seenNames.add(nameKey);
+    return true;
+  });
+}
+
+function normalizeNutritionSupplementName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\s*\+\s*/g, " + ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isNutritionStimulantSupplement(item) {
+  const text = `${item?.supplementName || item?.name || ""} ${item?.category || ""}`.toLowerCase();
+  return /caffeine|pre workout|guarana|yerba mate|mate|yohimbine|green tea/.test(text);
+}
+
+function isNutritionProteinPowder(item) {
+  const text = `${item?.supplementName || item?.name || ""}`.toLowerCase();
+  return /whey|casein|beef protein|vegan protein|pea protein|rice protein|egg white protein|ready protein shake|clear whey/.test(text);
+}
+
 function normalizeNutritionPdfSchedule(schedule = {}) {
   const source = schedule && typeof schedule === "object" ? schedule : {};
+  const wakeTime = normalizePdfTime(source.wakeTime, "07:30");
+  const firstMealTime = normalizePdfTime(source.firstMealTime, "08:30");
+  const workoutTime = normalizePdfTime(source.workoutTime, "18:30");
+  const sleepTime = normalizePdfTime(source.sleepTime, "23:30");
+  const cardioTime = normalizePdfTime(source.cardioTime, "");
+  const wakeMinutes = pdfTimeToMinutes(wakeTime);
+  const firstMealMinutes = normalizePdfFutureMinutes(pdfTimeToMinutes(firstMealTime), wakeMinutes);
+  const workoutMinutes = normalizePdfFutureMinutes(pdfTimeToMinutes(workoutTime), wakeMinutes);
+  const sleepMinutes = normalizePdfFutureMinutes(pdfTimeToMinutes(sleepTime), firstMealMinutes);
+  const cardioMinutes = cardioTime ? normalizePdfFutureMinutes(pdfTimeToMinutes(cardioTime), wakeMinutes) : null;
+
   return {
-    wakeTime: normalizePdfTime(source.wakeTime, "07:30"),
-    firstMealTime: normalizePdfTime(source.firstMealTime, "08:30"),
-    workoutTime: normalizePdfTime(source.workoutTime, "18:30"),
-    sleepTime: normalizePdfTime(source.sleepTime, "23:30"),
-    cardioTime: normalizePdfTime(source.cardioTime, ""),
+    wakeTime,
+    firstMealTime,
+    workoutTime,
+    sleepTime,
+    cardioTime,
     fastingEnabled: source.fastingEnabled === "yes" ? "yes" : "no",
     fastingWindow: ["14:10", "16:8", "18:6"].includes(source.fastingWindow) ? source.fastingWindow : "16:8",
+    wakeMinutes,
+    firstMealMinutes,
+    workoutMinutes,
+    sleepMinutes,
+    cardioMinutes,
   };
 }
 
@@ -505,6 +694,22 @@ function pdfTimeToMinutes(value) {
   return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
 }
 
+function formatPdfMinutesToTime(value) {
+  const minutesInDay = 24 * 60;
+  const normalized = ((Math.round(value) % minutesInDay) + minutesInDay) % minutesInDay;
+  const hours = String(Math.floor(normalized / 60)).padStart(2, "0");
+  const minutes = String(normalized % 60).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function normalizePdfFutureMinutes(value, baseMinutes) {
+  let result = Number(value) || 0;
+  while (result < baseMinutes - 120) {
+    result += 24 * 60;
+  }
+  return result;
+}
+
 function buildNutritionSupplementSupport(item) {
   const name = item?.supplementName || item?.name || "Supplement";
   const text = `${name} ${item?.category || ""} ${item?.suggestedTiming || item?.timing || ""}`.toLowerCase();
@@ -515,6 +720,8 @@ function buildNutritionSupplementSupport(item) {
     dose: getNutritionSupplementDose(text, item),
     water: getNutritionSupplementWater(text, usageTime),
     purpose: shortText(item?.purpose || "Plan hedefini desteklemek", 86),
+    category: item?.category || "",
+    recommendationTier: item?.recommendationTier || "main",
   };
 }
 
@@ -522,10 +729,16 @@ function getNutritionSupplementUsageTime(text, item) {
   if (/bcaa|eaa|electrolyte|intra|sodium|hidrasyon|elektrolit/.test(text)) return "Antrenman sırasında";
   if (/casein|melatonin|magnesium|zma|ashwagandha|rhodiola|uyku|stres/.test(text)) return "Uyku öncesi";
   if (/whey|protein|beef protein|vegan protein|glutamine|creatine|kreatin/.test(text)) return "Antrenmandan hemen sonra";
+  if (isNutritionFatBurnerText(text, item)) return "Kardiyo/antrenmandan 30 dk önce";
   if (/caffeine|pre workout|citrulline|arginine|beta alanine|beetroot|bicarbonate/.test(text)) return "Antrenmandan 30 dk önce";
-  if (/carnitine|green tea|cla|fiber|psyllium|probiotic|prebiotic|digestive|enzyme|sindirim/.test(text)) return "İlk öğünden 15 dk önce";
+  if (/fiber|psyllium|probiotic|prebiotic|digestive|enzyme|sindirim/.test(text)) return "İlk öğünden 15 dk önce";
   if (/vitamin|omega|multi|d3|k2|zinc|calcium|iron|selenium|iodine|chromium|boron|mineral/.test(text)) return "Kahvaltıyla birlikte";
   return item?.suggestedTiming || item?.timing || "Öğünle birlikte";
+}
+
+function isNutritionFatBurnerText(text, item) {
+  const haystack = `${text || ""} ${item?.supplementName || item?.name || ""} ${item?.category || ""}`.toLowerCase();
+  return /yağ yak|yag yak|fat burn|l-?carnitine|green tea|cla|capsaicin|yohimbine|forskolin|garcinia|yerba mate|guarana|chromium|apple cider/.test(haystack);
 }
 
 function getNutritionSupplementDose(text, item) {
@@ -535,6 +748,7 @@ function getNutritionSupplementDose(text, item) {
   if (/whey|protein tozu|vegan protein|beef protein|casein/.test(text)) return "1 ölçek (30 g)";
   if (/electrolyte|sodium/.test(text)) return "1 porsiyon";
   if (/caffeine|pre workout/.test(text)) return "100-200 mg";
+  if (isNutritionFatBurnerText(text, item)) return "etiket dozuna göre";
   if (/fiber|psyllium/.test(text)) return "5-10 g";
   if (/omega/.test(text)) return "1-2 kapsül";
   if (/vitamin|omega|multi|d3|k2|zinc|magnesium|calcium|iron|selenium|iodine|chromium|boron/.test(text)) return item?.suggestedDoseText || "1 kapsül";
@@ -550,16 +764,79 @@ function getNutritionSupplementWater(text, usageTime) {
   return "1 bardak su";
 }
 
-function getNutritionSupportMealIndex(support, meals) {
+function getNutritionSupportMealIndex(support, meals, schedule = {}) {
   const time = String(support?.usageTime || "").toLowerCase();
   if (!meals.length) return 0;
   if (/sabah|kahvalt|ilk öğün|ilk ogun/.test(time)) return 0;
   if (/uyku|gece/.test(time)) return meals.length - 1;
+  if (/kardiyo|cardio/.test(time)) {
+    return findNearestNutritionMealIndexByMinutes(meals, schedule.cardioMinutes ?? schedule.workoutMinutes, schedule);
+  }
   if (/antrenman/.test(time)) {
     const snackIndex = meals.findIndex((meal) => /ara/i.test(meal.name || ""));
     return snackIndex >= 0 ? snackIndex : Math.min(1, meals.length - 1);
   }
   return 0;
+}
+
+function findNearestNutritionMealIndexByMinutes(meals, targetMinutes, schedule = {}) {
+  if (!meals.length) {
+    return 0;
+  }
+
+  const baseMinutes = schedule.wakeMinutes ?? schedule.firstMealMinutes ?? 0;
+  const normalizedTarget = normalizePdfFutureMinutes(Number(targetMinutes) || 0, baseMinutes);
+  let selectedIndex = 0;
+  let selectedDistance = Number.POSITIVE_INFINITY;
+
+  meals.forEach((meal, index) => {
+    const mealMinutes = normalizePdfFutureMinutes(pdfTimeToMinutes(normalizePdfTime(meal.time, schedule.firstMealTime)), baseMinutes);
+    const distance = Math.abs(mealMinutes - normalizedTarget);
+    if (distance < selectedDistance) {
+      selectedDistance = distance;
+      selectedIndex = index;
+    }
+  });
+
+  return selectedIndex;
+}
+
+function getNutritionSupportClockTime(support, meal, schedule = {}) {
+  const usage = String(support?.usageTime || support?.timing || "").toLowerCase();
+  const baseMinutes = schedule.wakeMinutes ?? 0;
+  const workoutMinutes = normalizePdfFutureMinutes(schedule.workoutMinutes ?? pdfTimeToMinutes(schedule.workoutTime), baseMinutes);
+  const cardioMinutes =
+    schedule.cardioMinutes === null || schedule.cardioMinutes === undefined
+      ? null
+      : normalizePdfFutureMinutes(schedule.cardioMinutes, baseMinutes);
+  const firstMealMinutes = normalizePdfFutureMinutes(schedule.firstMealMinutes ?? pdfTimeToMinutes(schedule.firstMealTime), baseMinutes);
+  const sleepMinutes = normalizePdfFutureMinutes(schedule.sleepMinutes ?? pdfTimeToMinutes(schedule.sleepTime), firstMealMinutes);
+
+  if (/kardiyo|cardio/.test(usage)) {
+    return formatPdfMinutesToTime((cardioMinutes ?? workoutMinutes) - 30);
+  }
+
+  if (/sırasında|sirasinda|intra/.test(usage)) {
+    return formatPdfMinutesToTime(workoutMinutes + 25);
+  }
+
+  if (/hemen sonra|sonra/.test(usage) && /antrenman/.test(usage)) {
+    return formatPdfMinutesToTime(workoutMinutes + 15);
+  }
+
+  if (/30 dk|30 dakika|önce|once/.test(usage) && /antrenman/.test(usage)) {
+    return formatPdfMinutesToTime(workoutMinutes - 30);
+  }
+
+  if (/uyku|gece/.test(usage)) {
+    return formatPdfMinutesToTime(sleepMinutes - 30);
+  }
+
+  if (/ilk|kahvalt|sabah/.test(usage)) {
+    return formatPdfMinutesToTime(firstMealMinutes - (/15/.test(usage) ? 15 : 0));
+  }
+
+  return meal?.time || schedule.firstMealTime || "";
 }
 
 function shortText(value, maxLength) {
@@ -584,7 +861,7 @@ function buildNutritionPdfPagesV2(model) {
     if (!commands.length) {
       return;
     }
-    drawPageFooter(commands, pageNumber);
+    drawPageFooter(commands, pageNumber, model);
     pages.push(commands.join("\n"));
   }
 
@@ -602,7 +879,7 @@ function buildNutritionPdfPagesV2(model) {
   }
 
   startPage();
-  drawSummaryBlock(commands, { summary: model.summary, memberName: model.memberName });
+  drawSummaryBlock(commands, model);
   y = 606;
 
   drawNutritionPdfSectionTitle(commands, "Kalori ve Makro Özeti", y);
@@ -667,13 +944,13 @@ function buildNutritionPdfPages(model) {
   }
 
   function finishPage() {
-    drawPageFooter(commands, pageNumber);
+    drawPageFooter(commands, pageNumber, model);
     pages.push(commands.join("\n"));
     pageNumber += 1;
   }
 
   startPage();
-  drawSummaryBlock(commands, { summary: model.summary, memberName: model.memberName });
+  drawSummaryBlock(commands, model);
   y = 596;
   drawNutritionPdfSectionTitle(commands, "Plan Mantığı", y);
   y -= 24;
@@ -805,7 +1082,7 @@ function drawNutritionMealCardGrid(commands, meals, y, ensureSpace) {
 function getNutritionMealCardHeight(meal) {
   const supportCount = Array.isArray(meal?.supports) ? Math.min(meal.supports.length, 3) : 0;
   const foodLength = String(meal?.foods || "").length;
-  return 86 + supportCount * 15 + (foodLength > 92 ? 10 : 0);
+  return 104 + supportCount * 19 + (foodLength > 92 ? 12 : 0);
 }
 
 function drawNutritionMealCard(commands, meal, index, x, y, width, height) {
@@ -826,7 +1103,7 @@ function drawNutritionMealCard(commands, meal, index, x, y, width, height) {
     addText(commands, x + 14, y - 68, "Destekler", 6.4, "#d8ad63", 16);
     supports.forEach((support, supportIndex) => {
       const line = `${support.time || support.usageTime || ""} ${support.name || "Supplement"} - ${support.dose || ""} - ${support.water || "1 bardak su"}`;
-      addText(commands, x + 62, y - 68 - supportIndex * 14, line, 5.8, "#384d55", 34);
+      addText(commands, x + 62, y - 68 - supportIndex * 17, line, 5.8, "#384d55", 34);
     });
   }
 }
@@ -915,6 +1192,8 @@ function buildProgramPdfModel({ title, memberName, programText, programData }) {
 
   return {
     title: title || data.title || "Bahçeşehir Spor Merkezi Antrenman Programı",
+    summarySubtitle: "Üyeye verilecek sade antrenman planı",
+    footerText: "Bahçeşehir Spor Merkezi | Üye Antrenman Programı",
     memberName: data.memberName || memberName || "Üye",
     summary,
     sessions,
@@ -936,7 +1215,7 @@ function buildPremiumProgramPdfPages(model) {
   }
 
   function finishPage() {
-    drawPageFooter(commands, pageNumber);
+    drawPageFooter(commands, pageNumber, model);
     pages.push(commands.join("\n"));
   }
 
@@ -970,7 +1249,7 @@ function buildPremiumProgramPdfPages(model) {
         y -= 42;
       }
 
-      drawExerciseCard(commands, exercise, 42 + column * 256, y, 244, 54);
+      drawExerciseCard(commands, exercise, 42 + column * 256, y, 244, 54, index + 1);
     });
 
     y -= exercises.length % 2 === 0 ? 76 : 140;
@@ -1000,7 +1279,7 @@ function drawPageHeader(commands, model, pageNumber) {
 function drawSummaryBlock(commands, model) {
   drawRect(commands, 28, 648, 539, 88, "#f6faf9", "#d9e5e3");
   addText(commands, 44, 714, model.memberName, 18, "#082b35", 36);
-  addText(commands, 44, 696, "Üyeye verilecek sade antrenman planı", 9, "#1d6b74");
+  addText(commands, 44, 696, model.summarySubtitle || "Üyeye verilecek sade antrenman planı", 9, "#1d6b74");
 
   model.summary.forEach((item, index) => {
     const x = 44 + index * 128;
@@ -1016,13 +1295,13 @@ function drawSessionHeader(commands, session, y) {
   addText(commands, 420, y + 10, session.duration || "", 8, "#d8ad63", 18);
 }
 
-function drawExerciseCard(commands, exercise, x, y, width, height) {
+function drawExerciseCard(commands, exercise, x, y, width, height, order = "") {
   const name = exercise?.name || "Hareket";
   const group = exercise?.groupLabel || exercise?.group || "Kas grubu";
   drawRect(commands, x, y - height + 10, width, height, "#ffffff", "#d9e5e3");
   drawRect(commands, x, y - height + 10, 6, height, "#d8ad63");
   drawRect(commands, x + 12, y - 31, 34, 34, "#eef7f5", "#b9d3ce");
-  addText(commands, x + 19, y - 12, "GIF", 7, "#1d6b74");
+  addText(commands, x + 22, y - 12, String(order || ""), 9, "#1d6b74");
   addText(commands, x + 54, y - 6, name, 9.4, "#082b35", 31);
   addText(commands, x + 54, y - 20, group, 7.3, "#1d6b74", 31);
 
@@ -1073,9 +1352,9 @@ function drawNutritionNotice(commands, y) {
   addText(commands, 44, y - 40, "Beslenme planı uygulama içindeki Beslenme sekmesinde sunulmaktadır.", 8, "#384d55", 84);
 }
 
-function drawPageFooter(commands, pageNumber) {
+function drawPageFooter(commands, pageNumber, model = {}) {
   drawLine(commands, 28, 50, 567, 50, "#d9e5e3");
-  addText(commands, 42, 34, "Bahçeşehir Spor Merkezi | Üye Antrenman Programı", 7.5, "#5c6c72");
+  addText(commands, 42, 34, model.footerText || "Bahçeşehir Spor Merkezi | Üye Antrenman Programı", 7.5, "#5c6c72");
   addText(commands, 500, 34, `Sayfa ${pageNumber}`, 7.5, "#5c6c72");
 }
 
@@ -1329,6 +1608,22 @@ function sanitizeFilename(value, fallback) {
   return sanitized || fallback;
 }
 
+function slugifyFilenamePart(value) {
+  const slug = String(value || "")
+    .toLocaleLowerCase("tr-TR")
+    .replaceAll("ı", "i")
+    .replaceAll("ğ", "g")
+    .replaceAll("ü", "u")
+    .replaceAll("ş", "s")
+    .replaceAll("ö", "o")
+    .replaceAll("ç", "c")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "uye";
+}
+
 function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
 }
@@ -1345,6 +1640,17 @@ function escapeHtml(value) {
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(payload));
+}
+
+function sendPdf(res, pdfBuffer, filename) {
+  const safeFilename = sanitizeFilename(filename, "bsm-rapor.pdf").replace(/[^\x20-\x7E]/g, "-");
+  res.writeHead(200, {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `attachment; filename="${safeFilename}"`,
+    "Content-Length": pdfBuffer.length,
+    "Cache-Control": "no-store",
+  });
+  res.end(pdfBuffer);
 }
 
 function sendText(res, statusCode, text) {

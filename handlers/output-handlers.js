@@ -81,6 +81,60 @@
       windowObject.print();
     }
 
+    async function handleDownloadProgramPdf() {
+      let program = getCurrentProgramFromEditor() || loadLastPlan();
+
+      if (!program?.schemaVersion) {
+        setProgramDeliveryStatus("PDF indirilebilmesi için önce program oluşturun.", "error");
+        return;
+      }
+
+      if (state.programEditMode) {
+        const currentProgram = getCurrentProgramFromEditor();
+        const validationMessage = validateEditableProgram?.(currentProgram) || "";
+
+        if (validationMessage) {
+          setProgramDeliveryStatus(validationMessage, "error");
+          return;
+        }
+
+        state.programEditMode = false;
+        program = currentProgram;
+        renderProgram(currentProgram, { preserveEditState: true });
+      }
+
+      const pdfService = windowObject.BSMPdfDownloadService;
+
+      if (!pdfService?.downloadProgramPdf) {
+        setProgramDeliveryStatus("Premium PDF servisi yüklenemedi. Lütfen sayfayı yenileyip tekrar deneyin.", "error");
+        return;
+      }
+
+      const profile = collectFormData();
+      const activeMember = findActiveMember();
+      const memberName = profile.memberName || activeMember?.profile?.memberName || "uye";
+      const filename = `bahcesehir-program-${slugifyFilePart(memberName)}-${formatFileDate(new Date())}.pdf`;
+
+      try {
+        setProgramDeliveryStatus("Premium PDF hazırlanıyor...", "loading");
+        const result = await pdfService.downloadProgramPdf({
+          payload: buildProgramPdfPayload(program, profile, activeMember),
+          filename,
+          downloadFile,
+          windowObject,
+        });
+
+        if (!result.ok) {
+          throw new Error(result.message || "PDF oluşturulamadı.");
+        }
+
+        setProgramDeliveryStatus(result.message || "Premium program PDF'i indirildi.", "success");
+      } catch (error) {
+        console.error("Program PDF download error", error);
+        setProgramDeliveryStatus(`PDF oluşturulamadı: ${error.message || "Lütfen tekrar deneyin."}`, "error");
+      }
+    }
+
     async function handleDownloadLiveProgram() {
       const program = getCurrentProgramFromEditor() || loadLastPlan();
 
@@ -127,14 +181,15 @@
       try {
         setProgramDeliveryStatus("Gönderiliyor...", "loading");
         const liveHtml = await buildLiveProgramHtml(program, { inlineImages: false });
+        const pdfPayload = buildProgramPdfPayload(program, profile, activeMember);
         const payload = {
           to: recipientEmail,
-          memberName: profile.memberName || activeMember?.profile?.memberName || "Üye",
+          memberName: pdfPayload.memberName,
           trainerName: profile.trainerName || activeMember?.profile?.trainerName || "",
           subject: "Bahçeşehir Spor Merkezi | Size Özel Antrenman Programınız",
-          message: buildMailMessage(profile.memberName || activeMember?.profile?.memberName || "Üye"),
-          programText: convertProgramToText(program),
-          programData: buildMailProgramData(program, profile, activeMember),
+          message: buildMailMessage(pdfPayload.memberName),
+          programText: pdfPayload.programText,
+          programData: pdfPayload.programData,
           htmlAttachment: {
             filename: `canli-antrenman-programi-${slugifyFilePart(profile.memberName || "uye")}.html`,
             contentBase64: toBase64Unicode(liveHtml),
@@ -596,6 +651,38 @@ Sağlıklı günler dileriz.
 Bahçeşehir Spor Merkezi`;
     }
 
+    function buildProgramPdfPayload(program, profile, activeMember) {
+      const memberName = profile.memberName || activeMember?.profile?.memberName || "Üye";
+
+      return {
+        memberName,
+        programText: convertProgramToText(program),
+        programData: buildMailProgramData(program, profile, activeMember),
+      };
+    }
+
+    function getMailExerciseGroupLabel(exercise) {
+      const labels = {
+        chest: "Göğüs",
+        back: "Sırt",
+        quadriceps: "Ön Bacak",
+        hamstrings: "Arka Bacak",
+        glutes: "Kalça",
+        shoulders: "Omuz",
+        triceps: "Triceps",
+        biceps: "Biceps",
+        calves: "Baldır",
+        core: "Core",
+        cardio: "Kardiyo",
+        crossfit: "CrossFit",
+        pilates: "Pilates",
+        mobility: "Mobilite",
+      };
+      const rawGroup = String(exercise?.group || "").trim();
+      const existingLabel = String(exercise?.groupLabel || exercise?.muscleGroup || "").trim();
+      return labels[rawGroup] || labels[existingLabel] || existingLabel || rawGroup || "Kas grubu";
+    }
+
     function buildMailProgramData(program, profile, activeMember) {
       const goalLabel = labelMaps?.goal?.[profile.goal] || profile.goal || activeMember?.profile?.goal || "Kişisel hedef";
       const levelLabel = labelMaps?.level?.[profile.level] || profile.level || activeMember?.profile?.level || "Seviye belirtilmedi";
@@ -620,7 +707,7 @@ Bahçeşehir Spor Merkezi`;
             return {
               name: exercise.name || "Hareket",
               group: exercise.group || "",
-              groupLabel: exercise.groupLabel || exercise.muscleGroup || exercise.group || "Kas grubu",
+              groupLabel: getMailExerciseGroupLabel(exercise),
               sets: exercise.sets || prescription.sets || "-",
               reps: exercise.reps || prescription.reps || "-",
               repModel: exercise.repModel || exercise.repScheme?.model || "fixed",
@@ -970,6 +1057,7 @@ Bahçeşehir Spor Merkezi`;
     return {
       copyPlanText,
       handlePrintPlan,
+      handleDownloadProgramPdf,
       handleDownloadLiveProgram,
       handleSendProgramMail,
       handleDownloadBackup,
@@ -983,7 +1071,7 @@ Bahçeşehir Spor Merkezi`;
   function bindOutputHandlers(elements, handlers) {
     bindIf(elements.copyPlanButton, "click", handlers.copyPlanText);
     bindIf(elements.printPlanButton, "click", handlers.handlePrintPlan);
-    bindIf(elements.programPdfActionButton, "click", handlers.handlePrintPlan);
+    bindIf(elements.programPdfActionButton, "click", handlers.handleDownloadProgramPdf);
     bindIf(elements.downloadLiveProgramButton, "click", handlers.handleDownloadLiveProgram);
     bindIf(elements.sendProgramMailButton, "click", handlers.handleSendProgramMail);
     bindIf(elements.downloadBackupButton, "click", handlers.handleDownloadBackup);
