@@ -13,8 +13,9 @@
   normalizeImportedMembers,
 } = window.BSMStorageService;
 
-console.log("APP VERSION: v1.0.32");
-console.log("NUTRITION PRO VERSION: v1.0.32-layout-measurement-sync");
+console.log("APP VERSION: v1.0.33");
+console.log("UI/UX SIMPLIFICATION VERSION: v1.0.33");
+console.log("NUTRITION PRO VERSION: v1.0.33-layout-measurement-sync");
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 console.log("MEASUREMENT TAB VERSION: v1");
@@ -614,6 +615,7 @@ function initialize() {
   prepareNutritionControls?.(nutritionPanel, escapeHtml);
   initializeStateFromStorage();
   prepareOutputLayout();
+  setupBuilderWizard();
   prepareMeasurementTabLayout();
   bindApplicationHandlers();
   syncStartupUi();
@@ -790,6 +792,159 @@ function prepareOutputLayout() {
   } else {
     grid.appendChild(detailPanel);
   }
+}
+
+function setupBuilderWizard() {
+  if (!form || form.dataset.builderWizardReady === "true") {
+    return;
+  }
+
+  const steps = [...form.querySelectorAll(".builder-steps span")];
+
+  if (!steps.length) {
+    return;
+  }
+
+  form.dataset.builderWizardReady = "true";
+  form.classList.add("builder-wizard-active");
+  form.dataset.builderWizardStep = "1";
+
+  steps.forEach((stepElement, index) => {
+    stepElement.dataset.builderStepTarget = String(index + 1);
+    stepElement.setAttribute("role", "button");
+    stepElement.tabIndex = 0;
+  });
+
+  markBuilderWizardSections();
+  insertBuilderWizardToolbar();
+  setBuilderWizardStep(1);
+  form.addEventListener("click", handleBuilderWizardClick);
+  form.addEventListener("keydown", handleBuilderWizardKeydown);
+}
+
+function markBuilderWizardSections() {
+  const assignControl = (selector, step) => {
+    const control = form.querySelector(selector);
+    const wrapper = control?.closest(".field, .choice-block, .field--full, .form-footer");
+
+    if (wrapper) {
+      wrapper.dataset.builderStep = String(step);
+    }
+  };
+
+  ["#gymName", "#memberName", "#memberCode", "#memberEmail", "#trainerName"].forEach((selector) => assignControl(selector, 1));
+  ["#goal", "#level", "#programStyle", "#priorityMuscle"].forEach((selector) => assignControl(selector, 2));
+  ["#trainingSystem", "#equipmentScope", "#duration"].forEach((selector) => assignControl(selector, 3));
+
+  form.querySelector('input[name="days"]')?.closest(".choice-block")?.setAttribute("data-builder-step", "3");
+  form.querySelector('input[name="cardioPreference"]')?.closest(".choice-block")?.setAttribute("data-builder-step", "3");
+  form.querySelector('input[name="restrictions"]')?.closest(".choice-block")?.setAttribute("data-builder-step", "3");
+  repetitionBuilder?.setAttribute("data-builder-step", "4");
+  form.querySelector("#notes")?.closest(".field")?.setAttribute("data-builder-step", "5");
+  form.querySelector(".form-footer")?.setAttribute("data-builder-step", "5");
+  workflowAssistant?.setAttribute("data-builder-persistent", "true");
+}
+
+function insertBuilderWizardToolbar() {
+  if (form.querySelector(".builder-wizard-toolbar")) {
+    return;
+  }
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "builder-wizard-toolbar";
+  toolbar.innerHTML = `
+    <div>
+      <strong id="builderWizardTitle">Üye bilgileri</strong>
+      <span id="builderWizardHint">Üye dosyasını oluşturacak temel bilgileri girin.</span>
+    </div>
+    <div class="builder-wizard-toolbar__actions">
+      <button type="button" class="ghost-button mini-button" data-builder-wizard-action="toggle-all">Tüm adımları göster</button>
+      <button type="button" class="ghost-button mini-button" data-builder-wizard-action="prev">Geri</button>
+      <button type="button" class="secondary-button mini-button" data-builder-wizard-action="next">Sonraki</button>
+    </div>
+  `;
+
+  form.querySelector(".builder-steps")?.insertAdjacentElement("afterend", toolbar);
+}
+
+function handleBuilderWizardClick(event) {
+  const stepTarget = event.target.closest("[data-builder-step-target]");
+  const actionTarget = event.target.closest("[data-builder-wizard-action]");
+
+  if (stepTarget) {
+    setBuilderWizardStep(Number(stepTarget.dataset.builderStepTarget));
+    return;
+  }
+
+  if (!actionTarget) {
+    return;
+  }
+
+  const action = actionTarget.dataset.builderWizardAction;
+  const currentStep = Number(form.dataset.builderWizardStep || 1);
+
+  if (action === "prev") {
+    setBuilderWizardStep(currentStep - 1);
+  } else if (action === "next") {
+    setBuilderWizardStep(currentStep + 1);
+  } else if (action === "toggle-all") {
+    form.classList.toggle("builder-wizard-show-all");
+    actionTarget.textContent = form.classList.contains("builder-wizard-show-all") ? "Adım adım göster" : "Tüm adımları göster";
+    setBuilderWizardStep(currentStep);
+  }
+}
+
+function handleBuilderWizardKeydown(event) {
+  const stepTarget = event.target.closest("[data-builder-step-target]");
+
+  if (!stepTarget || !["Enter", " "].includes(event.key)) {
+    return;
+  }
+
+  event.preventDefault();
+  setBuilderWizardStep(Number(stepTarget.dataset.builderStepTarget));
+}
+
+function setBuilderWizardStep(step) {
+  const stepItems = [...form.querySelectorAll("[data-builder-step-target]")];
+  const maxStep = stepItems.length || 5;
+  const activeStep = Math.min(Math.max(Number(step) || 1, 1), maxStep);
+  const stepMeta = getBuilderWizardStepMeta(activeStep);
+  const showAll = form.classList.contains("builder-wizard-show-all");
+
+  form.dataset.builderWizardStep = String(activeStep);
+  stepItems.forEach((item, index) => {
+    item.classList.toggle("is-active", index + 1 === activeStep);
+  });
+
+  form.querySelectorAll("[data-builder-step]").forEach((section) => {
+    section.classList.toggle("is-builder-step-active", showAll || Number(section.dataset.builderStep) === activeStep);
+  });
+
+  const title = form.querySelector("#builderWizardTitle");
+  const hint = form.querySelector("#builderWizardHint");
+  const prevButton = form.querySelector('[data-builder-wizard-action="prev"]');
+  const nextButton = form.querySelector('[data-builder-wizard-action="next"]');
+
+  if (title) title.textContent = stepMeta.title;
+  if (hint) hint.textContent = stepMeta.hint;
+  if (prevButton) prevButton.disabled = activeStep === 1;
+  if (nextButton) {
+    nextButton.textContent = activeStep === maxStep ? "Önizleme hazır" : "Sonraki";
+    nextButton.disabled = activeStep === maxStep;
+  }
+}
+
+function getBuilderWizardStepMeta(step) {
+  const meta = {
+    1: { title: "1. Üye bilgileri", hint: "Üye adı, iletişim ve antrenör bilgilerini sade şekilde tamamlayın." },
+    2: { title: "2. Hedef ve seviye", hint: "Hedef, seviye ve program tipi kararlarını netleştirin." },
+    3: { title: "3. Antrenman tercihleri", hint: "Gün, ekipman, süre, kardiyo ve hassasiyetleri seçin." },
+    4: { title: "4. Set / tekrar yapısı", hint: "Program oluşmadan önce ana reçete mantığını belirleyin." },
+    5: { title: "5. Önizleme ve oluştur", hint: "Antrenör notunu ekleyin; üyeyi kaydedip programı oluşturun." },
+  };
+
+  return meta[step] || meta[1];
 }
 
 function prepareMeasurementTabLayout() {
@@ -2921,6 +3076,7 @@ function bindApplicationHandlers() {
   restoreHiddenExercisesButton?.addEventListener("click", handleRestoreHiddenExercises);
   exerciseLibraryEl?.addEventListener("click", handleLibraryExerciseAction);
   customExerciseList?.addEventListener("click", handleLibraryExerciseAction);
+  activeMemberProfile?.addEventListener("click", handleWorkflowAssistantAction);
 buildMeasurementReportButton?.addEventListener("click", handleBuildMeasurementReport);
 measurementTabPdfButton?.addEventListener("click", handlePrintMeasurementReport);
 measurementReportBackButton?.addEventListener("click", handleMeasurementReportBack);

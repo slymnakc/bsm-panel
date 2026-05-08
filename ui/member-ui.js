@@ -16,25 +16,6 @@
       return;
     }
 
-    const lastThreeMeasurementsHtml = (model.lastThreeMeasurements || []).length
-      ? model.lastThreeMeasurements
-          .map(
-            (item) => `
-              <div>
-                <strong>${escapeHtml(item.date)}</strong>
-                <span>${escapeHtml(item.summary)}</span>
-              </div>
-            `,
-          )
-          .join("")
-      : `<div><strong>Ölçüm yok</strong><span>İlk segmental ölçüm girildiğinde son 3 kayıt burada özetlenir.</span></div>`;
-
-    const warningListHtml = (model.warnings || []).length
-      ? model.warnings
-          .map((warning) => `<li>${escapeHtml(warning.title)}: ${escapeHtml(warning.message)}</li>`)
-          .join("")
-      : `<li>Kritik koç uyarısı yok.</li>`;
-
     target.innerHTML = `
       <div class="profile-card__top">
         <div>
@@ -50,44 +31,23 @@
         <div><span>Program</span><strong>${escapeHtml(model.programStatus)}</strong></div>
         <div><span>Uyarı</span><strong>${escapeHtml(model.riskText)}</strong></div>
       </div>
-      <div class="profile-intelligence">
-        <div class="score-strip">
-          <div class="score-pill">
-            <span>Genel skor</span>
-            <strong>${escapeHtml(model.score)}</strong>
-            <small>Ölçüm, trend ve hassasiyet kuralları</small>
-          </div>
-          <div class="score-pill">
-            <span>Hedef uyumu</span>
-            <strong>${escapeHtml(model.goalFitScore)}</strong>
-            <small>Hedef + ölçüm trendi + frekans</small>
-          </div>
-          <div class="score-pill score-pill--risk">
-            <span>Risk seviyesi</span>
-            <strong>${escapeHtml(model.riskLevel)}</strong>
-            <small>Hassasiyet ve kötüleşen metrikler</small>
-          </div>
-        </div>
-        <article class="member-intelligence">
-          <strong>AI analiz özeti</strong>
-          <p>${escapeHtml(model.summary)}</p>
-          <span>${escapeHtml(model.trendText)}</span>
+      <div class="profile-quick-summary">
+        <article>
+          <span>Son durum</span>
+          <strong>${escapeHtml(model.trendText || model.summary)}</strong>
         </article>
-        <article class="member-intelligence">
-          <strong>Son 3 ölçüm</strong>
-          <div class="mini-history">${lastThreeMeasurementsHtml}</div>
-        </article>
-        <article class="member-intelligence">
-          <strong>Program uygunluğu</strong>
-          <p>${escapeHtml(model.programSuitability)}</p>
-          <span>${escapeHtml(model.revisionNote)}</span>
-        </article>
-        <article class="member-intelligence member-intelligence--alerts">
-          <strong>Koç uyarıları</strong>
-          <ul>${warningListHtml}</ul>
-          <p><b>Önerilen sonraki adım:</b> ${escapeHtml(model.nextAction)}</p>
+        <article>
+          <span>Sonraki adım</span>
+          <strong>${escapeHtml(model.nextAction)}</strong>
         </article>
       </div>
+      <div class="profile-quick-actions" aria-label="Aktif üye hızlı aksiyonları">
+        <button type="button" class="ghost-button mini-button" data-workflow-action="measurements">Ölçüm</button>
+        <button type="button" class="secondary-button mini-button" data-workflow-action="build-program">Program</button>
+        <button type="button" class="ghost-button mini-button" data-workflow-action="nutrition">Beslenme</button>
+        <button type="button" class="primary-button mini-button" data-workflow-action="output">Çıktı</button>
+      </div>
+      <p class="profile-card__hint">Detaylı AI/V3 analizleri sağ paneldeki <b>V3 Koçluk</b> sekmesinde tutulur.</p>
     `;
   }
 
