@@ -20,7 +20,23 @@
       "Bash(git push *)",
       "Bash(awk -F: '{print NR, $1, $2}')",
       "Bash(grep -vE '^\\(if|for|while|return|switch|typeof|parseInt|parseFloat|isNaN|isFinite|Math|Array|Object|String|Number|Boolean|Date|JSON|Promise|console|document|window|Error|setTimeout|clearTimeout|setInterval|filter|map|reduce|find|includes|forEach|push|pop|join|split|slice|concat|replace|trim|toFixed|toLocaleDateString|toLowerCase|toUpperCase|keys|entries|values|fromEntries|isArray|isInteger|isFinite|abs|max|min|round|floor|ceil|sqrt\\)$')",
-      "Bash(grep -vE '^\\(if|for|while|return|switch|typeof|parseInt|parseFloat|isNaN|isFinite|Math|Array|Object|String|Number|Boolean|Date|JSON|Promise|console|document|window|Error|setTimeout|clearTimeout|filter|map|reduce|find|includes|forEach|push|pop|join|split|slice|concat|replace|trim|toFixed|toLocaleDateString|toLowerCase|toUpperCase|keys|entries|fromEntries|isArray|isInteger|abs|max|min|round|floor|ceil|format\\)$')"
+      "Bash(grep -vE '^\\(if|for|while|return|switch|typeof|parseInt|parseFloat|isNaN|isFinite|Math|Array|Object|String|Number|Boolean|Date|JSON|Promise|console|document|window|Error|setTimeout|clearTimeout|filter|map|reduce|find|includes|forEach|push|pop|join|split|slice|concat|replace|trim|toFixed|toLocaleDateString|toLowerCase|toUpperCase|keys|entries|fromEntries|isArray|isInteger|abs|max|min|round|floor|ceil|format\\)$')",
+      "Bash(node --check app.js)",
+      "Bash(node --check handlers/nutrition-handlers.js handlers/output-handlers.js services/pdf-download-service.js nutrition/nutritionPdfRenderer.js nutrition/nutritionEmailService.js features/measurement-report.js)",
+      "Bash(node --check server.js)",
+      "Bash(node -e \"const s=require\\('./server.js'\\)\")",
+      "Bash(curl *)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :3000)",
+      "Bash(Get-Process -Id 28096)",
+      "Bash(Select-Object -Property Name, Id, Path)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Get-WmiObject *)",
+      "PowerShell(Get-CimInstance *)",
+      "Bash(pm2 list *)",
+      "Bash(pm2 logs *)",
+      "Bash(pm2 show *)",
+      "Bash(pm2 reload *)"
     ]
   }
 }
