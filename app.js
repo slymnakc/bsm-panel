@@ -606,6 +606,29 @@ const memberHandlers = createMemberHandlers({
   handleExportMembersCsv: outputHandlers.handleExportMembersCsv,
 });
 
+// ── BSMRouter başlatma ────────────────────────────────────────────────────────
+if (window.BSMRouter) {
+  window.BSMRouter.init({
+    state,
+    screenPanels,
+    studioNav,
+    workspacePanels,
+    workspaceTabs,
+    loadLatestForOutput: () => loadLatestProgramForOutput(),
+    onMeasurementReport: () => renderMeasurementReport(),
+    onMeasurementTab: () => renderMeasurementTabStatus(),
+    showStatus: (msg, type) => showStatus(msg, type),
+  });
+}
+
+// ── Auth sonrası Supabase yeniden sync ────────────────────────────────────────
+// Yeni oturum açan kullanıcılar için: başlangıçta anon olarak sync başarısız
+// olmuşsa, auth tamamlandıktan sonra tekrar çalışır.
+window.addEventListener("bsm:auth:ready", () => {
+  syncMembersFromSupabase({ source: "auth-ready" });
+  syncAppSettingsFromSupabase();
+});
+
 initialize();
 
 function initialize() {
@@ -3519,104 +3542,20 @@ function handleRepetitionTemplateControlChange(event) {
 }
 
 
-function setActiveScreen(screen, options = {}) {
-  const { userTriggered = false, silent = false } = options;
-  const normalized = ["dashboard", "builder", "measurements", "nutrition", "library", "output", "measurement-report"].includes(screen) ? screen : "dashboard";
+// Navigasyon mantığı core/router.js → BSMRouter'a taşındı.
+// Bu fonksiyonlar geriye uyumluluk için ince wrapper olarak korunur.
+// Handler'lar hâlâ bu isimleri dependency injection ile alıyor.
 
-  if (normalized === "output" && !state.activeProgram) {
-    const loadedProgram = loadLatestProgramForOutput();
-
-    if (!loadedProgram && userTriggered && !silent) {
-      showStatus("Çıktı ekranı için önce üye programı oluşturun.", "error");
-    }
-
-    if (!loadedProgram) {
-      return false;
-    }
-  }
-
-  state.activeScreen = normalized;
-
-  if (normalized === "measurement-report") {
-    renderMeasurementReport();
-  }
-
-  if (normalized === "measurements") {
-    renderMeasurementTabStatus();
-  }
-
-  screenPanels.forEach((panel) => {
-    panel.classList.toggle("is-hidden", panel.dataset.screen !== normalized);
-  });
-
-  studioNav.querySelectorAll("button[data-screen-target]").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.screenTarget === normalized);
-  });
-
-  const hashMap = {
-    dashboard: "#dashboardPanel",
-    builder: "#plannerForm",
-    measurements: "#measurementsPanel",
-    nutrition: "#nutritionPanel",
-    library: "#libraryPanel",
-    output: "#resultsSection",
-    "measurement-report": "#measurementReportSection",
-  };
-  const nextHash = hashMap[normalized];
-
-  if (nextHash && window.location.hash !== nextHash) {
-    history.replaceState(null, "", nextHash);
-  }
-
-  return true;
+function setActiveScreen(screen, options) {
+  return window.BSMRouter ? window.BSMRouter.navigate(screen, options) : false;
 }
 
 function inferScreenFromHash(hashValue) {
-  const hash = String(hashValue || "").toLowerCase();
-
-  if (hash.includes("librarypanel")) {
-    return "library";
-  }
-
-  if (hash.includes("nutritionpanel")) {
-    return "nutrition";
-  }
-
-  if (hash.includes("resultssection")) {
-    return "output";
-  }
-
-  if (hash.includes("measurementreportsection")) {
-    return "measurement-report";
-  }
-
-  if (hash.includes("measurementspanel")) {
-    return "measurements";
-  }
-
-  if (hash.includes("plannerform") || hash.includes("member") || hash.includes("measurement")) {
-    return "builder";
-  }
-
-  return "dashboard";
+  return window.BSMRouter ? window.BSMRouter.inferFromHash(hashValue) : "dashboard";
 }
 
-
 function setWorkspaceView(view) {
-  const normalized = ["members", "history", "v3"].includes(view) ? view : "members";
-  state.activeWorkspaceView = normalized;
-
-  workspacePanels.forEach((panel) => {
-    if (!panel.closest(".member-workspace")) {
-      return;
-    }
-
-    panel.classList.toggle("is-hidden", panel.dataset.workspacePanel !== normalized);
-  });
-
-  workspaceTabs.querySelectorAll("button[data-workspace-view]").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.workspaceView === normalized);
-  });
+  if (window.BSMRouter) window.BSMRouter.setView(view);
 }
 
 
