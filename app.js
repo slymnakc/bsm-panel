@@ -1173,12 +1173,14 @@ function bindApplicationHandlers() {
       generateNutritionButton,
       saveNutritionButton,
       printNutritionButton,
-      sendNutritionMailButton: nutritionPanel?.querySelector("#sendNutritionMailButton"),
       nutritionPlanEditor,
       nutritionPanel,
     },
     nutritionHandlers,
   );
+  nutritionPanel?.addEventListener("click", (e) => {
+    if (e.target.closest("#sendNutritionMailButton")) nutritionHandlers.handleSendNutritionPlanEmail();
+  });
   addCustomExerciseButton?.addEventListener("click", handleAddCustomExercise);
   resetCustomExerciseFormButton?.addEventListener("click", clearCustomExerciseForm);
   restoreHiddenExercisesButton?.addEventListener("click", handleRestoreHiddenExercises);
