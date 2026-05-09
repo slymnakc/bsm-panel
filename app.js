@@ -280,6 +280,15 @@ function getRepetitionModelLabel(value) {
   return repetitionModelOptions.find((option) => option.value === normalizeRepModel(value))?.label || "Fixed";
 }
 
+function segmentDiffPercent(a, b) {
+  if (a === "" || b === "" || a === undefined || b === undefined || Number(a) === 0 || Number(b) === 0) {
+    return null;
+  }
+  const max = Math.max(Number(a), Number(b));
+  const min = Math.min(Number(a), Number(b));
+  return ((max - min) / max) * 100;
+}
+
 const form = document.querySelector("#plannerForm");
 const formStatus = document.querySelector("#formStatus");
 const repetitionBuilder = document.querySelector(".repetition-builder");
