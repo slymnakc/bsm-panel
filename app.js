@@ -2788,6 +2788,10 @@ function refreshActiveProgramFromMeasurement(formData) {
 }
 
 function loadLatestProgramForOutput() {
+  if (state.activeProgram) {
+    return state.activeProgram;
+  }
+
   const member = findActiveMember();
   const latestProgramRecord = member?.programs?.[0];
 
