@@ -17,7 +17,9 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\go\\\\Documents\\\\Codex\\\\bsm-panel\" -Recurse -File | Where-Object { $_.Extension -match '\\\\.\\(js|html|css|json\\)$' } | ForEach-Object { \"$\\($_.FullName.Replace\\('C:\\\\Users\\\\go\\\\Documents\\\\Codex\\\\bsm-panel\\\\',''\\)\\) - $\\([math]::Round\\($_.Length/1KB,1\\)\\)KB\" } | Sort-Object)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(awk -F: '{print NR, $1, $2}')",
+      "Bash(grep -vE '^\\(if|for|while|return|switch|typeof|parseInt|parseFloat|isNaN|isFinite|Math|Array|Object|String|Number|Boolean|Date|JSON|Promise|console|document|window|Error|setTimeout|clearTimeout|setInterval|filter|map|reduce|find|includes|forEach|push|pop|join|split|slice|concat|replace|trim|toFixed|toLocaleDateString|toLowerCase|toUpperCase|keys|entries|values|fromEntries|isArray|isInteger|isFinite|abs|max|min|round|floor|ceil|sqrt\\)$')"
     ]
   }
 }
