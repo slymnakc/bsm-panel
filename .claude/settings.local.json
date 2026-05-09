@@ -12,7 +12,12 @@
       "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/app.js\")",
       "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/core/router.js\")",
       "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/core/events.js\")",
-      "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/auth/rbac.js\")"
+      "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/auth/rbac.js\")",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\go\\\\Documents\\\\Codex\\\\bsm-panel\" -Recurse -File | Where-Object { $_.Extension -in '.js','.html','.css','.json' } | Select-Object @{N='Path';E={$_.FullName.Replace\\('C:\\\\Users\\\\go\\\\Documents\\\\Codex\\\\bsm-panel\\\\',''\\)}}, @{N='KB';E={[math]::Round\\($_.Length/1KB,1\\)}} | Sort-Object Path)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\go\\\\Documents\\\\Codex\\\\bsm-panel\" -Recurse -File | Where-Object { $_.Extension -match '\\\\.\\(js|html|css|json\\)$' } | ForEach-Object { \"$\\($_.FullName.Replace\\('C:\\\\Users\\\\go\\\\Documents\\\\Codex\\\\bsm-panel\\\\',''\\)\\) - $\\([math]::Round\\($_.Length/1KB,1\\)\\)KB\" } | Sort-Object)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
