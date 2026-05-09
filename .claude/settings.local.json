@@ -36,7 +36,15 @@
       "Bash(pm2 list *)",
       "Bash(pm2 logs *)",
       "Bash(pm2 show *)",
-      "Bash(pm2 reload *)"
+      "Bash(pm2 reload *)",
+      "Bash(node --check app.js handlers/output-handlers.js handlers/nutrition-handlers.js handlers/form-handlers.js services/pdf-download-service.js features/measurement-report.js features/body-analysis.js features/builder-wizard.js nutrition/nutritionPdfRenderer.js nutrition/nutritionEmailService.js ui/nutrition-ui.js core/router.js core/state.js core/events.js core/api.js auth/auth.js auth/rbac.js helpers/core-utils.js)",
+      "Bash(grep -v \"^[[:space:]]*//\")",
+      "Bash(node --check services/storage-service.js services/member-service.js services/supabase-sync-service.js services/program-member-service.js)",
+      "Bash(node --check analysis-engine.js program-engine-v2.js automation-engine.js v3-insights-engine.js data-migrations.js)",
+      "Bash(sort -t: -k3 -rn)",
+      "Bash(grep -v \"^$\")",
+      "Bash(render --version)",
+      "Bash(where render *)"
     ]
   }
 }
