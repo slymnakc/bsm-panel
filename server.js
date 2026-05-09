@@ -62,11 +62,20 @@ function validateCsrf(req) {
   // Origin yoksa (server-to-server veya aynı host) kabul et
   if (!origin) return true;
 
+  // Same-host check (local / single-domain deployment)
   try {
-    return new URL(origin).host === host;
+    if (new URL(origin).host === host) return true;
   } catch {
     return false;
   }
+
+  // ALLOWED_ORIGINS check (frontend ve API farklı subdomain'lerde olduğunda)
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  return allowedOrigins.includes(origin);
 }
 
 const MIME_TYPES = {
