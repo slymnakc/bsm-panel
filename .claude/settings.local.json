@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\go\\\\Documents\\\\Codex\\\\bsm-panel\" -Recurse -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(ConvertTo-Json -Depth 10)",
+      "Bash(node -e ' *)",
+      "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/server.js\")",
+      "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/core/state.js\")",
+      "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/core/api.js\")",
+      "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/auth/auth.js\")",
+      "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/app.js\")",
+      "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/core/router.js\")",
+      "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/core/events.js\")",
+      "Bash(node --check \"C:/Users/go/Documents/Codex/bsm-panel/auth/rbac.js\")"
+    ]
+  }
+}

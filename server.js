@@ -8,6 +8,67 @@ const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_DIR = __dirname;
 const MAX_BODY_SIZE = 18 * 1024 * 1024;
 
+// ── Rate Limiter ─────────────────────────────────────────────────────────────
+// In-memory, dependency-free. IP başına window bazlı sayaç.
+
+const _rateLimitStore = new Map();
+const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 saat
+const RATE_LIMIT_EMAIL = Math.max(1, Number(process.env.RATE_LIMIT_EMAIL_MAX) || 10);
+const RATE_LIMIT_PDF   = Math.max(1, Number(process.env.RATE_LIMIT_PDF_MAX)   || 30);
+
+// Eski kayıtları periyodik temizle (bellek sızıntısı önlemi)
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of _rateLimitStore) {
+    if (now > entry.resetAt) _rateLimitStore.delete(key);
+  }
+}, 30 * 60 * 1000).unref();
+
+function checkRateLimit(ip, type, max) {
+  const key = `${type}:${ip}`;
+  const now = Date.now();
+  let entry = _rateLimitStore.get(key);
+
+  if (!entry || now > entry.resetAt) {
+    entry = { count: 0, resetAt: now + RATE_WINDOW_MS };
+  }
+
+  entry.count += 1;
+  _rateLimitStore.set(key, entry);
+
+  return {
+    allowed: entry.count <= max,
+    remaining: Math.max(0, max - entry.count),
+    resetAt: entry.resetAt,
+  };
+}
+
+function getClientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return req.socket?.remoteAddress || "unknown";
+}
+
+// ── CSRF Guard ───────────────────────────────────────────────────────────────
+// Same-origin zorunluluğu: Origin header host ile eşleşmeli.
+// X-Requested-With header ek güvence katmanı.
+
+function validateCsrf(req) {
+  if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return true;
+
+  const host = req.headers.host || "";
+  const origin = req.headers.origin || "";
+
+  // Origin yoksa (server-to-server veya aynı host) kabul et
+  if (!origin) return true;
+
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -22,7 +83,7 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer(async (req, res) => {
-  setCorsHeaders(res);
+  setCorsHeaders(req, res);
   const requestUrl = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const pathname = requestUrl.pathname;
 
@@ -37,22 +98,61 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Supabase credentials'ı env'den serve et (HTML'den kaldırma yolu)
+  if (pathname === "/api/config" && req.method === "GET") {
+    sendJson(res, 200, {
+      supabaseUrl: process.env.SUPABASE_URL || "",
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
+    });
+    return;
+  }
+
+  // POST endpoint'leri için CSRF kontrolü
+  if (req.method === "POST" && !validateCsrf(req)) {
+    sendJson(res, 403, { ok: false, message: "Güvenlik doğrulaması başarısız. Sayfayı yenileyip tekrar deneyin." });
+    return;
+  }
+
   if (pathname === "/api/program-pdf" && req.method === "POST") {
+    const ip = getClientIp(req);
+    const limit = checkRateLimit(ip, "pdf", RATE_LIMIT_PDF);
+    if (!limit.allowed) {
+      sendJson(res, 429, { ok: false, message: "Çok fazla PDF isteği. Lütfen bir saat sonra tekrar deneyin." });
+      return;
+    }
     await handleDownloadProgramPdf(req, res);
     return;
   }
 
   if (pathname === "/api/nutrition-pdf" && req.method === "POST") {
+    const ip = getClientIp(req);
+    const limit = checkRateLimit(ip, "pdf", RATE_LIMIT_PDF);
+    if (!limit.allowed) {
+      sendJson(res, 429, { ok: false, message: "Çok fazla PDF isteği. Lütfen bir saat sonra tekrar deneyin." });
+      return;
+    }
     await handleDownloadNutritionPdf(req, res);
     return;
   }
 
   if ((pathname === "/api/send-program-email" || pathname === "/api/send-program-mail") && req.method === "POST") {
+    const ip = getClientIp(req);
+    const limit = checkRateLimit(ip, "email", RATE_LIMIT_EMAIL);
+    if (!limit.allowed) {
+      sendJson(res, 429, { ok: false, message: "Çok fazla mail isteği. Saatlik limit aşıldı, lütfen bekleyin." });
+      return;
+    }
     await handleSendProgramMail(req, res);
     return;
   }
 
   if (pathname === "/api/send-nutrition-email" && req.method === "POST") {
+    const ip = getClientIp(req);
+    const limit = checkRateLimit(ip, "email", RATE_LIMIT_EMAIL);
+    if (!limit.allowed) {
+      sendJson(res, 429, { ok: false, message: "Çok fazla mail isteği. Saatlik limit aşıldı, lütfen bekleyin." });
+      return;
+    }
     await handleSendNutritionMail(req, res);
     return;
   }
@@ -1625,7 +1725,10 @@ function slugifyFilenamePart(value) {
 }
 
 function isValidEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+  const email = String(value || "").trim();
+  if (!email || email.length > 254) return false;
+  // RFC 5322 basit format: local@domain.tld — boşluk, birden fazla @ ve tek hane TLD yasak
+  return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/.test(email);
 }
 
 function escapeHtml(value) {
@@ -1658,8 +1761,28 @@ function sendText(res, statusCode, text) {
   res.end(text);
 }
 
-function setCorsHeaders(res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+function setCorsHeaders(req, res) {
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  const origin = req.headers.origin || "";
+
+  if (allowedOrigins.length > 0) {
+    // Üretim: sadece tanımlı origin'lere izin ver
+    if (allowedOrigins.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+    }
+    // Tanımlı değilse CORS header eklenmez → same-origin zorunlu
+  } else {
+    // ALLOWED_ORIGINS tanımlı değil: geliştirme/geçiş modu
+    // Aynı host'tan gelen istekler zaten izinli; wildcard local için
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+    if (origin) res.setHeader("Vary", "Origin");
+  }
+
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,X-Requested-With");
 }

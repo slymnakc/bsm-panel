@@ -10,7 +10,7 @@
     />
     <link rel="stylesheet" href="./styles.css?v=1.0.34" />
   </head>
-  <body>
+  <body class="auth-required">
     <div class="page-backdrop" aria-hidden="true"></div>
 
     <header class="hero">
@@ -69,10 +69,10 @@
           <span><strong>Durum</strong><small><b id="dashboardSupabaseStatus">Supabase kontrol ediliyor</b> • <em id="backupMeta">Oto yedek bekleniyor</em></small></span>
           <strong id="dashboardToday" class="visually-hidden">Bugün</strong>
           <div class="dashboard-tools dashboard-tools--compact" aria-label="Yedekleme araçları">
-            <button type="button" class="ghost-button mini-button" id="downloadBackupButton">Yedek İndir</button>
-            <button type="button" class="ghost-button mini-button" id="restoreBackupButton">Yedek Yükle</button>
-            <button type="button" class="secondary-button mini-button" id="exportMembersCsvButton">Excel (CSV)</button>
-            <button type="button" class="ghost-button mini-button" id="restoreAutoBackupButton">Oto Yedek</button>
+            <button type="button" class="ghost-button mini-button" data-requires-role="admin" id="downloadBackupButton">Yedek İndir</button>
+            <button type="button" class="ghost-button mini-button" data-requires-role="admin" id="restoreBackupButton">Yedek Yükle</button>
+            <button type="button" class="secondary-button mini-button" data-requires-role="admin" id="exportMembersCsvButton">Excel (CSV)</button>
+            <button type="button" class="ghost-button mini-button" data-requires-role="admin" id="restoreAutoBackupButton">Oto Yedek</button>
           </div>
         </div>
       </div>
@@ -994,6 +994,67 @@
       </div>
     </div>
 
+    <!-- ── Auth Gate ──────────────────────────────────────────────── -->
+    <!-- body.auth-required sınıfı var olduğu sürece görünür.         -->
+    <!-- BSMAuth.init() başarılı session'da sınıfı kaldırır.          -->
+    <div id="authGate" class="auth-gate is-hidden" role="dialog" aria-modal="true" aria-label="Giriş gerekli">
+      <div class="auth-gate__backdrop"></div>
+      <div class="auth-card">
+        <div class="auth-card__brand">
+          <p class="auth-card__eyebrow">Yönetim Paneli</p>
+          <h1 class="auth-card__title">Bahçeşehir<br />Spor Merkezi</h1>
+          <p class="auth-card__subtitle">Antrenör girişi gerekli</p>
+        </div>
+
+        <form id="authForm" class="auth-form" novalidate>
+          <p id="authNotice" class="auth-notice" style="display:none;" role="alert"></p>
+
+          <label class="auth-field">
+            <span>E-posta</span>
+            <input
+              type="email"
+              id="authEmail"
+              autocomplete="email"
+              inputmode="email"
+              placeholder="antrenor@salon.com"
+              required
+            />
+          </label>
+
+          <label class="auth-field">
+            <span>Şifre</span>
+            <input
+              type="password"
+              id="authPassword"
+              autocomplete="current-password"
+              placeholder="••••••••"
+              minlength="8"
+              required
+            />
+          </label>
+
+          <button type="submit" id="authSubmit" class="auth-submit">Giriş Yap</button>
+
+          <p id="authError" class="auth-error" role="alert" style="display:none;"></p>
+        </form>
+
+        <p class="auth-card__footer">
+          Şifrenizi unuttunuz?
+          <a href="https://supabase.com/dashboard" target="_blank" rel="noopener">Supabase üzerinden sıfırlayın</a>
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Kullanıcı bilgisi badge — giriş sonrası header'da görünür (auth gate dışında) -->
+    <div id="authUserBadge" class="auth-user-badge" style="display:none;" aria-live="polite"></div>
+
+    <!-- ── Core modules (app.js'den önce yüklenmeli) ──────────── -->
+    <script src="./core/state.js"></script>
+    <script src="./core/api.js"></script>
+    <script src="./core/events.js"></script>
+    <script src="./core/router.js"></script>
+
     <script src="./data/options.js"></script>
     <script src="./data/labels.js"></script>
     <script src="./data/presets.js"></script>
@@ -1041,20 +1102,39 @@
     <script src="./program-engine-v2.js"></script>
     <script src="./automation-engine.js"></script>
     <script src="./v3-insights-engine.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<script>
-window.supabaseClient = null;
-window.BSMSupabaseClient = null;
+    <!-- ── Supabase SDK ─────────────────────────────────────── -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-if (window.supabase?.createClient) {
-  window.supabaseClient = window.supabase.createClient(
-    "https://fgzderdmkfmjixvqynvv.supabase.co",
-    "sb_publishable_1sB5h0Llp_6wtejE_dG7XQ_Hd7E4LP0"
-  );
-  window.BSMSupabaseClient = window.supabaseClient;
-}
-</script>
+    <script>
+      // Supabase client başlatma.
+      // TODO: SUPABASE_URL ve SUPABASE_ANON_KEY'i .env'e taşımak için
+      //       /api/config endpoint'i hazır — index.html'den kaldırılabilir.
+      window.supabaseClient = null;
+      window.BSMSupabaseClient = null;
+
+      if (window.supabase && window.supabase.createClient) {
+        window.supabaseClient = window.supabase.createClient(
+          "https://fgzderdmkfmjixvqynvv.supabase.co",
+          "sb_publishable_1sB5h0Llp_6wtejE_dG7XQ_Hd7E4LP0"
+        );
+        window.BSMSupabaseClient = window.supabaseClient;
+      }
+    </script>
+
+    <!-- ── Ana uygulama ─────────────────────────────────────── -->
     <script src="./app.js?v=1.0.34"></script>
+
+    <!-- ── Auth (app.js'den sonra — session kontrolü için) ──── -->
+    <script src="./auth/auth.js"></script>
+    <script src="./auth/rbac.js"></script>
+    <script>
+      if (window.BSMAuth) {
+        window.BSMAuth.init();
+      } else {
+        // Auth modülü yüklenemedi, UI'ı aç (graceful degradation)
+        document.body.classList.remove("auth-required");
+      }
+    </script>
   </body>
 </html>
