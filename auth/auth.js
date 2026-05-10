@@ -25,6 +25,9 @@
     var client = getClient();
     if (!client || !client.auth) return Promise.resolve(null);
     return client.auth.getUser().then(function (result) {
+      if (result && result.error) {
+        throw result.error;
+      }
       return (result && result.data && result.data.user) || null;
     });
   }
@@ -227,6 +230,11 @@
       .then(function (session) {
         if (session) {
           return getCurrentUser().then(function (user) {
+            if (!user) {
+              if (window.BSMState) window.BSMState.set("authStatus", "unauthenticated");
+              showAuthGate("Oturum süresi doldu. Lütfen tekrar giriş yapın.");
+              return;
+            }
             onAuthSuccess(session, user);
           });
         } else {
@@ -243,9 +251,20 @@
     // Auth state değişikliklerini izle
     client.auth.onAuthStateChange(function (event, session) {
       if (event === "SIGNED_IN" && session) {
-        getCurrentUser().then(function (user) {
-          onAuthSuccess(session, user);
-        });
+        getCurrentUser()
+          .then(function (user) {
+            if (!user) {
+              if (window.BSMState) window.BSMState.set("authStatus", "unauthenticated");
+              showAuthGate("Oturum yenilenemedi. Tekrar giriş yapın.");
+              return;
+            }
+            onAuthSuccess(session, user);
+          })
+          .catch(function (err) {
+            console.error("BSMAuth: onAuthStateChange kullanıcı hatası", err);
+            if (window.BSMState) window.BSMState.set("authStatus", "unauthenticated");
+            showAuthGate("Kimlik doğrulama hatası. Tekrar giriş yapın.");
+          });
       } else if (event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
         if (event === "SIGNED_OUT") {
           if (window.BSMState) window.BSMState.set("auth", null);
