@@ -8,7 +8,7 @@
       name="description"
       content="Bahçeşehir Spor Merkezi için Türkçe, mobil uyumlu, segmental ölçüm takipli ve geniş hareket kütüphaneli üye antrenman paneli."
     />
-    <link rel="stylesheet" href="./styles.css?v=1.0.35" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.37" />
   </head>
   <body class="auth-required">
     <div class="page-backdrop" aria-hidden="true"></div>
@@ -50,25 +50,54 @@
     <!-- UI-only refactor, logic preserved: data-screen-target selectors are intentionally unchanged. -->
     <nav class="studio-nav" aria-label="Çalışma ekranları">
       <button type="button" class="is-active" data-screen-target="members">Üyeler</button>
-      <button type="button" data-screen-target="dashboard">Dashboard</button>
+      <button type="button" data-screen-target="dashboard" hidden aria-hidden="true">Dashboard</button>
       <button type="button" data-screen-target="builder">Program Oluştur</button>
       <button type="button" data-screen-target="measurements">Ölçüm &amp; Tanita</button>
       <button type="button" data-screen-target="nutrition">Beslenme</button>
       <button type="button" data-screen-target="library">Hareket Kütüphanesi</button>
       <button type="button" data-screen-target="output">Üye Çıktısı</button>
+      <button type="button" data-screen-target="settings" data-requires-role="admin">Ayarlar</button>
     </nav>
 
     <!-- ── Üyeler Ekranı ──────────────────────────────────────────────── -->
     <section class="members-screen screen-panel is-hidden" id="membersPanel" data-screen="members">
       <div class="members-screen__header">
         <div>
-          <p class="section-kicker">Üye Yönetimi</p>
+          <p class="section-kicker">Operasyon Merkezi</p>
           <h2>Kayıtlı Üyeler</h2>
         </div>
         <div class="members-screen__header-actions">
           <span class="members-count-badge"><span id="memberCount">0</span> üye</span>
           <button type="button" class="secondary-button" data-screen-target="builder">Yeni Program Oluştur</button>
         </div>
+      </div>
+
+      <div class="members-kpi-strip" aria-label="Üye operasyon göstergeleri">
+        <article class="members-kpi-card members-kpi-card--accent">
+          <span>Toplam Üye</span>
+          <strong id="membersKpiTotal">0</strong>
+          <small>Kayıtlı aktif üye</small>
+        </article>
+        <article class="members-kpi-card">
+          <span>Ölçümü Olan</span>
+          <strong id="membersKpiMeasured">0</strong>
+          <small id="membersKpiMeasuredMeta">Tanita veya manuel</small>
+        </article>
+        <article class="members-kpi-card">
+          <span>Programı Olan</span>
+          <strong id="membersKpiPrograms">0</strong>
+          <small id="membersKpiProgramsMeta">Kayıtlı plan</small>
+        </article>
+        <article class="members-kpi-card">
+          <span>Beslenme Planı</span>
+          <strong id="membersKpiNutrition">0</strong>
+          <small id="membersKpiNutritionMeta">Plan oluşturuldu</small>
+        </article>
+        <article class="members-kpi-card members-kpi-card--wide">
+          <span>Son Güncellenen Üye</span>
+          <strong id="membersKpiLastUpdate">-</strong>
+          <small id="membersKpiLastUpdateMeta">Henüz güncelleme yok</small>
+        </article>
       </div>
 
       <div id="activeMemberProfile" class="members-active-profile"></div>
@@ -104,15 +133,8 @@
         <div class="dashboard-status dashboard-status--pill">
           <span><strong>Durum</strong><small><b id="dashboardSupabaseStatus">Supabase kontrol ediliyor</b> • <em id="backupMeta">Oto yedek bekleniyor</em></small></span>
           <strong id="dashboardToday" class="visually-hidden">Bugün</strong>
-          <div class="dashboard-tools dashboard-tools--compact" aria-label="Yedekleme araçları">
-            <button type="button" class="ghost-button mini-button" data-requires-role="admin" id="downloadBackupButton">Yedek İndir</button>
-            <button type="button" class="ghost-button mini-button" data-requires-role="admin" id="restoreBackupButton">Yedek Yükle</button>
-            <button type="button" class="secondary-button mini-button" data-requires-role="admin" id="exportMembersCsvButton">Excel (CSV)</button>
-            <button type="button" class="ghost-button mini-button" data-requires-role="admin" id="restoreAutoBackupButton">Oto Yedek</button>
-          </div>
         </div>
       </div>
-      <input type="file" id="backupFileInput" accept=".json,application/json" hidden />
 
       <div class="dashboard-grid dashboard-kpi-strip" aria-label="Dashboard ana göstergeleri">
         <article class="dashboard-card dashboard-card--accent">
@@ -681,6 +703,57 @@
       </div>
     </section>
 
+    <section class="settings-panel screen-panel is-hidden" id="settingsPanel" data-screen="settings" data-requires-role="admin">
+      <div class="settings-panel__header">
+        <div>
+          <p class="section-kicker">Yönetim</p>
+          <h2>Ayarlar</h2>
+          <span>Yedekleme, içe / dışa aktarım ve admin araçları bu panelde tutulur. Sadece admin rolü görür.</span>
+        </div>
+      </div>
+
+      <div class="settings-grid">
+        <article class="settings-card">
+          <div class="settings-card__head">
+            <p class="section-kicker">Yedekleme</p>
+            <h3>Üye Verilerini Yedekle</h3>
+            <span>Tüm üye, ölçüm ve program kayıtlarını JSON olarak indirin veya geri yükleyin.</span>
+          </div>
+          <div class="settings-card__actions">
+            <button type="button" class="secondary-button" id="downloadBackupButton">Yedek İndir</button>
+            <button type="button" class="ghost-button" id="restoreBackupButton">Yedek Yükle</button>
+            <button type="button" class="ghost-button" id="restoreAutoBackupButton">Oto Yedek Geri Yükle</button>
+          </div>
+          <small class="settings-card__hint" id="settingsBackupMeta">Oto yedek bekleniyor</small>
+        </article>
+
+        <article class="settings-card">
+          <div class="settings-card__head">
+            <p class="section-kicker">Dışa Aktarım</p>
+            <h3>Üye Listesi (Excel / CSV)</h3>
+            <span>Üye listesini muhasebe veya raporlama için CSV formatında indirin.</span>
+          </div>
+          <div class="settings-card__actions">
+            <button type="button" class="secondary-button" id="exportMembersCsvButton">Excel (CSV) İndir</button>
+          </div>
+        </article>
+
+        <article class="settings-card">
+          <div class="settings-card__head">
+            <p class="section-kicker">Sistem</p>
+            <h3>Bağlantı Durumu</h3>
+            <span>Supabase ve oto yedek durumu.</span>
+          </div>
+          <div class="settings-card__status">
+            <p><strong>Supabase:</strong> <span id="settingsSupabaseStatus">Kontrol ediliyor</span></p>
+            <p><strong>Oto yedek:</strong> <span id="settingsAutoBackupStatus">Bekleniyor</span></p>
+          </div>
+        </article>
+      </div>
+
+      <input type="file" id="backupFileInput" accept=".json,application/json" hidden />
+    </section>
+
     <section class="library-panel screen-panel is-hidden" id="libraryPanel" data-screen="library">
       <div class="results__header">
         <div>
@@ -1019,7 +1092,7 @@
     <script src="./services/session-support-service.js"></script>
     <script src="./ui/dashboard-ui.js?v=1.0.33"></script>
     <script src="./ui/alerts-ui.js"></script>
-    <script src="./ui/member-ui.js?v=1.0.34"></script>
+    <script src="./ui/member-ui.js?v=1.0.35"></script>
     <script src="./ui/library-ui.js"></script>
     <script src="./ui/output-ui.js"></script>
     <script src="./ui/nutrition-ui.js?v=1.0.34"></script>
@@ -1058,10 +1131,10 @@
     <script src="./features/body-analysis.js"></script>
 
     <!-- ── Ana uygulama ─────────────────────────────────────── -->
-    <script src="./app.js?v=1.0.36"></script>
+    <script src="./app.js?v=1.0.37"></script>
 
     <!-- ── Auth (app.js'den sonra — session kontrolü için) ──── -->
-    <script src="./auth/auth.js?v=1.0.36"></script>
+    <script src="./auth/auth.js?v=1.0.37"></script>
     <script src="./auth/rbac.js"></script>
     <script>
       if (window.BSMAuth) {
