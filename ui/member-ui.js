@@ -74,27 +74,65 @@
     memberList.innerHTML = model.items
       .map(
         (item) => `
-          <article class="member-card member-card--full ${item.isActive ? "is-active" : ""}" data-member-id="${item.memberId}">
-            <div class="member-card__body">
-              <div class="member-card__info">
-                <strong>${escapeHtml(item.memberName)}</strong>
-                <span>${escapeHtml(item.memberCode)} • ${escapeHtml(item.goalLabel)}</span>
-                <small>${escapeHtml(item.measurementText)} • ${escapeHtml(item.programText)}</small>
+          <article class="member-card member-card--full bsm-member-row ${item.isActive ? "is-active" : ""}" data-member-id="${item.memberId}">
+            <div class="bsm-member-row__main">
+              <div class="bsm-member-row__avatar" aria-hidden="true">${escapeHtml(buildMemberInitials(item.memberName, item.memberCode))}</div>
+              <div class="bsm-member-row__info">
+                <div class="bsm-member-row__title">
+                  <strong>${escapeHtml(item.memberName)}</strong>
+                  ${item.isActive ? `<span class="bsm-pill bsm-pill--active">Aktif</span>` : ""}
+                </div>
+                <div class="bsm-member-row__meta">
+                  <span class="bsm-meta-item bsm-meta-item--code">${escapeHtml(item.memberCode)}</span>
+                  <span class="bsm-meta-dot" aria-hidden="true"></span>
+                  <span class="bsm-meta-item">${escapeHtml(item.goalLabel)}</span>
+                </div>
+                <div class="bsm-member-row__status">
+                  <span class="bsm-status-chip bsm-status-chip--measurement">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h3l3-9 4 18 3-9h5"></path></svg>
+                    ${escapeHtml(item.measurementText)}
+                  </span>
+                  <span class="bsm-status-chip bsm-status-chip--program">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16"></path><path d="M18 4v16"></path><path d="M2 8h4"></path><path d="M2 16h4"></path><path d="M18 8h4"></path><path d="M18 16h4"></path><path d="M6 12h12"></path></svg>
+                    ${escapeHtml(item.programText)}
+                  </span>
+                </div>
               </div>
-              ${item.isActive ? `<span class="member-card__badge">Aktif</span>` : ""}
             </div>
-            <div class="member-card__actions">
-              <button type="button" class="ghost-button mini-button" data-member-quick-action="load-profile" data-member-id="${item.memberId}">Profili Aç</button>
-              <button type="button" class="ghost-button mini-button" data-member-quick-action="add-measurement" data-member-id="${item.memberId}">Ölçüm Ekle</button>
-              <button type="button" class="ghost-button mini-button" data-member-quick-action="build-program" data-member-id="${item.memberId}">Program Oluştur</button>
-              <button type="button" class="ghost-button mini-button" data-member-quick-action="nutrition" data-member-id="${item.memberId}">Beslenme Planı</button>
-              <button type="button" class="ghost-button mini-button" data-member-quick-action="output" data-member-id="${item.memberId}">Çıktı / PDF</button>
-              <button type="button" class="ghost-button mini-button" data-member-quick-action="history" data-member-id="${item.memberId}">Geçmiş</button>
+            <div class="member-card__actions bsm-member-row__actions" role="group" aria-label="Üye hızlı işlemleri">
+              <button type="button" class="bsm-icon-btn" title="Profili Aç" aria-label="Profili Aç" data-member-quick-action="load-profile" data-member-id="${item.memberId}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              </button>
+              <button type="button" class="bsm-icon-btn" title="Ölçüm Ekle" aria-label="Ölçüm Ekle" data-member-quick-action="add-measurement" data-member-id="${item.memberId}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h3l3-9 4 18 3-9h5"></path></svg>
+              </button>
+              <button type="button" class="bsm-icon-btn" title="Program Oluştur" aria-label="Program Oluştur" data-member-quick-action="build-program" data-member-id="${item.memberId}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16"></path><path d="M18 4v16"></path><path d="M2 8h4"></path><path d="M2 16h4"></path><path d="M18 8h4"></path><path d="M18 16h4"></path><path d="M6 12h12"></path></svg>
+              </button>
+              <button type="button" class="bsm-icon-btn" title="Beslenme Planı" aria-label="Beslenme Planı" data-member-quick-action="nutrition" data-member-id="${item.memberId}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2v20"></path><path d="M5 2v6a3 3 0 0 0 6 0V2"></path><path d="M18 2v20"></path><path d="M15 2c0 4 3 4 3 8"></path></svg>
+              </button>
+              <button type="button" class="bsm-icon-btn" title="Çıktı / PDF" aria-label="Çıktı / PDF" data-member-quick-action="output" data-member-id="${item.memberId}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+              </button>
+              <button type="button" class="bsm-icon-btn" title="Geçmiş" aria-label="Geçmiş" data-member-quick-action="history" data-member-id="${item.memberId}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><polyline points="3 3 3 8 8 8"></polyline><path d="M12 7v5l3 2"></path></svg>
+              </button>
             </div>
           </article>
         `,
       )
       .join("");
+  }
+
+  function buildMemberInitials(memberName, memberCode) {
+    const source = String(memberName || memberCode || "").trim();
+    if (!source) return "BSM";
+    const parts = source.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toLocaleUpperCase("tr");
+    }
+    return source.slice(0, 2).toLocaleUpperCase("tr");
   }
 
   function renderMeasurementHistory(target, model, escapeHtml) {
