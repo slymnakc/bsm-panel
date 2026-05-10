@@ -56,7 +56,9 @@
       "Bash(npx playwright *)",
       "Bash(npm install *)",
       "Bash(node_modules\\\\.bin\\\\playwright install *)",
-      "Bash(timeout 35)"
+      "Bash(timeout 35)",
+      "Bash(npm start *)",
+      "Bash(taskkill /F /IM node.exe /T)"
     ]
   }
 }

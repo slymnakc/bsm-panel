@@ -1848,11 +1848,84 @@ function loadMember(member) {
 
 function renderMemberWorkspace() {
   renderDashboard();
+  renderMembersKpiStrip();
   renderWorkflowAssistant();
   renderMeasurementTabStatus();
   renderWorkspacePanels();
   renderNutritionWorkspace();
   renderNutritionOutput();
+}
+
+function renderMembersKpiStrip() {
+  const totalEl = document.querySelector("#membersKpiTotal");
+  const measuredEl = document.querySelector("#membersKpiMeasured");
+  const measuredMetaEl = document.querySelector("#membersKpiMeasuredMeta");
+  const programsEl = document.querySelector("#membersKpiPrograms");
+  const programsMetaEl = document.querySelector("#membersKpiProgramsMeta");
+  const nutritionEl = document.querySelector("#membersKpiNutrition");
+  const nutritionMetaEl = document.querySelector("#membersKpiNutritionMeta");
+  const lastNameEl = document.querySelector("#membersKpiLastUpdate");
+  const lastMetaEl = document.querySelector("#membersKpiLastUpdateMeta");
+
+  if (!totalEl) return;
+
+  const members = Array.isArray(state.members) ? state.members : [];
+  const total = members.length;
+  const measuredCount = members.filter((m) => Array.isArray(m?.measurements) && m.measurements.length > 0).length;
+  const programCount = members.filter((m) => Array.isArray(m?.programs) && m.programs.length > 0).length;
+  const nutritionCount = members.filter((m) => {
+    if (m?.nutritionPlan) return true;
+    return Array.isArray(m?.nutritionPlans) && m.nutritionPlans.length > 0;
+  }).length;
+
+  totalEl.textContent = String(total);
+
+  measuredEl.textContent = String(measuredCount);
+  if (measuredMetaEl) {
+    measuredMetaEl.textContent = total > 0 ? `${total} üyeden ${measuredCount}` : "Henüz ölçüm yok";
+  }
+
+  programsEl.textContent = String(programCount);
+  if (programsMetaEl) {
+    programsMetaEl.textContent = total > 0 ? `${total} üyeden ${programCount}` : "Henüz program yok";
+  }
+
+  nutritionEl.textContent = String(nutritionCount);
+  if (nutritionMetaEl) {
+    nutritionMetaEl.textContent = total > 0 ? `${total} üyeden ${nutritionCount}` : "Henüz beslenme planı yok";
+  }
+
+  let latest = null;
+  members.forEach((m) => {
+    const stamp = m?.updatedAt || m?.createdAt;
+    if (!stamp) return;
+    const time = new Date(stamp).getTime();
+    if (Number.isNaN(time)) return;
+    if (!latest || time > latest.time) {
+      latest = { time, name: m?.profile?.memberName || m?.profile?.memberCode || "Üye", stamp };
+    }
+  });
+
+  if (latest) {
+    lastNameEl.textContent = latest.name;
+    if (lastMetaEl) {
+      lastMetaEl.textContent = formatMembersKpiDate(latest.stamp);
+    }
+  } else {
+    lastNameEl.textContent = "-";
+    if (lastMetaEl) lastMetaEl.textContent = "Henüz güncelleme yok";
+  }
+}
+
+function formatMembersKpiDate(value) {
+  if (!value) return "Tarih yok";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  try {
+    return parsed.toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  } catch (e) {
+    return parsed.toISOString().slice(0, 10);
+  }
 }
 
 function handleMemberQuickAction(event) {
@@ -4470,6 +4543,17 @@ function renderBackupMeta() {
     ? `Son oto yedek: ${formatDashboardDate(latestSnapshot.savedAt)} (${latestSnapshot.memberCount || 0} üye)`
     : "Oto yedek bekleniyor";
   renderBackupMetaUi(backupMeta, backupText);
+
+  const settingsBackupMetaEl = document.querySelector("#settingsBackupMeta");
+  if (settingsBackupMetaEl) settingsBackupMetaEl.textContent = backupText;
+
+  const settingsAutoBackupStatusEl = document.querySelector("#settingsAutoBackupStatus");
+  if (settingsAutoBackupStatusEl) settingsAutoBackupStatusEl.textContent = backupText;
+
+  const settingsSupabaseStatusEl = document.querySelector("#settingsSupabaseStatus");
+  if (settingsSupabaseStatusEl && dashboardSupabaseStatus) {
+    settingsSupabaseStatusEl.textContent = String(dashboardSupabaseStatus.textContent || "Kontrol ediliyor").replace(/^Supabase:\s*/i, "");
+  }
 }
 
 function showStatus(message, state) {
