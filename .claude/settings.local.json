@@ -44,7 +44,9 @@
       "Bash(sort -t: -k3 -rn)",
       "Bash(grep -v \"^$\")",
       "Bash(render --version)",
-      "Bash(where render *)"
+      "Bash(where render *)",
+      "Bash(node --check app.js core/router.js ui/member-ui.js)",
+      "WebFetch(domain:bsm-panel.onrender.com)"
     ]
   }
 }
