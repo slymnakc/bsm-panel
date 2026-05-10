@@ -94,7 +94,7 @@
     if (hash.indexOf("measurementreportsection") !== -1) return "measurement-report";
     if (hash.indexOf("measurementspanel") !== -1) return "measurements";
     if (hash.indexOf("plannerform") !== -1 || hash.indexOf("member") !== -1 || hash.indexOf("measurement") !== -1) return "builder";
-    return "dashboard";
+    return "members";
   }
 
   // ── Workspace sekme görünümü ─────────────────────────────────
