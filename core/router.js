@@ -8,13 +8,14 @@
   var _cfg = null;
 
   var VALID_SCREENS = [
-    "dashboard", "builder", "measurements",
+    "members", "dashboard", "builder", "measurements",
     "nutrition", "library", "output", "measurement-report",
   ];
 
   var VALID_VIEWS = ["members", "history", "v3"];
 
   var HASH_MAP = {
+    members: "#membersPanel",
     dashboard: "#dashboardPanel",
     builder: "#plannerForm",
     measurements: "#measurementsPanel",
@@ -86,6 +87,7 @@
 
   function inferFromHash(hashValue) {
     var hash = String(hashValue || "").toLowerCase();
+    if (hash.indexOf("memberspanel") !== -1) return "members";
     if (hash.indexOf("librarypanel") !== -1) return "library";
     if (hash.indexOf("nutritionpanel") !== -1) return "nutrition";
     if (hash.indexOf("resultssection") !== -1) return "output";

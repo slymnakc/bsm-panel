@@ -137,7 +137,7 @@ const state = {
   latestMeasurement: null,
   activeProgram: null,
   activeAlphabetLetter: "all",
-  activeScreen: "dashboard",
+  activeScreen: "members",
   activeWorkspaceView: "members",
   activeMemberSort: "recent-update",
   pendingTanitaMeasurement: null,
@@ -400,6 +400,7 @@ const exportMembersCsvButton = document.querySelector("#exportMembersCsvButton")
 const restoreAutoBackupButton = document.querySelector("#restoreAutoBackupButton");
 const backupFileInput = document.querySelector("#backupFileInput");
 const activeMemberProfile = document.querySelector("#activeMemberProfile");
+const membersPanel = document.querySelector("#membersPanel");
 const coverBrand = document.querySelector("#coverBrand");
 const coverMember = document.querySelector("#coverMember");
 const coverMeta = document.querySelector("#coverMeta");
@@ -1192,6 +1193,11 @@ measurementTabPdfButton?.addEventListener("click", handlePrintMeasurementReport)
 measurementReportBackButton?.addEventListener("click", handleMeasurementReportBack);
   measurementReportPdfButton?.addEventListener("click", handlePrintMeasurementReport);
   measurementReportPrintButton?.addEventListener("click", handlePrintMeasurementReport);
+  membersPanel?.addEventListener("click", handleMemberQuickAction);
+  membersPanel?.querySelector("[data-screen-target]")?.addEventListener("click", (e) => {
+    const target = e.target.closest("[data-screen-target]");
+    if (target) setActiveScreen(target.dataset.screenTarget, { userTriggered: true, silent: true });
+  });
   document.addEventListener("click", handleExerciseGifModalClick);
   document.addEventListener("error", handleExerciseGifError, true);
   document.addEventListener("keydown", handleExerciseGifModalKeydown);
@@ -1812,6 +1818,28 @@ function renderMemberWorkspace() {
   renderWorkspacePanels();
   renderNutritionWorkspace();
   renderNutritionOutput();
+}
+
+function handleMemberQuickAction(event) {
+  const btn = event.target.closest("[data-member-quick-action]");
+  if (!btn) return;
+
+  const action = btn.dataset.memberQuickAction;
+  const memberId = btn.dataset.memberId;
+  const member = state.members.find((m) => m.id === memberId);
+  if (!member) return;
+
+  loadMember(member);
+
+  if (action === "load-profile" || action === "build-program") {
+    setActiveScreen("builder", { userTriggered: true, silent: true });
+  } else if (action === "add-measurement" || action === "history") {
+    setActiveScreen("measurements", { userTriggered: true, silent: true });
+  } else if (action === "nutrition") {
+    setActiveScreen("nutrition", { userTriggered: true, silent: true });
+  } else if (action === "output") {
+    setActiveScreen("output", { userTriggered: true });
+  }
 }
 
 function renderWorkspacePanels() {
@@ -3161,6 +3189,7 @@ function updateActiveMemberProfile(profile) {
 }
 
 function renderLiveSummary(data) {
+  if (!liveSummary) return;
   const summaryModel = buildLiveSummaryModelService(data, {
     resolveSplit,
     labelMaps,

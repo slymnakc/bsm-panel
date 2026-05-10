@@ -49,15 +49,51 @@
 
     <!-- UI-only refactor, logic preserved: data-screen-target selectors are intentionally unchanged. -->
     <nav class="studio-nav" aria-label="Çalışma ekranları">
-      <button type="button" class="is-active" data-screen-target="dashboard">Dashboard</button>
-      <button type="button" data-screen-target="builder">Üye ve Program</button>
+      <button type="button" class="is-active" data-screen-target="members">Üyeler</button>
+      <button type="button" data-screen-target="dashboard">Dashboard</button>
+      <button type="button" data-screen-target="builder">Program Oluştur</button>
       <button type="button" data-screen-target="measurements">Ölçüm &amp; Tanita</button>
       <button type="button" data-screen-target="nutrition">Beslenme</button>
       <button type="button" data-screen-target="library">Hareket Kütüphanesi</button>
       <button type="button" data-screen-target="output">Üye Çıktısı</button>
     </nav>
 
-    <section class="dashboard-panel screen-panel" id="dashboardPanel" data-screen="dashboard">
+    <!-- ── Üyeler Ekranı ──────────────────────────────────────────────── -->
+    <section class="members-screen screen-panel is-hidden" id="membersPanel" data-screen="members">
+      <div class="members-screen__header">
+        <div>
+          <p class="section-kicker">Üye Yönetimi</p>
+          <h2>Kayıtlı Üyeler</h2>
+        </div>
+        <div class="members-screen__header-actions">
+          <span class="members-count-badge"><span id="memberCount">0</span> üye</span>
+          <button type="button" class="secondary-button" data-screen-target="builder">Yeni Program Oluştur</button>
+        </div>
+      </div>
+
+      <div id="activeMemberProfile" class="members-active-profile"></div>
+
+      <div class="members-screen__controls">
+        <label class="field compact-field members-search-field">
+          <span>Üye ara</span>
+          <input type="text" id="memberSearch" placeholder="Ad, üye no veya hedef ara" />
+        </label>
+        <label class="field compact-field">
+          <span>Sıralama</span>
+          <select id="memberSort">
+            <option value="recent-update">Son güncellenen</option>
+            <option value="name-asc">İsme göre (A-Z)</option>
+            <option value="code-asc">Üye no (A-Z)</option>
+            <option value="programs-desc">Programı olanlar önce</option>
+            <option value="measurements-desc">Ölçümü olanlar önce</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="memberList" class="members-grid"></div>
+    </section>
+
+    <section class="dashboard-panel screen-panel is-hidden" id="dashboardPanel" data-screen="dashboard">
       <!-- UI-only refactor, logic preserved: existing dashboard ids and action bindings are kept. -->
       <div class="dashboard-panel__header dashboard-command-header">
         <div>
@@ -396,276 +432,6 @@
         </form>
       </section>
 
-      <aside class="panel panel--summary">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">Canlı Özet</p>
-            <h2>Salon Plan Önizleme</h2>
-          </div>
-        </div>
-
-        <div id="liveSummary" class="summary-stack"></div>
-
-        <div id="activeMemberProfile" class="profile-card"></div>
-
-        <div class="summary-note">
-          <strong>Salon kullanımı:</strong>
-          Oluşturulan plan, üyeye verilecek çıktı gibi düzenlenir. Hareketler kas gruplarına göre etiketlenir ve aynı
-          tarayıcıda saklanır.
-        </div>
-
-        <div class="member-workspace">
-          <div class="workspace-tabs" id="workspaceTabs" aria-label="Sağ panel sekmeleri">
-            <button type="button" class="is-active" data-workspace-view="members">Üyeler</button>
-            <button type="button" data-workspace-view="history">Geçmiş</button>
-            <button type="button" data-workspace-view="v3">V3 Koçluk</button>
-          </div>
-
-          <article class="workspace-card measurement-shortcut-card">
-            <p class="section-kicker">Ölçüm Modülü</p>
-            <h3>Ölçüm eklemek için Ölçüm &amp; Tanita sekmesine geçin.</h3>
-            <p>Tanita CSV, manuel ölçüm, segmental analiz ve ölçüm raporu artık ayrı profesyonel modülde tutulur.</p>
-            <button type="button" class="secondary-button workspace-button" id="openMeasurementTabButton">Ölçüm &amp; Tanita'ya Git</button>
-          </article>
-
-          <section class="workspace-card" data-workspace-panel="members">
-            <div class="workspace-card__header">
-              <div>
-                <p class="section-kicker">Üye Dosyaları</p>
-                <h3>Kayıtlı Üyeler</h3>
-              </div>
-              <span id="memberCount">0</span>
-            </div>
-            <label class="field compact-field">
-              <span>Üye ara</span>
-              <input type="text" id="memberSearch" placeholder="Ad, üye no veya hedef ara" />
-            </label>
-            <label class="field compact-field">
-              <span>Sıralama</span>
-              <select id="memberSort">
-                <option value="recent-update">Son güncellenen</option>
-                <option value="name-asc">İsme göre (A-Z)</option>
-                <option value="code-asc">Üye no (A-Z)</option>
-                <option value="programs-desc">Programı olanlar önce</option>
-                <option value="measurements-desc">Ölçümü olanlar önce</option>
-              </select>
-            </label>
-            <div id="memberList" class="member-list"></div>
-          </section>
-
-          <section class="workspace-card is-hidden" data-workspace-panel="measurements">
-            <div class="workspace-card__header">
-              <div>
-                <p class="section-kicker">Segmental Analiz</p>
-                <h3>Vücut Analiz Cihazı Sonuçları</h3>
-              </div>
-            </div>
-            <div class="tanita-import-card">
-              <div class="tanita-import-card__header">
-                <div>
-                  <p class="section-kicker">Tanita BC-418</p>
-                  <h4>Tanita CSV Ölçüm Yükle</h4>
-                  <span>Üye seçiliyken Tanita Pro CSV çıktısını yükleyip ölçümü doğrudan üye geçmişine ekleyin.</span>
-                </div>
-                <button type="button" class="secondary-button" id="tanitaCsvButton">Tanita CSV Yükle</button>
-              </div>
-              <input type="file" id="tanitaCsvInput" accept=".csv,text/csv" hidden />
-              <p id="tanitaImportStatus" class="status-message compact-status"></p>
-              <div id="tanitaPreview" class="tanita-preview">
-                <p>CSV yüklendiğinde okunan kilo, yağ, kas, segmental dağılım ve direnç değerleri burada önizlenir.</p>
-              </div>
-              <div class="tanita-import-card__footer">
-                <small>Gelecek aşama: Tanita BC-418 -> RS-232 -> Windows bridge app -> HTTP/WebSocket -> BSM panel.</small>
-                <button type="button" class="ghost-button workspace-button" id="saveTanitaMeasurementButton" disabled>Ölçümü Üyeye Kaydet</button>
-              </div>
-            </div>
-            <div class="measurement-report-entry">
-              <div>
-                <p class="section-kicker">Rapor Çıktısı</p>
-                <h4>Tanita Ölçüm Raporu</h4>
-                <span>Son kayıtlı ölçümden renkli, A4 uyumlu ve üyeye verilebilir vücut analiz raporu oluşturun.</span>
-              </div>
-              <div class="measurement-report-entry__actions">
-                <button type="button" class="primary-button workspace-button" id="buildMeasurementReportButton">Ölçüm Raporu Oluştur</button>
-                <button type="button" class="secondary-button workspace-button" id="measurementTabPdfButton">PDF Olarak İndir</button>
-              </div>
-            </div>
-            <div class="measurement-grid">
-              <label class="field compact-field">
-                <span>Tarih</span>
-                <input type="date" id="measurementDate" />
-              </label>
-              <label class="field compact-field">
-                <span>Kilo kg</span>
-                <input type="number" id="measurementWeight" min="20" max="250" step="0.1" placeholder="72.5" />
-              </label>
-              <label class="field compact-field">
-                <span>Boy cm</span>
-                <input type="number" id="measurementHeight" min="100" max="240" step="0.1" placeholder="172" />
-              </label>
-              <label class="field compact-field">
-                <span>BMI</span>
-                <input type="number" id="measurementBmi" min="10" max="60" step="0.1" placeholder="22.8" />
-              </label>
-              <div class="field compact-field birthdate-field">
-                <span>Doğum tarihi</span>
-                <div class="birthdate-grid" aria-label="Üye doğum tarihi">
-                  <input type="text" id="measurementBirthDay" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="Gün" aria-label="Doğum günü" />
-                  <input type="text" id="measurementBirthMonth" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="Ay" aria-label="Doğum ayı" />
-                  <input type="text" id="measurementBirthYear" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Yıl" aria-label="Doğum yılı" />
-                </div>
-                <small>Yaş ölçüm tarihine göre otomatik hesaplanır.</small>
-              </div>
-              <label class="field compact-field">
-                <span>Vücut yağ %</span>
-                <input type="number" id="measurementFat" min="3" max="60" step="0.1" placeholder="18.0" />
-              </label>
-              <label class="field compact-field">
-                <span>Kas kütlesi kg</span>
-                <input type="number" id="measurementMuscleMass" min="10" max="120" step="0.1" placeholder="34.2" />
-              </label>
-              <label class="field compact-field">
-                <span>Yağ kütlesi kg</span>
-                <input type="number" id="measurementFatMass" min="1" max="120" step="0.1" placeholder="13.1" />
-              </label>
-              <label class="field compact-field">
-                <span>Vücut suyu %</span>
-                <input type="number" id="measurementBodyWater" min="25" max="80" step="0.1" placeholder="56.0" />
-              </label>
-              <label class="field compact-field">
-                <span>Visceral yağ</span>
-                <input type="number" id="measurementVisceralFat" min="1" max="30" step="1" placeholder="7" />
-              </label>
-              <label class="field compact-field">
-                <span>Metabolizma hızı kcal</span>
-                <input type="number" id="measurementBmr" min="800" max="4000" step="1" placeholder="1650" />
-              </label>
-              <label class="field compact-field">
-                <span>Metabolizma yaşı</span>
-                <input type="number" id="measurementMetabolicAge" min="10" max="100" step="1" placeholder="32" />
-              </label>
-              <label class="field compact-field">
-                <span>Kemik kg</span>
-                <input type="number" id="measurementBoneMass" min="1" max="8" step="0.1" placeholder="3.0" />
-              </label>
-              <label class="field compact-field">
-                <span>Bel cm</span>
-                <input type="number" id="measurementWaist" min="40" max="200" step="0.1" placeholder="82" />
-              </label>
-              <label class="field compact-field">
-                <span>Kalça cm</span>
-                <input type="number" id="measurementHip" min="40" max="220" step="0.1" placeholder="98" />
-              </label>
-              <label class="field compact-field">
-                <span>Göğüs cm</span>
-                <input type="number" id="measurementChest" min="40" max="220" step="0.1" placeholder="96" />
-              </label>
-            </div>
-
-            <details class="segmental-details">
-              <summary>Segmental kas ve yağ dağılımı</summary>
-              <div class="segmental-grid">
-                <label class="field compact-field">
-                  <span>Sağ kol kas kg</span>
-                  <input type="number" id="segmentRightArmMuscle" min="0" max="30" step="0.1" placeholder="3.2" />
-                </label>
-                <label class="field compact-field">
-                  <span>Sol kol kas kg</span>
-                  <input type="number" id="segmentLeftArmMuscle" min="0" max="30" step="0.1" placeholder="3.1" />
-                </label>
-                <label class="field compact-field">
-                  <span>Gövde kas kg</span>
-                  <input type="number" id="segmentTrunkMuscle" min="0" max="80" step="0.1" placeholder="26.0" />
-                </label>
-                <label class="field compact-field">
-                  <span>Sağ bacak kas kg</span>
-                  <input type="number" id="segmentRightLegMuscle" min="0" max="50" step="0.1" placeholder="9.8" />
-                </label>
-                <label class="field compact-field">
-                  <span>Sol bacak kas kg</span>
-                  <input type="number" id="segmentLeftLegMuscle" min="0" max="50" step="0.1" placeholder="9.6" />
-                </label>
-                <label class="field compact-field">
-                  <span>Sağ kol yağ kg</span>
-                  <input type="number" id="segmentRightArmFat" min="0" max="30" step="0.1" placeholder="1.1" />
-                </label>
-                <label class="field compact-field">
-                  <span>Sol kol yağ kg</span>
-                  <input type="number" id="segmentLeftArmFat" min="0" max="30" step="0.1" placeholder="1.2" />
-                </label>
-                <label class="field compact-field">
-                  <span>Gövde yağ kg</span>
-                  <input type="number" id="segmentTrunkFat" min="0" max="80" step="0.1" placeholder="7.4" />
-                </label>
-                <label class="field compact-field">
-                  <span>Sağ bacak yağ kg</span>
-                  <input type="number" id="segmentRightLegFat" min="0" max="50" step="0.1" placeholder="2.1" />
-                </label>
-                <label class="field compact-field">
-                  <span>Sol bacak yağ kg</span>
-                  <input type="number" id="segmentLeftLegFat" min="0" max="50" step="0.1" placeholder="2.2" />
-                </label>
-              </div>
-            </details>
-            <details class="segmental-details">
-              <summary>Segmental kas direnci dağılımı (ohm)</summary>
-              <div class="segmental-grid">
-                <label class="field compact-field">
-                  <span>Sağ kol direnç</span>
-                  <input type="number" id="segmentRightArmResistance" min="100" max="1200" step="1" placeholder="420" />
-                </label>
-                <label class="field compact-field">
-                  <span>Sol kol direnç</span>
-                  <input type="number" id="segmentLeftArmResistance" min="100" max="1200" step="1" placeholder="430" />
-                </label>
-                <label class="field compact-field">
-                  <span>Gövde direnç</span>
-                  <input type="number" id="segmentTrunkResistance" min="50" max="900" step="1" placeholder="290" />
-                </label>
-                <label class="field compact-field">
-                  <span>Sağ bacak direnç</span>
-                  <input type="number" id="segmentRightLegResistance" min="100" max="1200" step="1" placeholder="360" />
-                </label>
-                <label class="field compact-field">
-                  <span>Sol bacak direnç</span>
-                  <input type="number" id="segmentLeftLegResistance" min="100" max="1200" step="1" placeholder="368" />
-                </label>
-              </div>
-            </details>
-            <label class="field compact-field">
-              <span>Cihaz / ölçüm notu</span>
-              <textarea id="measurementNote" rows="2" maxlength="260" placeholder="Örn. Segmental analiz cihazı çıktısı girildi, sağ-sol bacak kas farkı takip edilecek."></textarea>
-            </label>
-            <button type="button" class="secondary-button workspace-button" id="saveMeasurementButton">Ölçümü Kaydet</button>
-            <div id="bodyAnalysisReport" class="analysis-report"></div>
-            <div id="measurementHistory" class="history-list"></div>
-          </section>
-
-          <section class="workspace-card is-hidden" data-workspace-panel="history">
-            <div class="workspace-card__header">
-              <div>
-                <p class="section-kicker">Program Geçmişi</p>
-                <h3>Üye Planları</h3>
-              </div>
-            </div>
-            <div id="programHistory" class="history-list"></div>
-          </section>
-
-          <section class="workspace-card workspace-card--v3 is-hidden" data-workspace-panel="v3">
-            <div class="workspace-card__header">
-              <div>
-                <p class="section-kicker">V3 Koçluk Dosyası</p>
-                <h3>Gelişim, Revizyon ve Kontrol</h3>
-              </div>
-            </div>
-            <div id="professionalMemberFile" class="professional-member-file"></div>
-            <div id="v3MemberDossier" class="v3-dossier-grid"></div>
-            <div id="v3TrendCharts" class="v3-chart-grid"></div>
-            <div id="v3RevisionPanel" class="v3-revision-panel"></div>
-            <div id="v3ControlCalendar" class="v3-calendar-list"></div>
-          </section>
-        </div>
-      </aside>
     </main>
 
     <section class="measurement-panel screen-panel is-hidden" id="measurementsPanel" data-screen="measurements">
@@ -694,6 +460,170 @@
       </div>
 
       <div id="measurementTabMount" class="measurement-tab-mount"></div>
+
+      <div class="measurement-workspace">
+        <div class="tanita-import-card">
+          <div class="tanita-import-card__header">
+            <div>
+              <p class="section-kicker">Tanita BC-418</p>
+              <h4>Tanita CSV Ölçüm Yükle</h4>
+              <span>Üye seçiliyken Tanita Pro CSV çıktısını yükleyip ölçümü doğrudan üye geçmişine ekleyin.</span>
+            </div>
+            <button type="button" class="secondary-button" id="tanitaCsvButton">Tanita CSV Yükle</button>
+          </div>
+          <input type="file" id="tanitaCsvInput" accept=".csv,text/csv" hidden />
+          <p id="tanitaImportStatus" class="status-message compact-status"></p>
+          <div id="tanitaPreview" class="tanita-preview">
+            <p>CSV yüklendiğinde okunan kilo, yağ, kas, segmental dağılım ve direnç değerleri burada önizlenir.</p>
+          </div>
+          <div class="tanita-import-card__footer">
+            <small>Gelecek aşama: Tanita BC-418 -> RS-232 -> Windows bridge app -> HTTP/WebSocket -> BSM panel.</small>
+            <button type="button" class="ghost-button workspace-button" id="saveTanitaMeasurementButton" disabled>Ölçümü Üyeye Kaydet</button>
+          </div>
+        </div>
+
+        <div class="measurement-report-entry">
+          <div>
+            <p class="section-kicker">Rapor Çıktısı</p>
+            <h4>Tanita Ölçüm Raporu</h4>
+            <span>Son kayıtlı ölçümden renkli, A4 uyumlu ve üyeye verilebilir vücut analiz raporu oluşturun.</span>
+          </div>
+          <div class="measurement-report-entry__actions">
+            <button type="button" class="primary-button workspace-button" id="buildMeasurementReportButton">Ölçüm Raporu Oluştur</button>
+            <button type="button" class="secondary-button workspace-button" id="measurementTabPdfButton">PDF Olarak İndir</button>
+          </div>
+        </div>
+
+        <div class="measurement-grid">
+          <label class="field compact-field">
+            <span>Tarih</span>
+            <input type="date" id="measurementDate" />
+          </label>
+          <label class="field compact-field">
+            <span>Kilo kg</span>
+            <input type="number" id="measurementWeight" min="20" max="250" step="0.1" placeholder="72.5" />
+          </label>
+          <label class="field compact-field">
+            <span>Boy cm</span>
+            <input type="number" id="measurementHeight" min="100" max="240" step="0.1" placeholder="172" />
+          </label>
+          <label class="field compact-field">
+            <span>BMI</span>
+            <input type="number" id="measurementBmi" min="10" max="60" step="0.1" placeholder="22.8" />
+          </label>
+          <div class="field compact-field birthdate-field">
+            <span>Doğum tarihi</span>
+            <div class="birthdate-grid" aria-label="Üye doğum tarihi">
+              <input type="text" id="measurementBirthDay" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="Gün" aria-label="Doğum günü" />
+              <input type="text" id="measurementBirthMonth" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="Ay" aria-label="Doğum ayı" />
+              <input type="text" id="measurementBirthYear" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Yıl" aria-label="Doğum yılı" />
+            </div>
+            <small>Yaş ölçüm tarihine göre otomatik hesaplanır.</small>
+          </div>
+          <label class="field compact-field">
+            <span>Vücut yağ %</span>
+            <input type="number" id="measurementFat" min="3" max="60" step="0.1" placeholder="18.0" />
+          </label>
+          <label class="field compact-field">
+            <span>Kas kütlesi kg</span>
+            <input type="number" id="measurementMuscleMass" min="10" max="120" step="0.1" placeholder="34.2" />
+          </label>
+          <label class="field compact-field">
+            <span>Yağ kütlesi kg</span>
+            <input type="number" id="measurementFatMass" min="1" max="120" step="0.1" placeholder="13.1" />
+          </label>
+          <label class="field compact-field">
+            <span>Vücut suyu %</span>
+            <input type="number" id="measurementBodyWater" min="25" max="80" step="0.1" placeholder="56.0" />
+          </label>
+          <label class="field compact-field">
+            <span>Visceral yağ</span>
+            <input type="number" id="measurementVisceralFat" min="1" max="30" step="1" placeholder="7" />
+          </label>
+          <label class="field compact-field">
+            <span>Metabolizma hızı kcal</span>
+            <input type="number" id="measurementBmr" min="800" max="4000" step="1" placeholder="1650" />
+          </label>
+          <label class="field compact-field">
+            <span>Metabolizma yaşı</span>
+            <input type="number" id="measurementMetabolicAge" min="10" max="100" step="1" placeholder="32" />
+          </label>
+          <label class="field compact-field">
+            <span>Kemik kg</span>
+            <input type="number" id="measurementBoneMass" min="1" max="8" step="0.1" placeholder="3.0" />
+          </label>
+          <label class="field compact-field">
+            <span>Bel cm</span>
+            <input type="number" id="measurementWaist" min="40" max="200" step="0.1" placeholder="82" />
+          </label>
+          <label class="field compact-field">
+            <span>Kalça cm</span>
+            <input type="number" id="measurementHip" min="40" max="220" step="0.1" placeholder="98" />
+          </label>
+          <label class="field compact-field">
+            <span>Göğüs cm</span>
+            <input type="number" id="measurementChest" min="40" max="220" step="0.1" placeholder="96" />
+          </label>
+        </div>
+
+        <details class="segmental-details">
+          <summary>Segmental kas ve yağ dağılımı</summary>
+          <div class="segmental-grid">
+            <label class="field compact-field"><span>Sağ kol kas kg</span><input type="number" id="segmentRightArmMuscle" min="0" max="30" step="0.1" placeholder="3.2" /></label>
+            <label class="field compact-field"><span>Sol kol kas kg</span><input type="number" id="segmentLeftArmMuscle" min="0" max="30" step="0.1" placeholder="3.1" /></label>
+            <label class="field compact-field"><span>Gövde kas kg</span><input type="number" id="segmentTrunkMuscle" min="0" max="80" step="0.1" placeholder="26.0" /></label>
+            <label class="field compact-field"><span>Sağ bacak kas kg</span><input type="number" id="segmentRightLegMuscle" min="0" max="50" step="0.1" placeholder="9.8" /></label>
+            <label class="field compact-field"><span>Sol bacak kas kg</span><input type="number" id="segmentLeftLegMuscle" min="0" max="50" step="0.1" placeholder="9.6" /></label>
+            <label class="field compact-field"><span>Sağ kol yağ kg</span><input type="number" id="segmentRightArmFat" min="0" max="30" step="0.1" placeholder="1.1" /></label>
+            <label class="field compact-field"><span>Sol kol yağ kg</span><input type="number" id="segmentLeftArmFat" min="0" max="30" step="0.1" placeholder="1.2" /></label>
+            <label class="field compact-field"><span>Gövde yağ kg</span><input type="number" id="segmentTrunkFat" min="0" max="80" step="0.1" placeholder="7.4" /></label>
+            <label class="field compact-field"><span>Sağ bacak yağ kg</span><input type="number" id="segmentRightLegFat" min="0" max="50" step="0.1" placeholder="2.1" /></label>
+            <label class="field compact-field"><span>Sol bacak yağ kg</span><input type="number" id="segmentLeftLegFat" min="0" max="50" step="0.1" placeholder="2.2" /></label>
+          </div>
+        </details>
+        <details class="segmental-details">
+          <summary>Segmental kas direnci dağılımı (ohm)</summary>
+          <div class="segmental-grid">
+            <label class="field compact-field"><span>Sağ kol direnç</span><input type="number" id="segmentRightArmResistance" min="100" max="1200" step="1" placeholder="420" /></label>
+            <label class="field compact-field"><span>Sol kol direnç</span><input type="number" id="segmentLeftArmResistance" min="100" max="1200" step="1" placeholder="430" /></label>
+            <label class="field compact-field"><span>Gövde direnç</span><input type="number" id="segmentTrunkResistance" min="50" max="900" step="1" placeholder="290" /></label>
+            <label class="field compact-field"><span>Sağ bacak direnç</span><input type="number" id="segmentRightLegResistance" min="100" max="1200" step="1" placeholder="360" /></label>
+            <label class="field compact-field"><span>Sol bacak direnç</span><input type="number" id="segmentLeftLegResistance" min="100" max="1200" step="1" placeholder="368" /></label>
+          </div>
+        </details>
+
+        <label class="field compact-field">
+          <span>Cihaz / ölçüm notu</span>
+          <textarea id="measurementNote" rows="2" maxlength="260" placeholder="Örn. Segmental analiz cihazı çıktısı girildi, sağ-sol bacak kas farkı takip edilecek."></textarea>
+        </label>
+        <button type="button" class="secondary-button workspace-button" id="saveMeasurementButton">Ölçümü Kaydet</button>
+        <div id="bodyAnalysisReport" class="analysis-report"></div>
+        <div id="measurementHistory" class="history-list"></div>
+
+        <div class="measurement-workspace__history">
+          <div class="workspace-card__header">
+            <div>
+              <p class="section-kicker">Program Geçmişi</p>
+              <h3>Üye Planları</h3>
+            </div>
+          </div>
+          <div id="programHistory" class="history-list"></div>
+        </div>
+
+        <div class="measurement-workspace__v3">
+          <div class="workspace-card__header">
+            <div>
+              <p class="section-kicker">V3 Koçluk Dosyası</p>
+              <h3>Gelişim, Revizyon ve Kontrol</h3>
+            </div>
+          </div>
+          <div id="professionalMemberFile" class="professional-member-file"></div>
+          <div id="v3MemberDossier" class="v3-dossier-grid"></div>
+          <div id="v3TrendCharts" class="v3-chart-grid"></div>
+          <div id="v3RevisionPanel" class="v3-revision-panel"></div>
+          <div id="v3ControlCalendar" class="v3-calendar-list"></div>
+        </div>
+      </div>
     </section>
 
     <section class="nutrition-panel screen-panel is-hidden" id="nutritionPanel" data-screen="nutrition">
