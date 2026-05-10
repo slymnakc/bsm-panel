@@ -20,6 +20,42 @@
   --radius-sm: 12px;
   --font-body: "Aptos", "Segoe UI Variable", "Trebuchet MS", sans-serif;
   --font-display: "Bahnschrift SemiCondensed", "Franklin Gothic Medium", "Aptos", sans-serif;
+
+  /* ── BSM Brand Design Tokens (F1) ──────────────────────────────
+     Eski token'lar geriye dönük uyumluluk için korunur.
+     Yeni komponentler aşağıdaki --bsm-* token'larını kullanır. */
+
+  /* Brand renkleri (logo ve gerçek salon tonlarından) */
+  --bsm-orange: #f26c1f;
+  --bsm-orange-soft: #ffe7d6;
+  --bsm-orange-glow: rgba(242, 108, 31, 0.18);
+  --bsm-blue: #1e5baa;
+  --bsm-blue-soft: #dce8f7;
+  --bsm-track-red: #e84f2e;
+  --bsm-pool: #2daec8;
+  --bsm-court: #2eaf8c;
+
+  /* Zemin sistemi */
+  --bsm-bg: #0e1219;
+  --bsm-bg-elevated: #161b25;
+  --bsm-card-dark: #1b212c;
+  --bsm-card-light: #ffffff;
+
+  /* Tipografi renkleri */
+  --bsm-text-1: #f5f7fa;
+  --bsm-text-2: #b0b7c3;
+  --bsm-text-3: #6f7785;
+  --bsm-text-on-light: #1c2230;
+  --bsm-text-on-light-soft: #5b6473;
+
+  /* Sınırlar ve gölgeler */
+  --bsm-border: rgba(255, 255, 255, 0.08);
+  --bsm-border-light: rgba(17, 24, 39, 0.08);
+  --bsm-shadow-card: 0 6px 20px rgba(8, 12, 18, 0.06), 0 1px 2px rgba(8, 12, 18, 0.04);
+  --bsm-shadow-elev: 0 12px 32px rgba(8, 12, 18, 0.12);
+
+  /* Tipografi */
+  --bsm-font: "Inter", "Aptos", "Segoe UI Variable", "Trebuchet MS", system-ui, sans-serif;
 }
 
 @media print {
@@ -10212,6 +10248,324 @@ body.auth-required .page-backdrop {
 @media (max-width: 480px) {
   .members-kpi-strip { grid-template-columns: 1fr; }
   .members-kpi-card--wide { grid-column: auto; }
+}
+
+/* ── BSM KPI Redesign (F2) ──────────────────────────────────────
+   Mockup yapısı: beyaz kart + sol renkli ikon chip + büyük rakam.
+   Mevcut .members-kpi-card class'ı korunur; .bsm-kpi-card override eder. */
+
+.bsm-kpi-strip {
+  gap: 14px;
+}
+
+.bsm-kpi-card {
+  background: var(--bsm-card-light);
+  border: 1px solid var(--bsm-border-light);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-height: auto;
+  box-shadow: var(--bsm-shadow-card);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  font-family: var(--bsm-font);
+}
+
+.bsm-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--bsm-shadow-elev);
+  border-color: rgba(17, 24, 39, 0.14);
+}
+
+.bsm-kpi-card__icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bsm-orange-soft);
+  color: var(--bsm-orange);
+}
+
+.bsm-kpi-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.bsm-kpi-card__body span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft);
+}
+
+.bsm-kpi-card__body strong {
+  font-size: 1.85rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--bsm-text-on-light);
+  font-family: var(--bsm-font);
+  letter-spacing: -0.01em;
+}
+
+.bsm-kpi-card__body small {
+  font-size: 0.78rem;
+  color: var(--bsm-text-on-light-soft);
+}
+
+.bsm-kpi-card--orange .bsm-kpi-card__icon {
+  background: var(--bsm-orange-soft);
+  color: var(--bsm-orange);
+}
+
+.bsm-kpi-card--blue .bsm-kpi-card__icon {
+  background: var(--bsm-blue-soft);
+  color: var(--bsm-blue);
+}
+
+.bsm-kpi-card--red .bsm-kpi-card__icon {
+  background: rgba(232, 79, 46, 0.12);
+  color: var(--bsm-track-red);
+}
+
+.bsm-kpi-card--teal .bsm-kpi-card__icon {
+  background: rgba(45, 174, 200, 0.14);
+  color: var(--bsm-pool);
+}
+
+.bsm-kpi-card--neutral .bsm-kpi-card__icon {
+  background: rgba(28, 34, 48, 0.08);
+  color: var(--bsm-text-on-light);
+}
+
+.bsm-kpi-card--wide .bsm-kpi-card__body strong {
+  font-size: 1.1rem;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+/* ── BSM Member Row Redesign (F3) ──────────────────────────────
+   Eski .member-card--full class'ı korunur; .bsm-member-row override eder.
+   Avatar (initials), bilgi sütunu, status chip'leri, ikon aksiyon butonları. */
+
+.bsm-member-row {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--bsm-card-light);
+  border: 1px solid var(--bsm-border-light);
+  border-radius: 14px;
+  box-shadow: var(--bsm-shadow-card);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  font-family: var(--bsm-font);
+  color: var(--bsm-text-on-light);
+}
+
+.bsm-member-row:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--bsm-shadow-elev);
+  border-color: rgba(17, 24, 39, 0.16);
+}
+
+.bsm-member-row.is-active {
+  border-color: var(--bsm-orange);
+  box-shadow: 0 6px 20px var(--bsm-orange-glow);
+}
+
+.bsm-member-row__main {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.bsm-member-row__avatar {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--bsm-orange) 0%, var(--bsm-track-red) 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  font-family: var(--bsm-font);
+  user-select: none;
+}
+
+.bsm-member-row.is-active .bsm-member-row__avatar {
+  box-shadow: 0 0 0 3px rgba(242, 108, 31, 0.18);
+}
+
+.bsm-member-row__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bsm-member-row__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bsm-member-row__title strong {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--bsm-text-on-light);
+  font-family: var(--bsm-font);
+}
+
+.bsm-member-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: var(--bsm-text-on-light-soft);
+}
+
+.bsm-meta-item--code {
+  font-weight: 600;
+  color: var(--bsm-text-on-light);
+}
+
+.bsm-meta-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--bsm-text-on-light-soft);
+  opacity: 0.5;
+}
+
+.bsm-member-row__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.bsm-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.05);
+  color: var(--bsm-text-on-light-soft);
+  border: 1px solid rgba(17, 24, 39, 0.06);
+}
+
+.bsm-status-chip svg {
+  opacity: 0.7;
+}
+
+.bsm-status-chip--measurement {
+  background: rgba(45, 174, 200, 0.08);
+  color: #167a8e;
+  border-color: rgba(45, 174, 200, 0.18);
+}
+
+.bsm-status-chip--program {
+  background: rgba(232, 79, 46, 0.08);
+  color: #a73620;
+  border-color: rgba(232, 79, 46, 0.18);
+}
+
+.bsm-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.bsm-pill--active {
+  color: var(--bsm-orange);
+  background: var(--bsm-orange-soft);
+  border: 1px solid rgba(242, 108, 31, 0.25);
+}
+
+.bsm-member-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(17, 24, 39, 0.08);
+}
+
+.bsm-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  background: #fff;
+  color: var(--bsm-text-on-light-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+  padding: 0;
+}
+
+.bsm-icon-btn:hover {
+  color: var(--bsm-orange);
+  background: var(--bsm-orange-soft);
+  border-color: rgba(242, 108, 31, 0.28);
+  transform: translateY(-1px);
+}
+
+.bsm-icon-btn:active {
+  transform: translateY(0);
+}
+
+.bsm-icon-btn:focus-visible {
+  outline: 2px solid var(--bsm-orange);
+  outline-offset: 2px;
+}
+
+@media (min-width: 760px) {
+  .bsm-member-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+  }
+  .bsm-member-row__actions {
+    border-top: none;
+    padding-top: 0;
+    padding-left: 14px;
+    border-left: 1px dashed rgba(17, 24, 39, 0.08);
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .bsm-member-row { padding: 14px; }
+  .bsm-member-row__avatar { width: 40px; height: 40px; font-size: 0.85rem; }
+  .bsm-icon-btn { width: 32px; height: 32px; }
 }
 
 /* Settings (Ayarlar) paneli */
