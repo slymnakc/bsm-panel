@@ -134,6 +134,7 @@ body {
   border: 1px solid rgba(25, 51, 66, 0.08);
   box-shadow: 0 14px 34px rgba(19, 45, 57, 0.08);
   backdrop-filter: blur(14px);
+  pointer-events: auto;
 }
 
 .studio-nav button {
@@ -148,6 +149,8 @@ body {
   background: transparent;
   cursor: pointer;
   transition: background 160ms ease, transform 160ms ease;
+  pointer-events: auto;
+  position: relative;
 }
 
 .studio-nav button:hover {
