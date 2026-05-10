@@ -67,34 +67,34 @@
     }
 
     if (!(model?.items || []).length) {
-      memberList.innerHTML = `<div class=”empty-state compact-empty”>Kayıtlı üye bulunamadı. “Program Oluştur” sekmesinden formu doldurup “Üyeyi Kaydet” ile ilk dosyayı oluşturabilirsiniz.</div>`;
+      memberList.innerHTML = `<div class="empty-state compact-empty">Kayıtlı üye bulunamadı. "Program Oluştur" sekmesinden formu doldurup "Üyeyi Kaydet" ile ilk dosyayı oluşturabilirsiniz.</div>`;
       return;
     }
 
     memberList.innerHTML = model.items
       .map(
         (item) => `
-          <article class=”member-card member-card--full ${item.isActive ? “is-active” : “”}” data-member-id=”${item.memberId}”>
-            <div class=”member-card__body”>
-              <div class=”member-card__info”>
+          <article class="member-card member-card--full ${item.isActive ? "is-active" : ""}" data-member-id="${item.memberId}">
+            <div class="member-card__body">
+              <div class="member-card__info">
                 <strong>${escapeHtml(item.memberName)}</strong>
                 <span>${escapeHtml(item.memberCode)} • ${escapeHtml(item.goalLabel)}</span>
                 <small>${escapeHtml(item.measurementText)} • ${escapeHtml(item.programText)}</small>
               </div>
-              ${item.isActive ? `<span class=”member-card__badge”>Aktif</span>` : “”}
+              ${item.isActive ? `<span class="member-card__badge">Aktif</span>` : ""}
             </div>
-            <div class=”member-card__actions”>
-              <button type=”button” class=”ghost-button mini-button” data-member-quick-action=”load-profile” data-member-id=”${item.memberId}”>Profili Aç</button>
-              <button type=”button” class=”ghost-button mini-button” data-member-quick-action=”add-measurement” data-member-id=”${item.memberId}”>Ölçüm Ekle</button>
-              <button type=”button” class=”ghost-button mini-button” data-member-quick-action=”build-program” data-member-id=”${item.memberId}”>Program Oluştur</button>
-              <button type=”button” class=”ghost-button mini-button” data-member-quick-action=”nutrition” data-member-id=”${item.memberId}”>Beslenme Planı</button>
-              <button type=”button” class=”ghost-button mini-button” data-member-quick-action=”output” data-member-id=”${item.memberId}”>Çıktı / PDF</button>
-              <button type=”button” class=”ghost-button mini-button” data-member-quick-action=”history” data-member-id=”${item.memberId}”>Geçmiş</button>
+            <div class="member-card__actions">
+              <button type="button" class="ghost-button mini-button" data-member-quick-action="load-profile" data-member-id="${item.memberId}">Profili Aç</button>
+              <button type="button" class="ghost-button mini-button" data-member-quick-action="add-measurement" data-member-id="${item.memberId}">Ölçüm Ekle</button>
+              <button type="button" class="ghost-button mini-button" data-member-quick-action="build-program" data-member-id="${item.memberId}">Program Oluştur</button>
+              <button type="button" class="ghost-button mini-button" data-member-quick-action="nutrition" data-member-id="${item.memberId}">Beslenme Planı</button>
+              <button type="button" class="ghost-button mini-button" data-member-quick-action="output" data-member-id="${item.memberId}">Çıktı / PDF</button>
+              <button type="button" class="ghost-button mini-button" data-member-quick-action="history" data-member-id="${item.memberId}">Geçmiş</button>
             </div>
           </article>
         `,
       )
-      .join(“”);
+      .join("");
   }
 
   function renderMeasurementHistory(target, model, escapeHtml) {

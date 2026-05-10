@@ -22,6 +22,7 @@
         return;
       }
 
+      console.log("[BSM] nav tıklandı:", button.dataset.screenTarget);
       setActiveScreen(button.dataset.screenTarget, { userTriggered: true });
     }
 
@@ -97,8 +98,10 @@
   }
 
   function bindNavigationHandlers(elements, handlers) {
+    var navBtns = elements.studioNav?.querySelectorAll?.("button[data-screen-target]") || [];
+    console.log("[BSM] bindNavigationHandlers: studioNav=", !!elements.studioNav, "buton sayısı=", navBtns.length);
     bindIf(elements.studioNav, "click", handlers.handleScreenNavClick);
-    elements.studioNav?.querySelectorAll?.("button[data-screen-target]").forEach((button) => {
+    navBtns.forEach((button) => {
       bindIf(button, "click", handlers.handleScreenNavClick);
     });
     bindIf(elements.workspaceTabs, "click", handlers.handleWorkspaceTabClick);
