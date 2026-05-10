@@ -9,7 +9,7 @@
 
   var VALID_SCREENS = [
     "members", "dashboard", "builder", "measurements",
-    "nutrition", "library", "output", "measurement-report",
+    "nutrition", "library", "output", "measurement-report", "settings",
   ];
 
   var VALID_VIEWS = ["members", "history", "v3"];
@@ -23,6 +23,7 @@
     library: "#libraryPanel",
     output: "#resultsSection",
     "measurement-report": "#measurementReportSection",
+    settings: "#settingsPanel",
   };
 
   // ── Init ────────────────────────────────────────────────────
@@ -40,7 +41,7 @@
     var userTriggered = Boolean(options.userTriggered);
     var silent = Boolean(options.silent);
 
-    var normalized = VALID_SCREENS.indexOf(screen) !== -1 ? screen : "dashboard";
+    var normalized = VALID_SCREENS.indexOf(screen) !== -1 ? screen : "members";
 
     if (normalized === "output") {
       var loaded = _cfg.loadLatestForOutput ? _cfg.loadLatestForOutput() : true;
@@ -88,6 +89,7 @@
   function inferFromHash(hashValue) {
     var hash = String(hashValue || "").toLowerCase();
     if (hash.indexOf("memberspanel") !== -1) return "members";
+    if (hash.indexOf("settingspanel") !== -1) return "settings";
     if (hash.indexOf("librarypanel") !== -1) return "library";
     if (hash.indexOf("nutritionpanel") !== -1) return "nutrition";
     if (hash.indexOf("resultssection") !== -1) return "output";
