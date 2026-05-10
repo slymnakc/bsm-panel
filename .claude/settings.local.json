@@ -46,7 +46,9 @@
       "Bash(render --version)",
       "Bash(where render *)",
       "Bash(node --check app.js core/router.js ui/member-ui.js)",
-      "WebFetch(domain:bsm-panel.onrender.com)"
+      "WebFetch(domain:bsm-panel.onrender.com)",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(s['service']['id'], s['service']['name'], s['service']['updatedAt']\\) for s in data]\")",
+      "Bash(git fetch *)"
     ]
   }
 }
