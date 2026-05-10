@@ -51,7 +51,12 @@
       "Bash(git fetch *)",
       "Bash(node --check core/router.js)",
       "Bash(grep -n \"^body\\\\s*{\\\\|^html\\\\s*{\\\\|^body,\\\\s*html\\\\|body {\\\\|html {\" \"C:/Users/go/Documents/Codex/bsm-panel/styles.css\")",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(npx serve *)",
+      "Bash(npx playwright *)",
+      "Bash(npm install *)",
+      "Bash(node_modules\\\\.bin\\\\playwright install *)",
+      "Bash(timeout 35)"
     ]
   }
 }
