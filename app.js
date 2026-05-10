@@ -656,6 +656,8 @@ if (window.BSMBodyAnalysis) {
 window.addEventListener("bsm:auth:ready", () => {
   syncMembersFromSupabase({ source: "auth-ready" });
   syncAppSettingsFromSupabase();
+  initNavigation();
+  activateScreen(inferScreenFromHash(window.location.hash) || "members");
 });
 
 initialize();
@@ -676,6 +678,8 @@ function initialize() {
   syncMembersFromSupabase();
   setupSupabaseRealtimeSync();
   syncAppSettingsFromSupabase();
+  initNavigation();
+  activateScreen(inferScreenFromHash(window.location.hash) || "members");
 }
 
 function initializeStateFromStorage() {
@@ -1641,6 +1645,37 @@ function handleRepetitionTemplateControlChange(event) {
 
 function setActiveScreen(screen, options) {
   return window.BSMRouter ? window.BSMRouter.navigate(screen, options) : false;
+}
+
+function activateScreen(screenName) {
+  var panels = document.querySelectorAll(".screen-panel");
+  var found = false;
+  panels.forEach(function (panel) {
+    if (panel.dataset.screen === screenName) {
+      panel.classList.remove("is-hidden");
+      found = true;
+    } else {
+      panel.classList.add("is-hidden");
+    }
+  });
+  document.querySelectorAll(".studio-nav button[data-screen-target]").forEach(function (btn) {
+    btn.classList.toggle("is-active", btn.dataset.screenTarget === screenName);
+  });
+  if (!found) console.error("[BSM] activateScreen: panel bulunamadı →", screenName);
+  else console.log("[BSM] activateScreen:", screenName, "— panel gösterildi");
+}
+
+function initNavigation() {
+  var navBtns = document.querySelectorAll(".studio-nav button[data-screen-target]");
+  console.log("[BSM] initNavigation: buton sayısı =", navBtns.length);
+  navBtns.forEach(function (btn) {
+    if (btn.dataset.navBound === "true") return;
+    btn.dataset.navBound = "true";
+    btn.addEventListener("click", function () {
+      activateScreen(this.dataset.screenTarget);
+    });
+    console.log("[BSM] listener bağlandı:", btn.dataset.screenTarget);
+  });
 }
 
 function inferScreenFromHash(hashValue) {
