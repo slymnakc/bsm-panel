@@ -89,6 +89,9 @@
     var gate = document.getElementById("authGate");
     if (gate) gate.classList.add("is-hidden");
     document.body.classList.remove("auth-required");
+    if (window.BSMRouter && window.BSMRouter.inferFromHash && window.BSMRouter.navigate) {
+      window.BSMRouter.navigate(window.BSMRouter.inferFromHash(window.location.hash));
+    }
   }
 
   function setAuthLoading(loading) {
