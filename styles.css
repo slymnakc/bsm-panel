@@ -99,6 +99,7 @@ body {
 .dashboard-panel,
 .app-shell,
 .measurement-panel,
+.members-screen,
 .results {
   position: relative;
   z-index: 1;
@@ -10000,8 +10001,6 @@ body.auth-required .page-backdrop {
 
 .members-screen {
   padding: 24px;
-  max-width: 1280px;
-  margin: 0 auto;
 }
 
 .members-screen__header {
