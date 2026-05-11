@@ -1225,6 +1225,15 @@ measurementReportBackButton?.addEventListener("click", handleMeasurementReportBa
       shiftWizardStep(navBtn.dataset.wizardNav === "next" ? 1 : -1);
     }
   });
+  // F5c: Utility Panel "Hızlı İşlemler" butonları
+  membersPanel?.addEventListener("click", (e) => {
+    const actionBtn = e.target.closest("button[data-utility-action]");
+    if (!actionBtn) return;
+    const action = actionBtn.dataset.utilityAction;
+    if (BSM_WIZARD_STEPS.find((s) => s.id === action)) {
+      setActiveWizardStep(action);
+    }
+  });
   document.addEventListener("click", handleExerciseGifModalClick);
   document.addEventListener("error", handleExerciseGifError, true);
   document.addEventListener("keydown", handleExerciseGifModalKeydown);
@@ -1953,6 +1962,298 @@ function renderMemberWorkspace() {
   // F5b: Workspace wizard bar + footer
   renderWizardBar();
   renderWizardFooter();
+  // F5c: Workspace hero + content + utility panel
+  renderWorkspaceHero();
+  renderWizardContent();
+  renderUtilityPanel();
+}
+
+// ════════════════════════════════════════════════════════════════
+// F5c: Workspace Hero + Content + Utility Panel
+// ════════════════════════════════════════════════════════════════
+
+function renderWorkspaceHero() {
+  const host = document.querySelector("#bsmWorkspaceHero");
+  if (!host) return;
+  const member = findActiveMember();
+  if (!member) {
+    host.innerHTML = `
+      <div class="bsm-hero-empty">
+        <strong>Aktif üye seçilmedi</strong>
+        <span>Sol panelden bir üye seçtiğinizde profili burada görüntülenecek.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const profile = member.profile || {};
+  const goalLabel = labelMaps.goal[profile.goal] || "Hedef belirtilmedi";
+  const initials = buildMemberInitials(profile.memberName, profile.memberCode);
+  const photo = profile.photo || null;
+  const lastUpdate = relativeTimeShort(member.updatedAt || member.createdAt);
+  const completedCount = countCompletedWizardSteps(member);
+  const progressPct = Math.round((completedCount / BSM_WIZARD_STEPS.length) * 100);
+  const memberStatus = member.measurements?.length > 0 ? "Aktif Üye" : "Yeni Üye";
+
+  host.innerHTML = `
+    <div class="bsm-hero-card">
+      <div class="bsm-hero-card__avatar" aria-hidden="true">
+        ${photo
+          ? `<img src="${escapeHtml(photo)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'" />`
+          : `<span class="bsm-hero-card__initials">${escapeHtml(initials)}</span>`}
+      </div>
+      <div class="bsm-hero-card__body">
+        <div class="bsm-hero-card__title">
+          <h3>${escapeHtml(profile.memberName || "İsimsiz Üye")}</h3>
+          <span class="bsm-pill bsm-pill--${memberStatus === "Aktif Üye" ? "active" : "warning"}">${escapeHtml(memberStatus)}</span>
+        </div>
+        <p class="bsm-hero-card__goal">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+          <span>Hedef: <strong>${escapeHtml(goalLabel)}</strong></span>
+        </p>
+        <p class="bsm-hero-card__meta">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <span>Son güncelleme: ${escapeHtml(lastUpdate)}</span>
+        </p>
+      </div>
+      <div class="bsm-hero-card__progress">
+        <div class="bsm-hero-card__progress-head">
+          <span>Genel İlerleme</span>
+          <strong>%${progressPct}</strong>
+        </div>
+        <div class="bsm-hero-card__progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}">
+          <span class="bsm-hero-card__progress-fill" style="width: ${progressPct}%"></span>
+        </div>
+        <small>${completedCount} / ${BSM_WIZARD_STEPS.length} adım tamamlandı</small>
+      </div>
+    </div>
+  `;
+}
+
+function countCompletedWizardSteps(member) {
+  const states = computeWizardStepStates(member);
+  return Object.values(states).filter((v) => v === "completed").length;
+}
+
+function buildMemberInitials(memberName, memberCode) {
+  const source = String(memberName || memberCode || "").trim();
+  if (!source) return "BSM";
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toLocaleUpperCase("tr");
+  return source.slice(0, 2).toLocaleUpperCase("tr");
+}
+
+function relativeTimeShort(value) {
+  if (!value) return "kayıt yok";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  const diffMs = Date.now() - parsed.getTime();
+  const sec = Math.round(diffMs / 1000);
+  const min = Math.round(sec / 60);
+  const hr  = Math.round(min / 60);
+  const day = Math.round(hr / 24);
+  if (sec < 60) return "az önce";
+  if (min < 60) return `${min} dk önce`;
+  if (hr < 24) return `${hr} sa önce`;
+  if (day < 30) return `${day} gün önce`;
+  try { return parsed.toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" }); } catch (e) { return parsed.toISOString().slice(0,10); }
+}
+
+// ── Wizard Content (aktif adıma göre içerik) ────────────────────
+
+function renderWizardContent() {
+  const host = document.querySelector("#bsmWizardContent");
+  if (!host) return;
+  const member = findActiveMember();
+  if (!member) {
+    host.innerHTML = "";
+    return;
+  }
+  const step = state.activeWizardStep || "olcum";
+  switch (step) {
+    case "olcum":     host.innerHTML = renderStepOlcumHtml(member); break;
+    case "program":   host.innerHTML = renderStepGenericHtml("Program", "Program oluşturma adımı sağ paneldeki <strong>Program Oluştur</strong> butonu veya yukarıdaki wizard adımı ile açılır.", "Program oluştur sekmesinde detaylı form vardır."); break;
+    case "beslenme":  host.innerHTML = renderStepGenericHtml("Beslenme Planı", "Beslenme planı sağ paneldeki <strong>Beslenme Planı</strong> butonu veya wizard adımı ile açılır.", "Beslenme sekmesinde üyeye özel plan oluşturulur."); break;
+    case "pdf":       host.innerHTML = renderStepGenericHtml("PDF Çıktısı", "PDF üretimi için önce program oluşturulmalı. Üye Çıktısı sekmesinde indirme seçenekleri yer alır.", "Çıktı sekmesinden PDF, HTML veya mail gönderimi yapılabilir."); break;
+    case "mail":      host.innerHTML = renderStepGenericHtml("Mail Gönder", "Mail gönderimi için üyenin e-posta adresi ve hazır program gerekli.", "Çıktı sekmesinden mail butonu kullanılır."); break;
+    default:          host.innerHTML = "";
+  }
+}
+
+function renderStepGenericHtml(title, description, footnote) {
+  return `
+    <div class="bsm-step-section">
+      <header class="bsm-step-section__head">
+        <h4>${escapeHtml(title)}</h4>
+      </header>
+      <div class="bsm-step-section__body">
+        <p>${description}</p>
+        <small>${escapeHtml(footnote)}</small>
+      </div>
+    </div>
+  `;
+}
+
+function renderStepOlcumHtml(member) {
+  const latest = member?.measurements?.[0];
+  const profile = member?.profile || {};
+  const note = (latest?.note || profile.notes || "").trim();
+  const measureDate = latest ? (latest.date || "Tarih yok") : "Henüz ölçüm yok";
+  const measurementHistory = (member?.measurements || []).slice(0, 6).reverse();
+  const sparkSeries = measurementHistory.length >= 2;
+
+  const metric = (label, valueText, unit, key) => {
+    const values = measurementHistory.map((m) => num(m[key])).filter((v) => v !== null);
+    const sparkline = sparkSeries && values.length >= 2 ? buildSparklineSvg(values) : "";
+    return `
+      <article class="bsm-metric-card">
+        <span class="bsm-metric-card__label">${escapeHtml(label)}</span>
+        <strong class="bsm-metric-card__value">${escapeHtml(valueText)}${unit ? `<em>${escapeHtml(unit)}</em>` : ""}</strong>
+        ${sparkline ? `<div class="bsm-metric-card__spark">${sparkline}</div>` : `<div class="bsm-metric-card__spark bsm-metric-card__spark--empty"></div>`}
+      </article>
+    `;
+  };
+
+  const v = (key, suffix = "") => latest && latest[key] != null && latest[key] !== "" ? String(latest[key]) + suffix : "—";
+
+  return `
+    <div class="bsm-step-section">
+      <header class="bsm-step-section__head">
+        <div>
+          <h4>Vücut Analiz Sonuçları (Tanita)</h4>
+          <small>Ölçüm Tarihi: ${escapeHtml(measureDate)}</small>
+        </div>
+        ${latest
+          ? `<span class="bsm-pill bsm-pill--success"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Ölçüm mevcut</span>`
+          : `<span class="bsm-pill bsm-pill--warning">Ölçüm bekleniyor</span>`}
+      </header>
+
+      <div class="bsm-metric-grid">
+        ${metric("Kilo", v("weight"), "kg", "weight")}
+        ${metric("Vücut Yağ Oranı", v("fat"), "%", "fat")}
+        ${metric("Kas Kütlesi", v("muscleMass"), "kg", "muscleMass")}
+        ${metric("Vücut Yağ Kütlesi", v("fatMass"), "kg", "fatMass")}
+        ${metric("BMI", v("bmi"), "", "bmi")}
+        ${metric("Metabolik Yaş", v("metabolicAge"), "", "metabolicAge")}
+        ${metric("Vücut Suyu", v("bodyWater"), "%", "bodyWater")}
+        ${metric("İç Yağlanma", v("visceralFat"), "", "visceralFat")}
+      </div>
+
+      <div class="bsm-step-secondary">
+        <article class="bsm-side-card">
+          <header><h5>Notlar</h5></header>
+          <p>${note ? escapeHtml(note) : "Bu üye için henüz not eklenmemiş."}</p>
+        </article>
+        <article class="bsm-side-card">
+          <header><h5>Hedef Bilgileri</h5></header>
+          <dl class="bsm-target-list">
+            <div><dt>Hedef</dt><dd>${escapeHtml(labelMaps.goal[profile.goal] || "—")}</dd></div>
+            <div><dt>Başlangıç</dt><dd>${escapeHtml(relativeTimeShort(member?.createdAt) || "—")}</dd></div>
+            <div><dt>Hedef Kilo</dt><dd>—</dd></div>
+            <div><dt>Hedef Yağ %</dt><dd>—</dd></div>
+          </dl>
+          <small>Hedef Kilo ve Yağ % alanları gelecek sprintte builder formuna eklenecek.</small>
+        </article>
+      </div>
+    </div>
+  `;
+}
+
+function num(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function buildSparklineSvg(values) {
+  if (!values || values.length < 2) return "";
+  const w = 96; const h = 22; const pad = 2;
+  const min = Math.min(...values); const max = Math.max(...values);
+  const range = max - min || 1;
+  const dx = (w - pad * 2) / (values.length - 1);
+  const points = values.map((v, i) => {
+    const x = pad + i * dx;
+    const y = pad + (h - pad * 2) * (1 - (v - min) / range);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>`;
+}
+
+// ── Utility Panel ──────────────────────────────────────────────
+
+function renderUtilityPanel() {
+  const host = document.querySelector("#bsmUtilityPanel");
+  if (!host) return;
+  const member = findActiveMember();
+  if (!member) {
+    host.innerHTML = "";
+    return;
+  }
+  const states = computeWizardStepStates(member);
+
+  const statusRow = (id, label) => {
+    const s = states[id] || "pending";
+    const ok = s === "completed";
+    return `
+      <li class="bsm-status-row ${ok ? "is-ok" : "is-pending"}">
+        <span class="bsm-status-row__icon" aria-hidden="true">
+          ${ok
+            ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+            : `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>`}
+        </span>
+        <span class="bsm-status-row__label">${escapeHtml(label)}</span>
+        <span class="bsm-status-row__state">${ok ? "Tamamlandı" : "Eksik"}</span>
+      </li>
+    `;
+  };
+
+  host.innerHTML = `
+    <article class="bsm-utility-card bsm-utility-card--status">
+      <header class="bsm-utility-card__head">
+        <h4>Hızlı Durum</h4>
+      </header>
+      <ul class="bsm-status-list">
+        ${statusRow("olcum", "Ölçüm")}
+        ${statusRow("program", "Program")}
+        ${statusRow("beslenme", "Beslenme")}
+        ${statusRow("pdf", "PDF Çıktısı")}
+        ${statusRow("mail", "Mail Gönder")}
+      </ul>
+    </article>
+
+    <article class="bsm-utility-card bsm-utility-card--actions">
+      <header class="bsm-utility-card__head">
+        <h4>Hızlı İşlemler</h4>
+      </header>
+      <div class="bsm-action-list">
+        <button type="button" class="bsm-action-btn bsm-action-btn--blue" data-utility-action="olcum">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h3l3-9 4 18 3-9h5"></path></svg>
+          <span>Ölçüm Güncelle</span>
+        </button>
+        <button type="button" class="bsm-action-btn bsm-action-btn--orange" data-utility-action="program">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16"></path><path d="M18 4v16"></path><path d="M2 8h4"></path><path d="M2 16h4"></path><path d="M18 8h4"></path><path d="M18 16h4"></path><path d="M6 12h12"></path></svg>
+          <span>Program Oluştur</span>
+        </button>
+        <button type="button" class="bsm-action-btn bsm-action-btn--green" data-utility-action="beslenme">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2v20"></path><path d="M5 2v6a3 3 0 0 0 6 0V2"></path><path d="M18 2v20"></path><path d="M15 2c0 4 3 4 3 8"></path></svg>
+          <span>Beslenme Planı</span>
+        </button>
+        <button type="button" class="bsm-action-btn bsm-action-btn--purple" data-utility-action="pdf">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          <span>PDF Oluştur</span>
+        </button>
+        <button type="button" class="bsm-action-btn bsm-action-btn--cyan" data-utility-action="mail">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          <span>Mail Gönder</span>
+        </button>
+      </div>
+    </article>
+
+    <button type="button" class="bsm-utility-deactivate" disabled aria-disabled="true" title="Bu özellik gelecek sprintte aktif edilecek">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+      <span>Üyeyi Pasif Yap</span>
+    </button>
+  `;
 }
 
 // F5b: Wizard step bar — 5 adım: Ölçüm / Program / Beslenme / PDF / Mail
