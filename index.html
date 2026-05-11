@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.39" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.40" />
   </head>
   <body class="auth-required">
     <div class="page-backdrop" aria-hidden="true"></div>
@@ -139,131 +139,104 @@
     </nav>
 
     <!-- ── Üyeler Ekranı ──────────────────────────────────────────────── -->
-    <section class="members-screen screen-panel is-hidden" id="membersPanel" data-screen="members">
-      <div class="members-screen__header">
-        <div>
-          <p class="section-kicker">Operasyon Merkezi</p>
-          <h2>Kayıtlı Üyeler</h2>
-        </div>
-        <div class="members-screen__header-actions">
-          <span class="members-count-badge"><span id="memberCount">0</span> üye</span>
-          <button type="button" class="secondary-button" data-screen-target="builder">Yeni Program Oluştur</button>
-        </div>
+    <!-- F5a: 3-kolon workspace (Member Rail + Workspace Main + Utility Panel).
+         Tüm eski id'ler korunur; eski selektörlere bağlı handler'lar etkilenmez. -->
+    <section class="members-screen screen-panel is-hidden bsm-workspace-screen" id="membersPanel" data-screen="members">
+      <div class="bsm-workspace-grid">
+
+        <!-- ── LEFT: Member Rail ─────────────────────────────────────── -->
+        <aside class="bsm-member-rail" id="bsmMemberRail" aria-label="Üye listesi">
+          <div class="bsm-member-rail__head">
+            <label class="bsm-search-field bsm-search-field--rail">
+              <span class="visually-hidden">Üye ara</span>
+              <span class="bsm-search-field__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              </span>
+              <input type="text" id="memberSearch" placeholder="Üye ara..." autocomplete="off" />
+            </label>
+          </div>
+
+          <div class="bsm-member-rail__meta">
+            <span class="bsm-rail-count"><strong id="memberCount">0</strong> üye</span>
+            <label class="bsm-rail-sort">
+              <span class="visually-hidden">Sıralama</span>
+              <select id="memberSort" aria-label="Sıralama">
+                <option value="recent-update">Son güncellenen</option>
+                <option value="name-asc">İsme göre (A-Z)</option>
+                <option value="code-asc">Üye no (A-Z)</option>
+                <option value="programs-desc">Programı olanlar önce</option>
+                <option value="measurements-desc">Ölçümü olanlar önce</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="memberList" class="bsm-member-rail__list members-grid bsm-members-list" role="list"></div>
+
+          <div class="bsm-member-rail__footer">
+            <button type="button" class="bsm-rail-add" data-screen-target="builder">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <span>Yeni Üye Ekle</span>
+            </button>
+          </div>
+
+          <!-- Disabled placeholder filters retained for future activation (F5+). Hidden in DOM. -->
+          <select id="bsmFilterGroup" hidden aria-hidden="true"><option value="all">Tüm Gruplar</option></select>
+          <select id="bsmFilterStatus" hidden aria-hidden="true"><option value="all">Tüm Durumlar</option></select>
+        </aside>
+
+        <!-- ── CENTER: Workspace Main ────────────────────────────────── -->
+        <main class="bsm-workspace-main" id="bsmWorkspaceMain">
+          <!-- KPI compact pills (F5a: önceki strip buraya taşındı) -->
+          <div class="bsm-kpi-pills" aria-label="Üye operasyon göstergeleri">
+            <article class="bsm-kpi-pill bsm-kpi-pill--orange">
+              <span class="bsm-kpi-pill__label">Toplam</span>
+              <strong id="membersKpiTotal">0</strong>
+            </article>
+            <article class="bsm-kpi-pill bsm-kpi-pill--blue">
+              <span class="bsm-kpi-pill__label">Ölçümlü</span>
+              <strong id="membersKpiMeasured">0</strong>
+            </article>
+            <article class="bsm-kpi-pill bsm-kpi-pill--red">
+              <span class="bsm-kpi-pill__label">Programlı</span>
+              <strong id="membersKpiPrograms">0</strong>
+            </article>
+            <article class="bsm-kpi-pill bsm-kpi-pill--teal">
+              <span class="bsm-kpi-pill__label">Beslenmeli</span>
+              <strong id="membersKpiNutrition">0</strong>
+            </article>
+            <article class="bsm-kpi-pill bsm-kpi-pill--neutral">
+              <span class="bsm-kpi-pill__label">Son Güncel.</span>
+              <strong id="membersKpiLastUpdate">-</strong>
+            </article>
+            <!-- Handler/render uyumluluğu için gizli meta node'ları -->
+            <span hidden id="membersKpiMeasuredMeta"></span>
+            <span hidden id="membersKpiProgramsMeta"></span>
+            <span hidden id="membersKpiNutritionMeta"></span>
+            <span hidden id="membersKpiLastUpdateMeta"></span>
+          </div>
+
+          <!-- Hero (F5c'de doldurulur) -->
+          <div id="bsmWorkspaceHero" class="bsm-workspace-hero" aria-live="polite"></div>
+
+          <!-- Wizard step bar (F5b'de doldurulur) -->
+          <div id="bsmWizardBar" class="bsm-wizard-bar"></div>
+
+          <!-- Aktif step içeriği (F5c'de doldurulur) -->
+          <div id="bsmWizardContent" class="bsm-wizard-content"></div>
+
+          <!-- Önceki / Sonraki adım butonları (F5b'de doldurulur) -->
+          <div id="bsmWizardFooter" class="bsm-wizard-footer"></div>
+
+          <!-- Eski activeMemberProfile node'u — handler uyumluluğu için DOM'da kalır, gizli -->
+          <div id="activeMemberProfile" class="members-active-profile" hidden aria-hidden="true"></div>
+        </main>
+
+        <!-- ── RIGHT: Utility Panel ──────────────────────────────────── -->
+        <aside class="bsm-utility-panel" id="bsmUtilityPanel" aria-label="Yardımcı işlemler">
+          <!-- F5c'de doldurulur (Hızlı Durum + Hızlı İşlemler + Üyeyi Pasif Yap) -->
+        </aside>
+
       </div>
-
-      <div class="members-kpi-strip bsm-kpi-strip" aria-label="Üye operasyon göstergeleri">
-        <article class="members-kpi-card bsm-kpi-card bsm-kpi-card--orange">
-          <div class="bsm-kpi-card__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-          </div>
-          <div class="bsm-kpi-card__body">
-            <span>Toplam Üye</span>
-            <strong id="membersKpiTotal">0</strong>
-            <small>Kayıtlı aktif üye</small>
-          </div>
-        </article>
-        <article class="members-kpi-card bsm-kpi-card bsm-kpi-card--blue">
-          <div class="bsm-kpi-card__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l3-9 4 18 3-9h5"></path></svg>
-          </div>
-          <div class="bsm-kpi-card__body">
-            <span>Ölçümü Olan</span>
-            <strong id="membersKpiMeasured">0</strong>
-            <small id="membersKpiMeasuredMeta">Tanita veya manuel</small>
-          </div>
-        </article>
-        <article class="members-kpi-card bsm-kpi-card bsm-kpi-card--red">
-          <div class="bsm-kpi-card__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v16"></path><path d="M18 4v16"></path><path d="M2 8h4"></path><path d="M2 16h4"></path><path d="M18 8h4"></path><path d="M18 16h4"></path><path d="M6 12h12"></path></svg>
-          </div>
-          <div class="bsm-kpi-card__body">
-            <span>Programı Olan</span>
-            <strong id="membersKpiPrograms">0</strong>
-            <small id="membersKpiProgramsMeta">Kayıtlı plan</small>
-          </div>
-        </article>
-        <article class="members-kpi-card bsm-kpi-card bsm-kpi-card--teal">
-          <div class="bsm-kpi-card__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2v20"></path><path d="M5 2v6a3 3 0 0 0 6 0V2"></path><path d="M18 2v20"></path><path d="M15 2c0 4 3 4 3 8"></path></svg>
-          </div>
-          <div class="bsm-kpi-card__body">
-            <span>Beslenme Planı</span>
-            <strong id="membersKpiNutrition">0</strong>
-            <small id="membersKpiNutritionMeta">Plan oluşturuldu</small>
-          </div>
-        </article>
-        <article class="members-kpi-card bsm-kpi-card bsm-kpi-card--wide bsm-kpi-card--neutral members-kpi-card--wide">
-          <div class="bsm-kpi-card__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
-          </div>
-          <div class="bsm-kpi-card__body">
-            <span>Son Güncellenen</span>
-            <strong id="membersKpiLastUpdate">-</strong>
-            <small id="membersKpiLastUpdateMeta">Henüz güncelleme yok</small>
-          </div>
-        </article>
-      </div>
-
-      <div id="activeMemberProfile" class="members-active-profile"></div>
-
-      <section class="bsm-members-card">
-        <div class="bsm-members-card__head">
-          <div class="bsm-members-card__title">
-            <span class="bsm-members-card__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            </span>
-            <h3>Üye Listesi</h3>
-          </div>
-        </div>
-
-        <div class="bsm-members-card__toolbar members-screen__controls">
-          <label class="field compact-field members-search-field bsm-search-field">
-            <span class="visually-hidden">Üye ara</span>
-            <span class="bsm-search-field__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            </span>
-            <input type="text" id="memberSearch" placeholder="Üye adı, telefon veya e-posta ile ara..." />
-          </label>
-          <label class="field compact-field bsm-filter-field">
-            <span class="visually-hidden">Grup filtresi</span>
-            <select id="bsmFilterGroup" disabled title="Grup filtresi yakında" aria-label="Grup filtresi">
-              <option value="all">Tüm Gruplar</option>
-            </select>
-          </label>
-          <label class="field compact-field bsm-filter-field">
-            <span class="visually-hidden">Durum filtresi</span>
-            <select id="bsmFilterStatus" disabled title="Durum filtresi yakında" aria-label="Durum filtresi">
-              <option value="all">Tüm Durumlar</option>
-            </select>
-          </label>
-          <label class="field compact-field bsm-sort-field">
-            <span class="visually-hidden">Sıralama</span>
-            <select id="memberSort" aria-label="Sıralama">
-              <option value="recent-update">Son güncellenen</option>
-              <option value="name-asc">İsme göre (A-Z)</option>
-              <option value="code-asc">Üye no (A-Z)</option>
-              <option value="programs-desc">Programı olanlar önce</option>
-              <option value="measurements-desc">Ölçümü olanlar önce</option>
-            </select>
-          </label>
-          <button type="button" class="bsm-primary-btn" data-screen-target="builder">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            <span>Üye Ekle</span>
-          </button>
-        </div>
-
-        <div class="bsm-members-card__list-header" aria-hidden="true">
-          <div class="bsm-list-col bsm-list-col--member">Üye</div>
-          <div class="bsm-list-col bsm-list-col--contact">İletişim</div>
-          <div class="bsm-list-col bsm-list-col--group">Hedef</div>
-          <div class="bsm-list-col bsm-list-col--status">Durum</div>
-          <div class="bsm-list-col bsm-list-col--measurement">Son Ölçüm</div>
-          <div class="bsm-list-col bsm-list-col--program">Program</div>
-          <div class="bsm-list-col bsm-list-col--actions">İşlemler</div>
-        </div>
-
-        <div id="memberList" class="members-grid bsm-members-list"></div>
-      </section>
     </section>
 
     <section class="dashboard-panel screen-panel is-hidden" id="dashboardPanel" data-screen="dashboard">
@@ -1240,7 +1213,7 @@
     <script src="./services/session-support-service.js"></script>
     <script src="./ui/dashboard-ui.js?v=1.0.33"></script>
     <script src="./ui/alerts-ui.js"></script>
-    <script src="./ui/member-ui.js?v=1.0.39"></script>
+    <script src="./ui/member-ui.js?v=1.0.40"></script>
     <script src="./ui/library-ui.js"></script>
     <script src="./ui/output-ui.js"></script>
     <script src="./ui/nutrition-ui.js?v=1.0.34"></script>
