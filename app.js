@@ -2251,6 +2251,7 @@ function setPhotoModalTab(tabId) {
   showPhotoError("");
   if (tabId !== "webcam") {
     stopWebcamStream();
+    resetWebcamUi();
   }
 }
 
@@ -2332,17 +2333,156 @@ function bindPhotoModalHandlers() {
   modal.querySelector("#bsmWebcamConfirmBtn")?.addEventListener("click", confirmWebcamCapture);
 }
 
-// ── Webcam (F5f) ─ stub: F5f commitinde dolacak ──────────────────
-function startWebcamStream() { /* F5f */ }
-function captureWebcamFrame() { /* F5f */ }
-function retakeWebcamCapture() { /* F5f */ }
-function confirmWebcamCapture() { /* F5f */ }
-function stopWebcamStream() {
-  if (_bsmPhotoState.webcamStream) {
-    _bsmPhotoState.webcamStream.getTracks().forEach((t) => t.stop());
-    _bsmPhotoState.webcamStream = null;
+// ════════════════════════════════════════════════════════════════
+// F5f: Webcam Capture (getUserMedia → canvas → WebP dataURL)
+// ════════════════════════════════════════════════════════════════
+
+function isMediaDevicesSupported() {
+  return Boolean(navigator?.mediaDevices?.getUserMedia);
+}
+
+function setWebcamStatus(message, opts = {}) {
+  const el = document.querySelector("#bsmWebcamStatus");
+  if (!el) return;
+  el.textContent = message || "";
+  el.classList.toggle("is-error", Boolean(opts.error));
+}
+
+function setWebcamButtonsVisibility({ start, capture, retake, confirm } = {}) {
+  const map = {
+    bsmWebcamStartBtn: start,
+    bsmWebcamCaptureBtn: capture,
+    bsmWebcamRetakeBtn: retake,
+    bsmWebcamConfirmBtn: confirm,
+  };
+  Object.entries(map).forEach(([id, visible]) => {
+    const el = document.querySelector("#" + id);
+    if (!el) return;
+    if (visible) el.removeAttribute("hidden");
+    else el.setAttribute("hidden", "");
+  });
+}
+
+async function startWebcamStream() {
+  if (!isMediaDevicesSupported()) {
+    setWebcamStatus("Bu tarayıcı kamera erişimini desteklemiyor. Lütfen dosya yükleme sekmesini kullanın.", { error: true });
+    setTimeout(() => setPhotoModalTab("upload"), 1200);
+    return;
+  }
+  const video = document.querySelector("#bsmWebcamVideo");
+  const placeholder = document.querySelector("#bsmWebcamPlaceholder");
+  if (!video) return;
+  try {
+    setWebcamStatus("Kamera başlatılıyor…");
+    setWebcamButtonsVisibility({ start: false });
+    // Square crop için square aspect ratio iste (cihaz desteklemezse en yakın)
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } },
+      audio: false,
+    });
+    _bsmPhotoState.webcamStream = stream;
+    video.srcObject = stream;
+    video.hidden = false;
+    if (placeholder) placeholder.hidden = true;
+    await new Promise((resolve) => {
+      const onReady = () => { video.removeEventListener("loadedmetadata", onReady); resolve(); };
+      video.addEventListener("loadedmetadata", onReady, { once: true });
+      // Some browsers fire loadedmetadata synchronously
+      if (video.readyState >= 1) resolve();
+    });
+    await video.play().catch(() => { /* autoplay engellenirse görmezden gel; muted zaten */ });
+    setWebcamStatus("Hazır. Hizalandığınızda 'Fotoğraf Çek' butonuna basın.");
+    setWebcamButtonsVisibility({ capture: true });
+  } catch (err) {
+    const code = err?.name || "";
+    let msg = "Kamera erişimi reddedildi veya başlatılamadı.";
+    if (code === "NotAllowedError" || code === "PermissionDeniedError") {
+      msg = "Kamera izni reddedildi. Lütfen dosya yükleme sekmesini kullanın.";
+    } else if (code === "NotFoundError" || code === "DevicesNotFoundError") {
+      msg = "Kamera bulunamadı. Dosya yükleme sekmesini kullanabilirsiniz.";
+    } else if (code === "NotReadableError" || code === "TrackStartError") {
+      msg = "Kamera başka bir uygulama tarafından kullanılıyor olabilir.";
+    } else if (code === "OverconstrainedError") {
+      msg = "Kamera istenen çözünürlüğü desteklemiyor.";
+    }
+    setWebcamStatus(msg, { error: true });
+    setWebcamButtonsVisibility({ start: true });
+    stopWebcamStream();
   }
 }
+
+function captureWebcamFrame() {
+  const video = document.querySelector("#bsmWebcamVideo");
+  const canvas = document.querySelector("#bsmWebcamCanvas");
+  if (!video || !canvas || !_bsmPhotoState.webcamStream) return;
+  const vw = video.videoWidth || 720;
+  const vh = video.videoHeight || 720;
+  if (!vw || !vh) {
+    setWebcamStatus("Görüntü hazır değil, biraz bekleyip tekrar deneyin.", { error: true });
+    return;
+  }
+  const side = Math.min(vw, vh);
+  const sx = Math.max(0, (vw - side) / 2);
+  const sy = Math.max(0, (vh - side) / 2);
+  canvas.width = BSM_PHOTO_TARGET;
+  canvas.height = BSM_PHOTO_TARGET;
+  const ctx = canvas.getContext("2d");
+  // Video aynalı gösteriliyor → kullanıcı kendini doğal görüyor.
+  // Çekilen fotoğrafta da aynalı kaydet (selfie tutarlılığı için).
+  ctx.save();
+  ctx.translate(BSM_PHOTO_TARGET, 0);
+  ctx.scale(-1, 1);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(video, sx, sy, side, side, 0, 0, BSM_PHOTO_TARGET, BSM_PHOTO_TARGET);
+  ctx.restore();
+
+  let dataUrl;
+  try { dataUrl = canvas.toDataURL("image/webp", BSM_PHOTO_QUALITY); } catch (e) { dataUrl = null; }
+  if (!dataUrl || !dataUrl.startsWith("data:image/webp")) {
+    dataUrl = canvas.toDataURL("image/png");
+  }
+  _bsmPhotoState.pendingCaptureDataUrl = dataUrl;
+
+  // Show preview: hide video, show canvas
+  video.hidden = true;
+  canvas.hidden = false;
+  setWebcamStatus("Fotoğrafı onaylayın veya tekrar çekin.");
+  setWebcamButtonsVisibility({ retake: true, confirm: true });
+}
+
+function retakeWebcamCapture() {
+  const video = document.querySelector("#bsmWebcamVideo");
+  const canvas = document.querySelector("#bsmWebcamCanvas");
+  if (canvas) canvas.hidden = true;
+  if (video) video.hidden = false;
+  _bsmPhotoState.pendingCaptureDataUrl = null;
+  setWebcamStatus("Hazır olduğunuzda tekrar 'Fotoğraf Çek'.");
+  setWebcamButtonsVisibility({ capture: true });
+}
+
+function confirmWebcamCapture() {
+  const dataUrl = _bsmPhotoState.pendingCaptureDataUrl;
+  const memberId = _bsmPhotoState.memberId;
+  if (!dataUrl || !memberId) return;
+  setMemberPhoto(memberId, dataUrl);
+  stopWebcamStream();
+  closePhotoModal();
+  showStatus("Profil fotoğrafı güncellendi.", "success");
+}
+
+function stopWebcamStream() {
+  if (_bsmPhotoState.webcamStream) {
+    try { _bsmPhotoState.webcamStream.getTracks().forEach((t) => t.stop()); } catch (e) { /* */ }
+    _bsmPhotoState.webcamStream = null;
+  }
+  const video = document.querySelector("#bsmWebcamVideo");
+  if (video) {
+    try { video.pause(); } catch (e) { /* */ }
+    video.srcObject = null;
+  }
+}
+
 function resetWebcamUi() {
   const video = document.querySelector("#bsmWebcamVideo");
   if (video) video.srcObject = null;
@@ -2351,12 +2491,8 @@ function resetWebcamUi() {
   if (video) video.hidden = true;
   const canvas = document.querySelector("#bsmWebcamCanvas");
   if (canvas) canvas.hidden = true;
-  document.querySelector("#bsmWebcamStartBtn")?.removeAttribute("hidden");
-  ["bsmWebcamCaptureBtn", "bsmWebcamRetakeBtn", "bsmWebcamConfirmBtn"].forEach((id) => {
-    document.querySelector("#" + id)?.setAttribute("hidden", "");
-  });
-  const statusEl = document.querySelector("#bsmWebcamStatus");
-  if (statusEl) statusEl.textContent = "";
+  setWebcamButtonsVisibility({ start: true, capture: false, retake: false, confirm: false });
+  setWebcamStatus("");
 }
 
 function relativeTimeShort(value) {
@@ -5394,5 +5530,12 @@ if (typeof window !== "undefined") {
     setMemberPhotoRemove,
     processImageFile,
     getMemberAccent,
+    // F5f webcam hooks
+    startWebcamStream,
+    captureWebcamFrame,
+    retakeWebcamCapture,
+    confirmWebcamCapture,
+    stopWebcamStream,
+    isMediaDevicesSupported,
   });
 }
