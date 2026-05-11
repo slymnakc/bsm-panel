@@ -1204,6 +1204,14 @@ measurementReportBackButton?.addEventListener("click", handleMeasurementReportBa
     if (target.hasAttribute("data-member-quick-action")) return;
     setActiveScreen(target.dataset.screenTarget, { userTriggered: true, silent: true });
   });
+  // F5a: Member Rail kart tıklamaları — üye seçimini hızlı yapar, ekran değiştirmez.
+  membersPanel?.addEventListener("click", (e) => {
+    const railBtn = e.target.closest(".bsm-rail-card[data-rail-member-id]");
+    if (!railBtn) return;
+    const railMemberId = railBtn.dataset.railMemberId;
+    const railMember = state.members.find((m) => m.id === railMemberId);
+    if (railMember) selectActiveMemberFromRail(railMember);
+  });
   document.addEventListener("click", handleExerciseGifModalClick);
   document.addEventListener("error", handleExerciseGifError, true);
   document.addEventListener("keydown", handleExerciseGifModalKeydown);
@@ -1898,6 +1906,29 @@ function loadMember(member) {
   showStatus(`${member.profile?.memberName || "Üye"} dosyası yüklendi.`, "success");
 }
 
+// F5a: Rail click wrapper — üye seçimini hızlı yapar, ekran değiştirmez.
+// loadMember() ile farkı: setActiveScreen("builder") çağırmaz, üye Üyeler ekranında kalır.
+function selectActiveMemberFromRail(member) {
+  if (!member) return;
+  state.activeMemberId = member.id;
+  state.activeMember = member;
+  state.latestMeasurement = member.measurements?.[0] || null;
+  saveActiveMemberId(member.id);
+
+  // Builder form'unu da güncel tut (sonra Program Oluştur sekmesine geçtiğinde dolu gelsin)
+  try { populateForm(member.profile || {}); } catch (e) { /* form yoksa sessiz geç */ }
+  try {
+    if (measurementDate) measurementDate.value = getTodayInputValue();
+    clearMeasurementInputs();
+  } catch (e) { /* ölçüm input'ları yoksa sessiz */ }
+  try { formHandlers?.handleLiveUpdate?.(); } catch (e) { /* */ }
+
+  state.activeNutritionPlan = normalizeNutritionPlan(member.nutritionPlan || member.nutritionPlans?.[0]) || null;
+  state.activeNutritionMemberId = member.id;
+
+  renderMemberWorkspace();
+}
+
 function renderMemberWorkspace() {
   renderDashboard();
   renderMembersKpiStrip();
@@ -2551,6 +2582,7 @@ function renderMemberList() {
         measurementText: lastMeasurement ? `Son ölçüm: ${lastMeasurement.date}` : "Ölçüm kaydı yok",
         programText: lastProgram ? "Program geçmişi var" : "Program kaydı yok",
         actionLabel: isActive ? "Aktif" : "Yükle",
+        photo: profile.photo || null,
       };
     }),
   };
