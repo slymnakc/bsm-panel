@@ -8,7 +8,10 @@
       name="description"
       content="Bahçeşehir Spor Merkezi için Türkçe, mobil uyumlu, segmental ölçüm takipli ve geniş hareket kütüphaneli üye antrenman paneli."
     />
-    <link rel="stylesheet" href="./styles.css?v=1.0.37" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.38" />
   </head>
   <body class="auth-required">
     <div class="page-backdrop" aria-hidden="true"></div>
@@ -72,31 +75,56 @@
         </div>
       </div>
 
-      <div class="members-kpi-strip" aria-label="Üye operasyon göstergeleri">
-        <article class="members-kpi-card members-kpi-card--accent">
-          <span>Toplam Üye</span>
-          <strong id="membersKpiTotal">0</strong>
-          <small>Kayıtlı aktif üye</small>
+      <div class="members-kpi-strip bsm-kpi-strip" aria-label="Üye operasyon göstergeleri">
+        <article class="members-kpi-card bsm-kpi-card bsm-kpi-card--orange">
+          <div class="bsm-kpi-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
+          <div class="bsm-kpi-card__body">
+            <span>Toplam Üye</span>
+            <strong id="membersKpiTotal">0</strong>
+            <small>Kayıtlı aktif üye</small>
+          </div>
         </article>
-        <article class="members-kpi-card">
-          <span>Ölçümü Olan</span>
-          <strong id="membersKpiMeasured">0</strong>
-          <small id="membersKpiMeasuredMeta">Tanita veya manuel</small>
+        <article class="members-kpi-card bsm-kpi-card bsm-kpi-card--blue">
+          <div class="bsm-kpi-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l3-9 4 18 3-9h5"></path></svg>
+          </div>
+          <div class="bsm-kpi-card__body">
+            <span>Ölçümü Olan</span>
+            <strong id="membersKpiMeasured">0</strong>
+            <small id="membersKpiMeasuredMeta">Tanita veya manuel</small>
+          </div>
         </article>
-        <article class="members-kpi-card">
-          <span>Programı Olan</span>
-          <strong id="membersKpiPrograms">0</strong>
-          <small id="membersKpiProgramsMeta">Kayıtlı plan</small>
+        <article class="members-kpi-card bsm-kpi-card bsm-kpi-card--red">
+          <div class="bsm-kpi-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v16"></path><path d="M18 4v16"></path><path d="M2 8h4"></path><path d="M2 16h4"></path><path d="M18 8h4"></path><path d="M18 16h4"></path><path d="M6 12h12"></path></svg>
+          </div>
+          <div class="bsm-kpi-card__body">
+            <span>Programı Olan</span>
+            <strong id="membersKpiPrograms">0</strong>
+            <small id="membersKpiProgramsMeta">Kayıtlı plan</small>
+          </div>
         </article>
-        <article class="members-kpi-card">
-          <span>Beslenme Planı</span>
-          <strong id="membersKpiNutrition">0</strong>
-          <small id="membersKpiNutritionMeta">Plan oluşturuldu</small>
+        <article class="members-kpi-card bsm-kpi-card bsm-kpi-card--teal">
+          <div class="bsm-kpi-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2v20"></path><path d="M5 2v6a3 3 0 0 0 6 0V2"></path><path d="M18 2v20"></path><path d="M15 2c0 4 3 4 3 8"></path></svg>
+          </div>
+          <div class="bsm-kpi-card__body">
+            <span>Beslenme Planı</span>
+            <strong id="membersKpiNutrition">0</strong>
+            <small id="membersKpiNutritionMeta">Plan oluşturuldu</small>
+          </div>
         </article>
-        <article class="members-kpi-card members-kpi-card--wide">
-          <span>Son Güncellenen Üye</span>
-          <strong id="membersKpiLastUpdate">-</strong>
-          <small id="membersKpiLastUpdateMeta">Henüz güncelleme yok</small>
+        <article class="members-kpi-card bsm-kpi-card bsm-kpi-card--wide bsm-kpi-card--neutral members-kpi-card--wide">
+          <div class="bsm-kpi-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+          </div>
+          <div class="bsm-kpi-card__body">
+            <span>Son Güncellenen</span>
+            <strong id="membersKpiLastUpdate">-</strong>
+            <small id="membersKpiLastUpdateMeta">Henüz güncelleme yok</small>
+          </div>
         </article>
       </div>
 
@@ -1092,7 +1120,7 @@
     <script src="./services/session-support-service.js"></script>
     <script src="./ui/dashboard-ui.js?v=1.0.33"></script>
     <script src="./ui/alerts-ui.js"></script>
-    <script src="./ui/member-ui.js?v=1.0.35"></script>
+    <script src="./ui/member-ui.js?v=1.0.38"></script>
     <script src="./ui/library-ui.js"></script>
     <script src="./ui/output-ui.js"></script>
     <script src="./ui/nutrition-ui.js?v=1.0.34"></script>
