@@ -140,6 +140,7 @@ const state = {
   activeScreen: "members",
   activeWorkspaceView: "members",
   activeMemberSort: "recent-update",
+  activeWizardStep: "olcum",
   pendingTanitaMeasurement: null,
   programEditMode: false,
   programDefaultSnapshot: null,
@@ -1212,6 +1213,18 @@ measurementReportBackButton?.addEventListener("click", handleMeasurementReportBa
     const railMember = state.members.find((m) => m.id === railMemberId);
     if (railMember) selectActiveMemberFromRail(railMember);
   });
+  // F5b: Wizard step + footer nav click delegasyonu
+  membersPanel?.addEventListener("click", (e) => {
+    const stepBtn = e.target.closest("button[data-wizard-step]");
+    if (stepBtn) {
+      setActiveWizardStep(stepBtn.dataset.wizardStep);
+      return;
+    }
+    const navBtn = e.target.closest("button[data-wizard-nav]");
+    if (navBtn && !navBtn.disabled) {
+      shiftWizardStep(navBtn.dataset.wizardNav === "next" ? 1 : -1);
+    }
+  });
   document.addEventListener("click", handleExerciseGifModalClick);
   document.addEventListener("error", handleExerciseGifError, true);
   document.addEventListener("keydown", handleExerciseGifModalKeydown);
@@ -1937,6 +1950,111 @@ function renderMemberWorkspace() {
   renderWorkspacePanels();
   renderNutritionWorkspace();
   renderNutritionOutput();
+  // F5b: Workspace wizard bar + footer
+  renderWizardBar();
+  renderWizardFooter();
+}
+
+// F5b: Wizard step bar — 5 adım: Ölçüm / Program / Beslenme / PDF / Mail
+const BSM_WIZARD_STEPS = [
+  { id: "olcum",    label: "Ölçüm",       screen: "measurements" },
+  { id: "program",  label: "Program",     screen: "builder"      },
+  { id: "beslenme", label: "Beslenme",    screen: "nutrition"    },
+  { id: "pdf",      label: "PDF Çıktısı", screen: "output"       },
+  { id: "mail",     label: "Mail Gönder", screen: "output"       },
+];
+
+function computeWizardStepStates(member) {
+  const hasMeasurement = !!(member?.measurements?.length);
+  const hasProgram = !!(member?.programs?.length);
+  const hasNutrition = !!(member?.nutritionPlan || member?.nutritionPlans?.length);
+  return {
+    olcum:    hasMeasurement ? "completed" : "pending",
+    program:  hasProgram ? "completed" : "pending",
+    beslenme: hasNutrition ? "completed" : "pending",
+    pdf:      hasProgram ? "completed" : "pending",
+    mail:     "pending",
+  };
+}
+
+function renderWizardBar() {
+  const host = document.querySelector("#bsmWizardBar");
+  if (!host) return;
+  const member = findActiveMember();
+  const states = computeWizardStepStates(member);
+  const active = state.activeWizardStep || "olcum";
+
+  if (!member) {
+    host.innerHTML = `
+      <div class="bsm-wizard-bar__empty">
+        <strong>Üye seçilmedi</strong>
+        <span>Sol panelden üye seçerek antrenör akışını başlatın.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const items = BSM_WIZARD_STEPS.map((step, index) => {
+    const stateKey = states[step.id] || "pending";
+    const isActive = step.id === active;
+    const stateClass = isActive ? "is-active" : stateKey === "completed" ? "is-completed" : "is-pending";
+    const arrow = index < BSM_WIZARD_STEPS.length - 1
+      ? `<span class="bsm-wizard-bar__arrow" aria-hidden="true">›</span>`
+      : "";
+    return `
+      <button type="button" class="bsm-wizard-step ${stateClass}" data-wizard-step="${escapeHtml(step.id)}" data-wizard-screen="${escapeHtml(step.screen)}" aria-current="${isActive ? "step" : "false"}">
+        <span class="bsm-wizard-step__circle" aria-hidden="true">
+          ${stateKey === "completed" && !isActive
+            ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+            : `<span class="bsm-wizard-step__num">${index + 1}</span>`}
+        </span>
+        <span class="bsm-wizard-step__label">${escapeHtml(step.label)}</span>
+      </button>
+      ${arrow}
+    `;
+  }).join("");
+
+  host.innerHTML = `<div class="bsm-wizard-bar__track">${items}</div>`;
+}
+
+function renderWizardFooter() {
+  const host = document.querySelector("#bsmWizardFooter");
+  if (!host) return;
+  const member = findActiveMember();
+  if (!member) {
+    host.innerHTML = "";
+    return;
+  }
+  const activeIdx = Math.max(0, BSM_WIZARD_STEPS.findIndex((s) => s.id === (state.activeWizardStep || "olcum")));
+  const prev = BSM_WIZARD_STEPS[activeIdx - 1];
+  const next = BSM_WIZARD_STEPS[activeIdx + 1];
+  host.innerHTML = `
+    <button type="button" class="bsm-wizard-nav bsm-wizard-nav--prev" data-wizard-nav="prev" ${prev ? "" : "disabled"} aria-label="Önceki adım">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+      <span>Önceki Adım${prev ? ` · ${escapeHtml(prev.label)}` : ""}</span>
+    </button>
+    <button type="button" class="bsm-wizard-nav bsm-wizard-nav--next" data-wizard-nav="next" ${next ? "" : "disabled"} aria-label="Sonraki adım">
+      <span>Sonraki Adım${next ? ` · ${escapeHtml(next.label)}` : ""}</span>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+    </button>
+  `;
+}
+
+function setActiveWizardStep(stepId, options = {}) {
+  const valid = BSM_WIZARD_STEPS.find((s) => s.id === stepId);
+  if (!valid) return;
+  state.activeWizardStep = stepId;
+  renderWizardBar();
+  renderWizardFooter();
+  if (options.navigate !== false && valid.screen) {
+    setActiveScreen(valid.screen, { userTriggered: true, silent: true });
+  }
+}
+
+function shiftWizardStep(delta) {
+  const idx = Math.max(0, BSM_WIZARD_STEPS.findIndex((s) => s.id === (state.activeWizardStep || "olcum")));
+  const nextIdx = Math.max(0, Math.min(BSM_WIZARD_STEPS.length - 1, idx + delta));
+  setActiveWizardStep(BSM_WIZARD_STEPS[nextIdx].id);
 }
 
 function renderMembersKpiStrip() {
