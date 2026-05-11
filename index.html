@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.42" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.43" />
   </head>
   <body class="auth-required">
     <div class="page-backdrop" aria-hidden="true"></div>
@@ -1104,6 +1104,68 @@
 
     <div class="app-sidebar-backdrop" id="appSidebarBackdrop" aria-hidden="true"></div>
 
+    <!-- ── F5e/F5f: Profil Fotoğrafı Modal'ı (Dosya / Webcam sekmeli) ─────── -->
+    <div id="bsmPhotoModal" class="bsm-photo-modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="bsmPhotoModalTitle" aria-hidden="true">
+      <div class="bsm-photo-modal__backdrop" data-photo-modal-close></div>
+      <div class="bsm-photo-modal__dialog" role="document">
+        <header class="bsm-photo-modal__head">
+          <h3 id="bsmPhotoModalTitle">Profil Fotoğrafı</h3>
+          <button type="button" class="bsm-photo-modal__close" data-photo-modal-close aria-label="Pencereyi kapat">×</button>
+        </header>
+
+        <nav class="bsm-photo-modal__tabs" role="tablist" aria-label="Fotoğraf kaynağı">
+          <button type="button" role="tab" id="bsmPhotoTabUpload" class="bsm-photo-modal__tab is-active" data-photo-tab="upload" aria-selected="true" aria-controls="bsmPhotoTabUploadPanel">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <span>Dosya Yükle</span>
+          </button>
+          <button type="button" role="tab" id="bsmPhotoTabWebcam" class="bsm-photo-modal__tab" data-photo-tab="webcam" aria-selected="false" aria-controls="bsmPhotoTabWebcamPanel">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            <span>Kamera ile Çek</span>
+          </button>
+        </nav>
+
+        <div class="bsm-photo-modal__body">
+          <!-- Tab 1: Upload (dosya seç / drag-drop) -->
+          <section role="tabpanel" id="bsmPhotoTabUploadPanel" class="bsm-photo-tabpanel is-active" aria-labelledby="bsmPhotoTabUpload">
+            <div id="bsmPhotoDropzone" class="bsm-photo-dropzone">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              <strong>Fotoğrafı buraya sürükleyin</strong>
+              <span>veya dosya seçmek için tıklayın</span>
+              <small>JPG, PNG, WebP · Maks 5 MB · Otomatik 300×300 olarak kırpılır</small>
+              <input type="file" id="bsmPhotoFileInput" accept="image/png,image/jpeg,image/webp" hidden />
+            </div>
+          </section>
+
+          <!-- Tab 2: Webcam (F5f) -->
+          <section role="tabpanel" id="bsmPhotoTabWebcamPanel" class="bsm-photo-tabpanel" aria-labelledby="bsmPhotoTabWebcam" hidden>
+            <div id="bsmWebcamStage" class="bsm-webcam-stage">
+              <video id="bsmWebcamVideo" class="bsm-webcam-video" autoplay playsinline muted aria-label="Kamera önizleme"></video>
+              <canvas id="bsmWebcamCanvas" class="bsm-webcam-canvas" hidden></canvas>
+              <div id="bsmWebcamPlaceholder" class="bsm-webcam-placeholder">
+                <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 7l-7 5 7 5V7z"></path><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                <strong>Kamera başlatılmadı</strong>
+                <span>Aşağıdaki "Kamerayı Başlat" butonuyla başlatın.</span>
+              </div>
+            </div>
+            <p id="bsmWebcamStatus" class="bsm-webcam-status" role="status" aria-live="polite"></p>
+            <div class="bsm-webcam-actions">
+              <button type="button" class="bsm-webcam-btn bsm-webcam-btn--start" id="bsmWebcamStartBtn">Kamerayı Başlat</button>
+              <button type="button" class="bsm-webcam-btn bsm-webcam-btn--capture" id="bsmWebcamCaptureBtn" hidden>Fotoğraf Çek</button>
+              <button type="button" class="bsm-webcam-btn bsm-webcam-btn--retake" id="bsmWebcamRetakeBtn" hidden>Tekrar Çek</button>
+              <button type="button" class="bsm-webcam-btn bsm-webcam-btn--confirm" id="bsmWebcamConfirmBtn" hidden>Onayla ve Kaydet</button>
+            </div>
+          </section>
+        </div>
+
+        <div id="bsmPhotoLoading" class="bsm-photo-loading is-hidden" aria-live="polite">
+          <span class="bsm-photo-loading__spinner" aria-hidden="true"></span>
+          <span>Fotoğraf işleniyor…</span>
+        </div>
+
+        <p id="bsmPhotoError" class="bsm-photo-error" role="alert"></p>
+      </div>
+    </div>
+
     <div id="exerciseGifModal" class="exercise-gif-modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="exerciseGifModalTitle">
       <div class="exercise-gif-modal__backdrop" data-gif-modal-close></div>
       <div class="exercise-gif-modal__dialog">
@@ -1213,7 +1275,7 @@
     <script src="./services/session-support-service.js"></script>
     <script src="./ui/dashboard-ui.js?v=1.0.33"></script>
     <script src="./ui/alerts-ui.js"></script>
-    <script src="./ui/member-ui.js?v=1.0.42"></script>
+    <script src="./ui/member-ui.js?v=1.0.43"></script>
     <script src="./ui/library-ui.js"></script>
     <script src="./ui/output-ui.js"></script>
     <script src="./ui/nutrition-ui.js?v=1.0.34"></script>
