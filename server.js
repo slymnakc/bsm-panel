@@ -87,8 +87,12 @@ const MIME_TYPES = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
 };
 
 const server = http.createServer(async (req, res) => {
@@ -534,7 +538,7 @@ function getStaticCacheControl(ext) {
     return "no-store, no-cache, must-revalidate, proxy-revalidate";
   }
 
-  if ([".gif", ".png", ".jpg", ".jpeg", ".svg", ".ico"].includes(ext)) {
+  if ([".gif", ".png", ".jpg", ".jpeg", ".webp", ".avif", ".svg", ".ico", ".woff", ".woff2"].includes(ext)) {
     return "public, max-age=3600";
   }
 
