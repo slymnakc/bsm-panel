@@ -1234,6 +1234,14 @@ measurementReportBackButton?.addEventListener("click", handleMeasurementReportBa
       setActiveWizardStep(action);
     }
   });
+  // F5e: Hero avatar edit overlay tıklaması → photo modal aç
+  membersPanel?.addEventListener("click", (e) => {
+    const editBtn = e.target.closest("button[data-photo-edit]");
+    if (!editBtn) return;
+    openPhotoModal(editBtn.dataset.photoEdit);
+  });
+  // F5e: Photo modal binding (idempotent)
+  bindPhotoModalHandlers();
   document.addEventListener("click", handleExerciseGifModalClick);
   document.addEventListener("error", handleExerciseGifError, true);
   document.addEventListener("keydown", handleExerciseGifModalKeydown);
@@ -1887,6 +1895,12 @@ function upsertMemberFromCurrentForm(options = {}) {
     }
   }
 
+  // F5e: Mevcut profil fotoğrafını koru — collectFormData() photo alanı içermez,
+  // bu nedenle save sırasında photo silinmemeli. Diğer field'lar formdan gelen
+  // değerlerle güncellenmeye devam eder.
+  if (member.profile?.photo && !profile.photo) {
+    profile.photo = member.profile.photo;
+  }
   member.profile = profile;
   member.updatedAt = now;
   state.activeMemberId = member.id;
@@ -1966,6 +1980,9 @@ function renderMemberWorkspace() {
   renderWorkspaceHero();
   renderWizardContent();
   renderUtilityPanel();
+  // F5e: Initials avatar'larına pastel HSL accent uygula
+  applyMemberAccentToAvatars(document.querySelector("#bsmMemberRail"));
+  applyMemberAccentToAvatars(document.querySelector("#bsmWorkspaceHero"));
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1995,13 +2012,19 @@ function renderWorkspaceHero() {
   const progressPct = Math.round((completedCount / BSM_WIZARD_STEPS.length) * 100);
   const memberStatus = member.measurements?.length > 0 ? "Aktif Üye" : "Yeni Üye";
 
+  const accent = getMemberAccent(member);
+  const accentStyle = `background: linear-gradient(135deg, ${accent.from} 0%, ${accent.to} 100%)`;
+
   host.innerHTML = `
-    <div class="bsm-hero-card">
-      <div class="bsm-hero-card__avatar" aria-hidden="true">
+    <div class="bsm-hero-card" data-member-id="${escapeHtml(member.id)}">
+      <button type="button" class="bsm-hero-card__avatar" data-photo-edit="${escapeHtml(member.id)}" aria-label="Profil fotoğrafını değiştir" title="Profil fotoğrafını değiştir" style="${photo ? "" : accentStyle}">
         ${photo
           ? `<img src="${escapeHtml(photo)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'" />`
           : `<span class="bsm-hero-card__initials">${escapeHtml(initials)}</span>`}
-      </div>
+        <span class="bsm-hero-card__edit" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        </span>
+      </button>
       <div class="bsm-hero-card__body">
         <div class="bsm-hero-card__title">
           <h3>${escapeHtml(profile.memberName || "İsimsiz Üye")}</h3>
@@ -2041,6 +2064,299 @@ function buildMemberInitials(memberName, memberCode) {
   const parts = source.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toLocaleUpperCase("tr");
   return source.slice(0, 2).toLocaleUpperCase("tr");
+}
+
+// F5e: Premium pastel renk paleti (slate / blue / teal / amber / orange / rose).
+// Üye ID veya isim deterministik hash → sabit renk. Rainbow/neon yok.
+const BSM_AVATAR_PALETTE = [
+  { from: "#475569", to: "#64748b" }, // slate
+  { from: "#1e5baa", to: "#3b82f6" }, // blue
+  { from: "#0e7490", to: "#06b6d4" }, // teal
+  { from: "#b45309", to: "#f59e0b" }, // amber
+  { from: "#c2410c", to: "#f97316" }, // orange
+  { from: "#9f1239", to: "#e11d48" }, // rose
+];
+
+function bsmHashString(str) {
+  const s = String(str || "");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function getMemberAccent(memberOrProfile) {
+  const seed = memberOrProfile?.id
+    || memberOrProfile?.memberId
+    || memberOrProfile?.profile?.memberCode
+    || memberOrProfile?.profile?.memberName
+    || memberOrProfile?.memberCode
+    || memberOrProfile?.memberName
+    || "bsm";
+  const idx = bsmHashString(seed) % BSM_AVATAR_PALETTE.length;
+  return BSM_AVATAR_PALETTE[idx];
+}
+
+function applyMemberAccentToAvatars(root) {
+  if (!root) return;
+  const nodes = root.querySelectorAll("[data-member-id], [data-rail-member-id]");
+  nodes.forEach((el) => {
+    const id = el.dataset.memberId || el.dataset.railMemberId;
+    if (!id) return;
+    const member = state.members?.find?.((m) => m.id === id);
+    const seed = member ? { id: member.id, profile: member.profile } : { id };
+    const accent = getMemberAccent(seed);
+    const av = el.querySelector(".bsm-rail-card__avatar, .bsm-hero-card__avatar");
+    if (av && !av.querySelector("img")) {
+      av.style.background = `linear-gradient(135deg, ${accent.from} 0%, ${accent.to} 100%)`;
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// F5e: Profile Photo Pipeline (file → canvas crop → WebP/PNG dataURL)
+// ════════════════════════════════════════════════════════════════
+
+const BSM_PHOTO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const BSM_PHOTO_TARGET = 300;                // 300x300 square
+const BSM_PHOTO_QUALITY = 0.85;
+
+let _bsmPhotoState = {
+  memberId: null,
+  webcamStream: null,
+  pendingCaptureDataUrl: null,
+};
+
+function loadImageFromUrl(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Görsel yüklenemedi."));
+    img.src = url;
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Dosya okunamadı."));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Image element → square center crop → resize 300x300 → WebP dataURL (fallback PNG)
+function imageToSquareDataUrl(img, size = BSM_PHOTO_TARGET, quality = BSM_PHOTO_QUALITY) {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (!w || !h) throw new Error("Görsel boyutları okunamadı.");
+  const side = Math.min(w, h);
+  const sx = Math.max(0, (w - side) / 2);
+  const sy = Math.max(0, (h - side) / 2);
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+  // WebP dene, desteklenmezse PNG'ye düş
+  let dataUrl;
+  try { dataUrl = canvas.toDataURL("image/webp", quality); } catch (e) { dataUrl = null; }
+  if (!dataUrl || !dataUrl.startsWith("data:image/webp")) {
+    dataUrl = canvas.toDataURL("image/png");
+  }
+  return dataUrl;
+}
+
+async function processImageFile(file) {
+  if (!file) throw new Error("Dosya yok.");
+  if (!/^image\//.test(file.type)) throw new Error("Sadece görsel dosya kabul edilir.");
+  if (file.size > BSM_PHOTO_MAX_BYTES) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    throw new Error(`Dosya çok büyük (${mb} MB). Maksimum 5 MB olmalı.`);
+  }
+  const dataUrl = await readFileAsDataUrl(file);
+  const img = await loadImageFromUrl(dataUrl);
+  return imageToSquareDataUrl(img);
+}
+
+// Persist: member.profile.photo'yu güncelle + member-service üzerinden kaydet
+function setMemberPhoto(memberId, dataUrl) {
+  if (!memberId || !dataUrl) return null;
+  const member = state.members.find((m) => m.id === memberId);
+  if (!member) return null;
+  member.profile = { ...(member.profile || {}), photo: dataUrl };
+  member.updatedAt = new Date().toISOString();
+  if (state.activeMember?.id === memberId) {
+    state.activeMember = member;
+  }
+  persistMembers();
+  renderMemberWorkspace();
+  return member;
+}
+
+function setMemberPhotoRemove(memberId) {
+  const member = state.members.find((m) => m.id === memberId);
+  if (!member) return null;
+  if (member.profile) {
+    const { photo, ...rest } = member.profile;
+    member.profile = rest;
+  }
+  member.updatedAt = new Date().toISOString();
+  persistMembers();
+  renderMemberWorkspace();
+  return member;
+}
+
+// ── Photo Modal Control ─────────────────────────────────────────
+
+function openPhotoModal(memberId) {
+  const modal = document.querySelector("#bsmPhotoModal");
+  if (!modal || !memberId) return;
+  _bsmPhotoState.memberId = memberId;
+  _bsmPhotoState.pendingCaptureDataUrl = null;
+  setPhotoModalTab("upload");
+  showPhotoError("");
+  setPhotoLoading(false);
+  modal.classList.remove("is-hidden");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("bsm-photo-modal-open");
+}
+
+function closePhotoModal() {
+  const modal = document.querySelector("#bsmPhotoModal");
+  if (!modal) return;
+  stopWebcamStream();
+  resetWebcamUi();
+  _bsmPhotoState.memberId = null;
+  _bsmPhotoState.pendingCaptureDataUrl = null;
+  modal.classList.add("is-hidden");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("bsm-photo-modal-open");
+}
+
+function setPhotoModalTab(tabId) {
+  document.querySelectorAll(".bsm-photo-modal__tab").forEach((btn) => {
+    const isActive = btn.dataset.photoTab === tabId;
+    btn.classList.toggle("is-active", isActive);
+    btn.setAttribute("aria-selected", String(isActive));
+  });
+  document.querySelectorAll(".bsm-photo-tabpanel").forEach((panel) => {
+    const isActive = panel.id === `bsmPhotoTab${tabId === "upload" ? "Upload" : "Webcam"}Panel`;
+    panel.classList.toggle("is-active", isActive);
+    panel.hidden = !isActive;
+  });
+  showPhotoError("");
+  if (tabId !== "webcam") {
+    stopWebcamStream();
+  }
+}
+
+function setPhotoLoading(isLoading) {
+  const el = document.querySelector("#bsmPhotoLoading");
+  if (el) el.classList.toggle("is-hidden", !isLoading);
+}
+
+function showPhotoError(message) {
+  const el = document.querySelector("#bsmPhotoError");
+  if (!el) return;
+  el.textContent = message || "";
+  el.classList.toggle("is-visible", Boolean(message));
+}
+
+// ── File Upload (drag-drop + file picker) ───────────────────────
+
+async function handlePhotoFile(file) {
+  if (!file || !_bsmPhotoState.memberId) return;
+  try {
+    showPhotoError("");
+    setPhotoLoading(true);
+    const dataUrl = await processImageFile(file);
+    setMemberPhoto(_bsmPhotoState.memberId, dataUrl);
+    setPhotoLoading(false);
+    closePhotoModal();
+    showStatus("Profil fotoğrafı güncellendi.", "success");
+  } catch (err) {
+    setPhotoLoading(false);
+    showPhotoError(err.message || "Fotoğraf işlenemedi.");
+  }
+}
+
+function bindPhotoModalHandlers() {
+  const modal = document.querySelector("#bsmPhotoModal");
+  if (!modal) return;
+  if (modal.dataset.photoBound === "true") return;
+  modal.dataset.photoBound = "true";
+
+  // Close handlers
+  modal.querySelectorAll("[data-photo-modal-close]").forEach((el) => {
+    el.addEventListener("click", closePhotoModal);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !modal.classList.contains("is-hidden")) {
+      closePhotoModal();
+    }
+  });
+
+  // Tab switching
+  modal.querySelectorAll(".bsm-photo-modal__tab[data-photo-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => setPhotoModalTab(btn.dataset.photoTab));
+  });
+
+  // Dropzone
+  const dropzone = modal.querySelector("#bsmPhotoDropzone");
+  const fileInput = modal.querySelector("#bsmPhotoFileInput");
+  if (dropzone && fileInput) {
+    dropzone.addEventListener("click", () => fileInput.click());
+    dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("is-dragover"); });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("is-dragover"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("is-dragover");
+      const file = e.dataTransfer?.files?.[0];
+      if (file) handlePhotoFile(file);
+    });
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (file) handlePhotoFile(file);
+      fileInput.value = "";
+    });
+  }
+
+  // Webcam buttons (F5f)
+  modal.querySelector("#bsmWebcamStartBtn")?.addEventListener("click", startWebcamStream);
+  modal.querySelector("#bsmWebcamCaptureBtn")?.addEventListener("click", captureWebcamFrame);
+  modal.querySelector("#bsmWebcamRetakeBtn")?.addEventListener("click", retakeWebcamCapture);
+  modal.querySelector("#bsmWebcamConfirmBtn")?.addEventListener("click", confirmWebcamCapture);
+}
+
+// ── Webcam (F5f) ─ stub: F5f commitinde dolacak ──────────────────
+function startWebcamStream() { /* F5f */ }
+function captureWebcamFrame() { /* F5f */ }
+function retakeWebcamCapture() { /* F5f */ }
+function confirmWebcamCapture() { /* F5f */ }
+function stopWebcamStream() {
+  if (_bsmPhotoState.webcamStream) {
+    _bsmPhotoState.webcamStream.getTracks().forEach((t) => t.stop());
+    _bsmPhotoState.webcamStream = null;
+  }
+}
+function resetWebcamUi() {
+  const video = document.querySelector("#bsmWebcamVideo");
+  if (video) video.srcObject = null;
+  const placeholder = document.querySelector("#bsmWebcamPlaceholder");
+  if (placeholder) placeholder.hidden = false;
+  if (video) video.hidden = true;
+  const canvas = document.querySelector("#bsmWebcamCanvas");
+  if (canvas) canvas.hidden = true;
+  document.querySelector("#bsmWebcamStartBtn")?.removeAttribute("hidden");
+  ["bsmWebcamCaptureBtn", "bsmWebcamRetakeBtn", "bsmWebcamConfirmBtn"].forEach((id) => {
+    document.querySelector("#" + id)?.setAttribute("hidden", "");
+  });
+  const statusEl = document.querySelector("#bsmWebcamStatus");
+  if (statusEl) statusEl.textContent = "";
 }
 
 function relativeTimeShort(value) {
@@ -5062,4 +5378,21 @@ function renderBackupMeta() {
 function showStatus(message, state) {
   formStatus.textContent = message;
   formStatus.dataset.state = state;
+}
+
+// F5e: Smoke test / dev-debug hook (production'da harmless — sadece okuma erişimi).
+// İçeride çalışan kodun davranışını değiştirmez; sadece testler ve devtools için.
+if (typeof window !== "undefined") {
+  window.__bsm = Object.freeze({
+    get state() { return state; },
+    get photoState() { return Object.assign({}, _bsmPhotoState); },
+    findActiveMember,
+    openPhotoModal,
+    closePhotoModal,
+    handlePhotoFile,
+    setMemberPhoto,
+    setMemberPhotoRemove,
+    processImageFile,
+    getMemberAccent,
+  });
 }
