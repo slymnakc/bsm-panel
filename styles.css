@@ -10639,3 +10639,683 @@ body.auth-required .page-backdrop {
   .settings-panel { padding: 16px; }
   .settings-grid { grid-template-columns: 1fr; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   BSM Premium Shell (F4)
+   Sol koyu sidebar + üst beyaz topbar + koyu sub-nav.
+   Sadece additive — eski .hero gizlenir, mevcut paneller dokunulmaz.
+   ════════════════════════════════════════════════════════════════ */
+
+.app-layout {
+  position: relative;
+  /* z-index intentionally omitted: avoids creating a stacking context so that
+     .app-sidebar (z-95) on mobile can sit above .app-sidebar-backdrop (z-80)
+     in the root context. */
+  display: grid;
+  grid-template-columns: 256px 1fr;
+  min-height: 100vh;
+  font-family: var(--bsm-font);
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #f4f6fa;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────── */
+
+.app-sidebar {
+  background: linear-gradient(180deg, #0e1219 0%, #141a26 100%);
+  color: var(--bsm-text-1);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  z-index: 90;
+}
+
+.app-sidebar__photo {
+  position: relative;
+  height: 168px;
+  background: linear-gradient(135deg, #2a1f1c 0%, #6b2818 50%, #e84f2e 100%);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.app-sidebar__photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.app-sidebar__photo-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(14, 18, 25, 0.15) 0%, rgba(14, 18, 25, 0.85) 100%);
+  pointer-events: none;
+}
+
+.app-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.app-sidebar__nav::-webkit-scrollbar { width: 6px; }
+.app-sidebar__nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+.app-sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: var(--bsm-text-2);
+  font-family: var(--bsm-font);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.app-sidebar__item svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.app-sidebar__item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--bsm-text-1);
+}
+
+.app-sidebar__item:hover svg {
+  opacity: 1;
+  color: var(--bsm-orange);
+}
+
+.app-sidebar__item.is-active {
+  background: rgba(242, 108, 31, 0.12);
+  color: var(--bsm-orange);
+  position: relative;
+}
+
+.app-sidebar__item.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--bsm-orange);
+  border-radius: 2px;
+}
+
+.app-sidebar__item.is-active svg {
+  opacity: 1;
+  color: var(--bsm-orange);
+}
+
+.app-sidebar__brand {
+  padding: 18px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 90px;
+  flex-shrink: 0;
+}
+
+.app-sidebar__brand img {
+  max-width: 180px;
+  max-height: 60px;
+  object-fit: contain;
+  filter: brightness(1.05);
+}
+
+.app-sidebar__brand-fallback {
+  display: none;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--bsm-text-1);
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+.app-sidebar__brand-fallback::before {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 2px;
+  margin: 0 auto 6px;
+  background: var(--bsm-orange);
+  border-radius: 2px;
+}
+
+/* ── Topbar ──────────────────────────────────────────────────── */
+
+.app-topbar {
+  background: #ffffff;
+  border-bottom: 1px solid var(--bsm-border-light);
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 76px;
+  z-index: 50;
+  position: sticky;
+  top: 0;
+}
+
+.app-topbar__hamburger {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--bsm-border-light);
+  border-radius: 10px;
+  padding: 8px;
+  color: var(--bsm-text-on-light);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-topbar__hamburger:hover { background: rgba(17, 24, 39, 0.04); }
+
+.app-topbar__title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.app-topbar__logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.app-topbar__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  border-left: 1px solid var(--bsm-border-light);
+  padding-left: 16px;
+}
+
+.app-topbar__brand strong {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--bsm-text-on-light);
+  font-family: var(--bsm-font);
+}
+
+.app-topbar__brand strong::first-letter,
+.app-topbar__brand strong {
+  /* "BSM" + "PANEL" gibi parçalı görünüm için ek vurgu */
+}
+
+.app-topbar__brand span {
+  font-size: 0.78rem;
+  color: var(--bsm-text-on-light-soft);
+}
+
+.app-topbar__user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+/* #authUserBadge mevcut auth.js tarafından yönetilir.
+   Topbar layout'una uyum için override stilleri: */
+body #authUserBadge {
+  position: static !important;
+  margin: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  gap: 12px;
+  align-items: center;
+}
+
+body #authUserBadge .auth-badge__email {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--bsm-text-on-light);
+}
+
+body #authUserBadge .auth-badge__role {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--bsm-orange-soft);
+  color: var(--bsm-orange);
+}
+
+body #authUserBadge .auth-badge__signout {
+  background: transparent;
+  border: 1px solid var(--bsm-border-light);
+  border-radius: 8px;
+  color: var(--bsm-text-on-light-soft);
+  font-size: 0.78rem;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+body #authUserBadge .auth-badge__signout:hover {
+  background: var(--bsm-orange-soft);
+  color: var(--bsm-orange);
+  border-color: rgba(242, 108, 31, 0.3);
+}
+
+/* ── Studio sub-nav (mevcut .studio-nav koyu hâle gelir) ─── */
+
+.app-main > .studio-nav {
+  background: var(--bsm-bg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 0 28px;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.app-main > .studio-nav::-webkit-scrollbar { display: none; }
+
+.app-main > .studio-nav button {
+  background: transparent;
+  border: none;
+  color: var(--bsm-text-2);
+  font-family: var(--bsm-font);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 16px 18px;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.app-main > .studio-nav button:hover {
+  color: var(--bsm-text-1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.app-main > .studio-nav button.is-active {
+  color: var(--bsm-orange);
+  border-bottom-color: var(--bsm-orange);
+  background: rgba(242, 108, 31, 0.08);
+}
+
+/* ── Content wrapper genişliği ────────────────────────────── */
+
+.app-main .members-screen,
+.app-main .dashboard-panel,
+.app-main .measurement-panel,
+.app-main .nutrition-panel,
+.app-main .library-panel,
+.app-main .settings-panel,
+.app-main .results,
+.app-main .measurement-report,
+.app-main .app-shell {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding-left: 28px;
+  padding-right: 28px;
+}
+
+.app-main .app-shell {
+  max-width: 860px;
+}
+
+/* ── Mobile drawer ───────────────────────────────────────── */
+
+.app-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 18, 0.55);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  z-index: 80;
+}
+
+body.app-sidebar-open .app-sidebar-backdrop {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (max-width: 960px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 95;
+  }
+  body.app-sidebar-open .app-sidebar {
+    transform: translateX(0);
+    box-shadow: 0 24px 60px rgba(8, 12, 18, 0.4);
+  }
+  .app-topbar__hamburger { display: inline-flex; }
+  .app-topbar { padding: 12px 16px; }
+  .app-topbar__brand { padding-left: 12px; }
+  .app-topbar__brand strong { font-size: 1.1rem; }
+  .app-topbar__brand span { font-size: 0.72rem; }
+  .app-topbar__logo { width: 44px; height: 44px; }
+  .app-main > .studio-nav { padding: 0 16px; }
+  .app-main > .studio-nav button { padding: 14px 12px; font-size: 0.74rem; }
+  .app-main .members-screen,
+  .app-main .dashboard-panel,
+  .app-main .measurement-panel,
+  .app-main .nutrition-panel,
+  .app-main .library-panel,
+  .app-main .settings-panel,
+  .app-main .results,
+  .app-main .measurement-report,
+  .app-main .app-shell {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* Auth gate sidebar/topbar üstüne biner */
+.auth-gate {
+  z-index: 1000 !important;
+}
+
+/* Page-backdrop yeni shell altında kalsın */
+.page-backdrop {
+  z-index: 0 !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   BSM Members Page Content (F4 — Üye listesi beyaz wrapper card)
+   ════════════════════════════════════════════════════════════════ */
+
+.app-main .members-screen {
+  padding-top: 28px;
+  padding-bottom: 40px;
+}
+
+.app-main .members-screen__header {
+  margin-bottom: 22px;
+}
+
+.app-main .members-screen__header h2 {
+  font-family: var(--bsm-font);
+  font-size: 1.5rem;
+  color: var(--bsm-text-on-light);
+  margin: 0;
+}
+
+.app-main .members-screen__header .section-kicker {
+  color: var(--bsm-text-on-light-soft);
+  font-family: var(--bsm-font);
+}
+
+/* Üye listesi beyaz kart */
+.bsm-members-card {
+  background: #fff;
+  border: 1px solid var(--bsm-border-light);
+  border-radius: 16px;
+  box-shadow: var(--bsm-shadow-card);
+  overflow: hidden;
+  font-family: var(--bsm-font);
+}
+
+.bsm-members-card__head {
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid var(--bsm-border-light);
+}
+
+.bsm-members-card__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bsm-members-card__title h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light);
+}
+
+.bsm-members-card__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--bsm-orange-soft);
+  color: var(--bsm-orange);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Toolbar (arama + filtre + sıralama + Üye Ekle) */
+.bsm-members-card__toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(140px, 1fr)) auto;
+  gap: 10px;
+  padding: 16px 24px;
+  align-items: stretch;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--bsm-border-light);
+  background: #fafbfd;
+}
+
+.bsm-members-card__toolbar .field {
+  margin: 0;
+}
+
+.bsm-members-card__toolbar .field span {
+  display: none;
+}
+
+.bsm-search-field {
+  position: relative;
+}
+
+.bsm-search-field__icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--bsm-text-on-light-soft);
+  pointer-events: none;
+}
+
+.bsm-search-field input,
+.bsm-filter-field select,
+.bsm-sort-field select {
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--bsm-border-light);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-family: var(--bsm-font);
+  font-size: 0.85rem;
+  color: var(--bsm-text-on-light);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bsm-search-field input {
+  padding-left: 38px;
+}
+
+.bsm-search-field input::placeholder {
+  color: var(--bsm-text-on-light-soft);
+}
+
+.bsm-search-field input:focus,
+.bsm-filter-field select:focus,
+.bsm-sort-field select:focus {
+  outline: none;
+  border-color: var(--bsm-orange);
+  box-shadow: 0 0 0 3px var(--bsm-orange-glow);
+}
+
+.bsm-filter-field select:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  background: #f4f6fa;
+}
+
+.bsm-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  background: var(--bsm-orange);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--bsm-font);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(242, 108, 31, 0.25);
+  transition: background-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.bsm-primary-btn:hover {
+  background: #d85f17;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(242, 108, 31, 0.35);
+}
+
+.bsm-primary-btn:active {
+  transform: translateY(0);
+}
+
+/* Tablo başlık satırı (desktop) */
+.bsm-members-card__list-header {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) minmax(140px, 1.4fr) minmax(110px, 1fr) 90px 110px 90px minmax(220px, auto);
+  gap: 12px;
+  padding: 12px 24px;
+  background: #fafbfd;
+  border-bottom: 1px solid var(--bsm-border-light);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft);
+}
+
+.bsm-members-list {
+  padding: 8px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Desktop'ta üye satırını tablo-benzeri hizala */
+@media (min-width: 960px) {
+  .bsm-members-list .bsm-member-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 2fr) 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 12px;
+    border-radius: 10px;
+    box-shadow: none;
+    border-color: transparent;
+    border-bottom: 1px solid var(--bsm-border-light);
+    border-radius: 0;
+  }
+  .bsm-members-list .bsm-member-row:last-child {
+    border-bottom: none;
+  }
+  .bsm-members-list .bsm-member-row:hover {
+    transform: none;
+    background: rgba(242, 108, 31, 0.04);
+    box-shadow: none;
+  }
+  .bsm-members-list .bsm-member-row.is-active {
+    background: rgba(242, 108, 31, 0.07);
+    box-shadow: none;
+  }
+  .bsm-members-list .bsm-member-row__main {
+    align-items: center;
+  }
+  .bsm-members-list .bsm-member-row__actions {
+    border-left: none;
+    padding-left: 0;
+    justify-content: flex-end;
+  }
+}
+
+/* Mobil: kart layout (toolbar tek kolon) */
+@media (max-width: 959px) {
+  .bsm-members-card__list-header { display: none; }
+  .bsm-members-card__toolbar {
+    grid-template-columns: 1fr;
+  }
+  .bsm-primary-btn { width: 100%; justify-content: center; }
+}
+
+@media (min-width: 960px) and (max-width: 1199px) {
+  .bsm-members-card__toolbar {
+    grid-template-columns: minmax(220px, 1.6fr) minmax(120px, 1fr) minmax(120px, 1fr) auto auto;
+  }
+  .bsm-sort-field { grid-column: 4 / span 2; }
+  .bsm-primary-btn { grid-column: auto; }
+}
+
+/* Visually hidden utility — sadece screen reader */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}

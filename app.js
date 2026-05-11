@@ -1198,13 +1198,63 @@ measurementReportBackButton?.addEventListener("click", handleMeasurementReportBa
   measurementReportPdfButton?.addEventListener("click", handlePrintMeasurementReport);
   measurementReportPrintButton?.addEventListener("click", handlePrintMeasurementReport);
   membersPanel?.addEventListener("click", handleMemberQuickAction);
-  membersPanel?.querySelector("[data-screen-target]")?.addEventListener("click", (e) => {
-    const target = e.target.closest("[data-screen-target]");
-    if (target) setActiveScreen(target.dataset.screenTarget, { userTriggered: true, silent: true });
+  membersPanel?.addEventListener("click", (e) => {
+    const target = e.target.closest("button[data-screen-target]");
+    if (!target) return;
+    if (target.hasAttribute("data-member-quick-action")) return;
+    setActiveScreen(target.dataset.screenTarget, { userTriggered: true, silent: true });
   });
   document.addEventListener("click", handleExerciseGifModalClick);
   document.addEventListener("error", handleExerciseGifError, true);
   document.addEventListener("keydown", handleExerciseGifModalKeydown);
+
+  setupAppShellSidebar(navigationHandlers);
+}
+
+function setupAppShellSidebar(navigationHandlers) {
+  const appSidebar = document.querySelector("#appSidebar");
+  const hamburger = document.querySelector("#appTopbarHamburger");
+  const backdrop = document.querySelector("#appSidebarBackdrop");
+  const userSlot = document.querySelector("#appTopbarUserSlot");
+  const userBadge = document.querySelector("#authUserBadge");
+
+  if (appSidebar && navigationHandlers?.handleScreenNavClick) {
+    appSidebar.addEventListener("click", navigationHandlers.handleScreenNavClick);
+  }
+
+  if (userSlot && userBadge) {
+    userSlot.appendChild(userBadge);
+  }
+
+  function setDrawer(open) {
+    const next = typeof open === "boolean" ? open : !document.body.classList.contains("app-sidebar-open");
+    document.body.classList.toggle("app-sidebar-open", next);
+    if (hamburger) hamburger.setAttribute("aria-expanded", String(next));
+  }
+
+  hamburger?.addEventListener("click", () => setDrawer());
+  backdrop?.addEventListener("click", () => setDrawer(false));
+  appSidebar?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-screen-target]")) setDrawer(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && document.body.classList.contains("app-sidebar-open")) {
+      setDrawer(false);
+    }
+  });
+
+  syncSidebarActive();
+  document.querySelector(".studio-nav")?.addEventListener("click", () => requestAnimationFrame(syncSidebarActive));
+  appSidebar?.addEventListener("click", () => requestAnimationFrame(syncSidebarActive));
+}
+
+function syncSidebarActive() {
+  const activeScreen = state.activeScreen
+    || document.querySelector(".studio-nav button.is-active")?.dataset.screenTarget
+    || "members";
+  document.querySelectorAll(".app-sidebar__item[data-screen-target]").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.screenTarget === activeScreen);
+  });
 }
 
 function handleAddCustomExercise() {
@@ -1644,7 +1694,9 @@ function handleRepetitionTemplateControlChange(event) {
 // Handler'lar hâlâ bu isimleri dependency injection ile alıyor.
 
 function setActiveScreen(screen, options) {
-  return window.BSMRouter ? window.BSMRouter.navigate(screen, options) : false;
+  const result = window.BSMRouter ? window.BSMRouter.navigate(screen, options) : false;
+  if (typeof syncSidebarActive === "function") syncSidebarActive();
+  return result;
 }
 
 function activateScreen(screenName) {
