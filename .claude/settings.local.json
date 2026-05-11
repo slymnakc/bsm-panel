@@ -59,7 +59,9 @@
       "Bash(timeout 35)",
       "Bash(npm start *)",
       "Bash(taskkill /F /IM node.exe /T)",
-      "PowerShell(Get-Command gh -ErrorAction SilentlyContinue)"
+      "PowerShell(Get-Command gh -ErrorAction SilentlyContinue)",
+      "Bash(git reset *)",
+      "Bash(git checkout *)"
     ]
   }
 }
