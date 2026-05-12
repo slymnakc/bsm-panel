@@ -17,11 +17,41 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: minor (1.1 -> 1.2) ozellik eklemelerinde, patch (1.1.0 -> 1.1.1)
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.1.0";
+const BSM_BUILD_VERSION = "1.1.1";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
 console.log("NUTRITION PRO VERSION: v" + BSM_BUILD_VERSION + "-member-supplement-wizard");
+
+// ── BSM Wizard + Avatar Palette Sabitleri ───────────────────────
+// HOTFIX (v1.1.1): Bu sabitler dosyanin asagisindaydi (line ~2027 ve ~2870).
+// initialize() -> syncStartupUi() -> renderMemberWorkspace() top-level'da
+// calistirildigindan, BSM_WIZARD_STEPS / BSM_AVATAR_PALETTE'e erisen render
+// fonksiyonlari const'larin INITIALIZE edilmedigi anda (Temporal Dead Zone)
+// patliyordu. Sabitleri yukari aldik; fonksiyon davranisi degismedi.
+//
+// Fresh browser'da localStorage bos oldugu icin findActiveMember() null doner
+// ve renderWizardBar early-return yapar -> bu sebeple smoke testlerde
+// yakalanamadi. 16 uyeli gercek kullanicida zincir kiriliyordu.
+
+const BSM_WIZARD_STEPS = [
+  { id: "olcum",    label: "Ölçüm",       screen: "measurements" },
+  { id: "program",  label: "Program",     screen: "builder"      },
+  { id: "beslenme", label: "Beslenme",    screen: "nutrition"    },
+  { id: "pdf",      label: "PDF Çıktısı", screen: "output"       },
+  { id: "mail",     label: "Mail Gönder", screen: "output"       },
+];
+
+// F5e: Premium pastel renk paleti (slate / blue / teal / amber / orange / rose).
+// Üye ID veya isim deterministik hash → sabit renk. Rainbow/neon yok.
+const BSM_AVATAR_PALETTE = [
+  { from: "#475569", to: "#64748b" }, // slate
+  { from: "#1e5baa", to: "#3b82f6" }, // blue
+  { from: "#0e7490", to: "#06b6d4" }, // teal
+  { from: "#b45309", to: "#f59e0b" }, // amber
+  { from: "#c2410c", to: "#f97316" }, // orange
+  { from: "#9f1239", to: "#e11d48" }, // rose
+];
 console.log("UI VERSION: redesign-v1");
 console.log("TANITA REPORT VERSION: ultra-pro-v2-compact-3page");
 console.log("MEASUREMENT TAB VERSION: v1");
@@ -2086,16 +2116,7 @@ function buildMemberInitials(memberName, memberCode) {
   return source.slice(0, 2).toLocaleUpperCase("tr");
 }
 
-// F5e: Premium pastel renk paleti (slate / blue / teal / amber / orange / rose).
-// Üye ID veya isim deterministik hash → sabit renk. Rainbow/neon yok.
-const BSM_AVATAR_PALETTE = [
-  { from: "#475569", to: "#64748b" }, // slate
-  { from: "#1e5baa", to: "#3b82f6" }, // blue
-  { from: "#0e7490", to: "#06b6d4" }, // teal
-  { from: "#b45309", to: "#f59e0b" }, // amber
-  { from: "#c2410c", to: "#f97316" }, // orange
-  { from: "#9f1239", to: "#e11d48" }, // rose
-];
+// BSM_AVATAR_PALETTE artik dosyanin basinda (v1.1.1 hotfix - TDZ fix).
 
 function bsmHashString(str) {
   const s = String(str || "");
@@ -2866,14 +2887,7 @@ function renderUtilityPanel() {
   `;
 }
 
-// F5b: Wizard step bar — 5 adım: Ölçüm / Program / Beslenme / PDF / Mail
-const BSM_WIZARD_STEPS = [
-  { id: "olcum",    label: "Ölçüm",       screen: "measurements" },
-  { id: "program",  label: "Program",     screen: "builder"      },
-  { id: "beslenme", label: "Beslenme",    screen: "nutrition"    },
-  { id: "pdf",      label: "PDF Çıktısı", screen: "output"       },
-  { id: "mail",     label: "Mail Gönder", screen: "output"       },
-];
+// BSM_WIZARD_STEPS artik dosyanin basinda (v1.1.1 hotfix - TDZ fix).
 
 function computeWizardStepStates(member) {
   const hasMeasurement = !!(member?.measurements?.length);
