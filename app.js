@@ -1951,6 +1951,9 @@ function selectActiveMemberFromRail(member) {
   state.latestMeasurement = member.measurements?.[0] || null;
   saveActiveMemberId(member.id);
 
+  // F5j: Brief skeleton flash ile geçiş hissi ver (premium snappy feel)
+  flashWorkspaceSkeleton();
+
   // Builder form'unu da güncel tut (sonra Program Oluştur sekmesine geçtiğinde dolu gelsin)
   try { populateForm(member.profile || {}); } catch (e) { /* form yoksa sessiz geç */ }
   try {
@@ -1963,6 +1966,17 @@ function selectActiveMemberFromRail(member) {
   state.activeNutritionMemberId = member.id;
 
   renderMemberWorkspace();
+}
+
+// F5j: Workspace switch sırasında 120ms skeleton flash (CSS-only kontrol).
+// prefers-reduced-motion altinda otomatik devre disi (CSS @media).
+function flashWorkspaceSkeleton() {
+  const panel = document.querySelector("#membersPanel");
+  if (!panel) return;
+  panel.classList.add("is-switching");
+  // Re-trigger animation: force reflow
+  void panel.offsetWidth;
+  setTimeout(() => panel.classList.remove("is-switching"), 280);
 }
 
 function renderMemberWorkspace() {
