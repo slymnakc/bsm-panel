@@ -116,6 +116,13 @@
       notes: normalizeString(raw.notes),
     };
 
+    // F5e: Profil fotoğrafı (dataURL string). Sadece data: URL'leri kabul et.
+    // Boş veya geçersiz değerlerde alan eklenmez (undefined kalır).
+    const rawPhoto = typeof raw.photo === "string" ? raw.photo.trim() : "";
+    if (rawPhoto.startsWith("data:image/")) {
+      normalized.photo = rawPhoto;
+    }
+
     return normalized;
   }
 

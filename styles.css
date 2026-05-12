@@ -12446,3 +12446,348 @@ body.app-sidebar-open .app-sidebar-backdrop {
   .bsm-hero-card__avatar { width: 56px; height: 56px; font-size: 1.05rem; border-radius: 14px; }
   .bsm-hero-card__title h3 { font-size: 1.1rem; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   BSM Photo Modal (F5e + F5f)
+   Tek modal, iki sekme: Dosya Yükle + Kamera ile Çek
+   ════════════════════════════════════════════════════════════════ */
+
+/* Hero avatar artık <button> — interaktif, edit overlay'i var */
+button.bsm-hero-card__avatar {
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  outline: none;
+}
+
+button.bsm-hero-card__avatar:hover .bsm-hero-card__edit,
+button.bsm-hero-card__avatar:focus-visible .bsm-hero-card__edit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+button.bsm-hero-card__avatar:focus-visible {
+  box-shadow: 0 0 0 3px rgba(242,108,31,0.4), 0 8px 22px rgba(242,108,31,0.25);
+}
+
+.bsm-hero-card__edit {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.7) 100%);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+/* Rail avatar — şimdilik salt göstergeçi (tıklama rail card kendisinde) */
+
+/* Modal */
+.bsm-photo-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font-family: var(--bsm-font);
+}
+
+.bsm-photo-modal.is-hidden { display: none; }
+
+.bsm-photo-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 12, 18, 0.55);
+  cursor: pointer;
+}
+
+.bsm-photo-modal__dialog {
+  position: relative;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(8, 12, 18, 0.35);
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.bsm-photo-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 12px;
+  border-bottom: 1px solid var(--bsm-border-light);
+}
+
+.bsm-photo-modal__head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--bsm-text-on-light);
+}
+
+.bsm-photo-modal__close {
+  background: transparent;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--bsm-text-on-light-soft);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.bsm-photo-modal__close:hover {
+  background: rgba(17,24,39,0.06);
+  color: var(--bsm-text-on-light);
+}
+
+.bsm-photo-modal__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px 0;
+  border-bottom: 1px solid var(--bsm-border-light);
+  background: #fafbfd;
+}
+
+.bsm-photo-modal__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: var(--bsm-text-on-light-soft);
+  font-family: var(--bsm-font);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.bsm-photo-modal__tab:hover { color: var(--bsm-text-on-light); }
+
+.bsm-photo-modal__tab.is-active {
+  color: var(--bsm-orange);
+  border-bottom-color: var(--bsm-orange);
+}
+
+.bsm-photo-modal__body {
+  padding: 18px 22px 16px;
+}
+
+.bsm-photo-tabpanel { display: none; }
+.bsm-photo-tabpanel.is-active { display: block; }
+
+/* Dropzone */
+.bsm-photo-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 36px 20px;
+  background: #fafbfd;
+  border: 2px dashed rgba(17,24,39,0.18);
+  border-radius: 14px;
+  cursor: pointer;
+  color: var(--bsm-text-on-light-soft);
+  text-align: center;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.bsm-photo-dropzone:hover {
+  background: var(--bsm-orange-soft);
+  border-color: rgba(242,108,31,0.4);
+  color: var(--bsm-orange);
+}
+
+.bsm-photo-dropzone.is-dragover {
+  background: var(--bsm-orange-soft);
+  border-color: var(--bsm-orange);
+  color: var(--bsm-orange);
+}
+
+.bsm-photo-dropzone strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--bsm-text-on-light);
+  margin-top: 4px;
+}
+
+.bsm-photo-dropzone.is-dragover strong,
+.bsm-photo-dropzone:hover strong { color: var(--bsm-orange); }
+
+.bsm-photo-dropzone span {
+  font-size: 0.82rem;
+}
+
+.bsm-photo-dropzone small {
+  font-size: 0.72rem;
+  margin-top: 6px;
+  color: var(--bsm-text-on-light-soft);
+}
+
+/* Webcam Stage (F5f) */
+.bsm-webcam-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #0e1219;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bsm-webcam-video,
+.bsm-webcam-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bsm-webcam-video {
+  /* Aynalı görünüm (front camera selfie hissi) */
+  transform: scaleX(-1);
+}
+
+.bsm-webcam-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: rgba(255,255,255,0.7);
+  text-align: center;
+  padding: 24px;
+}
+
+.bsm-webcam-placeholder strong { color: #fff; font-weight: 700; font-size: 0.92rem; }
+.bsm-webcam-placeholder span { font-size: 0.78rem; }
+
+.bsm-webcam-status {
+  margin: 8px 0 0;
+  min-height: 18px;
+  font-size: 0.78rem;
+  color: var(--bsm-text-on-light-soft);
+  text-align: center;
+}
+
+.bsm-webcam-status.is-error { color: var(--bsm-track-red); font-weight: 600; }
+
+.bsm-webcam-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  justify-content: center;
+}
+
+.bsm-webcam-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--bsm-border-light);
+  background: #fff;
+  color: var(--bsm-text-on-light);
+  font-family: var(--bsm-font);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, transform 0.12s;
+}
+
+.bsm-webcam-btn:hover { background: #fafbfd; }
+.bsm-webcam-btn[hidden] { display: none; }
+
+.bsm-webcam-btn--start,
+.bsm-webcam-btn--capture {
+  background: var(--bsm-orange);
+  border-color: var(--bsm-orange);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(242,108,31,0.22);
+}
+
+.bsm-webcam-btn--start:hover,
+.bsm-webcam-btn--capture:hover {
+  background: #d85f17;
+  transform: translateY(-1px);
+}
+
+.bsm-webcam-btn--confirm {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+
+.bsm-webcam-btn--confirm:hover { background: #15803d; }
+
+/* Loading + error */
+.bsm-photo-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 22px 16px;
+  color: var(--bsm-text-on-light-soft);
+  font-size: 0.85rem;
+}
+
+.bsm-photo-loading.is-hidden { display: none; }
+
+.bsm-photo-loading__spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(242,108,31,0.2);
+  border-top-color: var(--bsm-orange);
+  animation: bsm-spin 0.8s linear infinite;
+}
+
+@keyframes bsm-spin {
+  to { transform: rotate(360deg); }
+}
+
+.bsm-photo-error {
+  margin: 0;
+  padding: 0 22px 16px;
+  color: var(--bsm-track-red);
+  font-size: 0.82rem;
+  font-weight: 600;
+  min-height: 0;
+  display: none;
+}
+
+.bsm-photo-error.is-visible { display: block; }
+
+/* Body scroll lock when modal open */
+body.bsm-photo-modal-open { overflow: hidden; }
+
+@media (max-width: 480px) {
+  .bsm-photo-modal { padding: 12px; }
+  .bsm-photo-modal__dialog { max-width: 100%; }
+  .bsm-photo-modal__head, .bsm-photo-modal__body { padding-left: 14px; padding-right: 14px; }
+  .bsm-photo-dropzone { padding: 24px 12px; }
+}
