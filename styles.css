@@ -12926,3 +12926,198 @@ body.bsm-photo-modal-open { overflow: hidden; }
   .bsm-chart-card { padding: 12px; }
   .bsm-chart-svg { max-height: 180px; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   BSM Wizard Animations + Micro Interactions (F5i)
+   prefers-reduced-motion uyumlu — flashy degil, premium SaaS hissi
+   ════════════════════════════════════════════════════════════════ */
+
+/* Wizard step hover/active: sadece circle scale + ring transition */
+.bsm-wizard-step__circle {
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.22s ease,
+              border-color 0.22s ease,
+              color 0.22s ease,
+              box-shadow 0.28s ease;
+  will-change: transform;
+}
+
+.bsm-wizard-step:hover .bsm-wizard-step__circle {
+  transform: scale(1.06);
+}
+
+.bsm-wizard-step:active .bsm-wizard-step__circle {
+  transform: scale(0.96);
+  transition-duration: 0.1s;
+}
+
+.bsm-wizard-step.is-active .bsm-wizard-step__circle {
+  animation: bsm-wizard-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes bsm-wizard-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(30, 91, 170, 0.14); }
+  50% { box-shadow: 0 0 0 7px rgba(30, 91, 170, 0.08); }
+}
+
+/* Active step underline slide-in */
+.bsm-wizard-step::after {
+  transition: width 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  width: 0;
+}
+
+.bsm-wizard-step.is-active::after { width: 28px; }
+
+/* Wizard arrow soft tint when next step is active/completed */
+.bsm-wizard-bar__arrow {
+  transition: color 0.22s ease, transform 0.22s ease;
+}
+
+.bsm-wizard-step.is-completed + .bsm-wizard-bar__arrow {
+  color: #22c55e;
+  transform: translateX(2px);
+}
+
+/* Step content fade-in on each render (key-less, CSS-only) */
+@keyframes bsm-content-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bsm-wizard-content > .bsm-step-section {
+  animation: bsm-content-enter 0.24s ease-out both;
+}
+
+/* Hero entrance + progress fill (yumusak) */
+@keyframes bsm-hero-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bsm-workspace-hero > .bsm-hero-card {
+  animation: bsm-hero-enter 0.26s ease-out both;
+}
+
+.bsm-hero-card__progress-fill {
+  transition: width 0.5s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+/* KPI pills entrance — staggered, hafif */
+@keyframes bsm-kpi-enter {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bsm-kpi-pill {
+  animation: bsm-kpi-enter 0.28s ease-out both;
+}
+
+.bsm-kpi-pill:nth-child(1) { animation-delay: 0ms; }
+.bsm-kpi-pill:nth-child(2) { animation-delay: 40ms; }
+.bsm-kpi-pill:nth-child(3) { animation-delay: 80ms; }
+.bsm-kpi-pill:nth-child(4) { animation-delay: 120ms; }
+.bsm-kpi-pill:nth-child(5) { animation-delay: 160ms; }
+
+/* Rail card focus ring (klavye erişim) — focus-visible only */
+.bsm-rail-card:focus-visible {
+  outline: 2px solid var(--bsm-orange);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.bsm-rail-card.is-active::after {
+  /* Sag ok karakteri fade-in */
+  animation: bsm-arrow-enter 0.24s ease-out both;
+}
+
+@keyframes bsm-arrow-enter {
+  from { opacity: 0; transform: translateY(-50%) translateX(-3px); }
+  to   { opacity: 1; transform: translateY(-50%) translateX(0); }
+}
+
+/* Utility action button — hover ring */
+.bsm-action-btn:focus-visible {
+  outline: 2px solid var(--bsm-orange);
+  outline-offset: 2px;
+}
+
+/* Photo modal entrance */
+@keyframes bsm-modal-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes bsm-modal-dialog-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.bsm-photo-modal:not(.is-hidden) { animation: bsm-modal-enter 0.18s ease-out both; }
+.bsm-photo-modal:not(.is-hidden) .bsm-photo-modal__dialog {
+  animation: bsm-modal-dialog-enter 0.22s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+/* Sidebar drawer (mobil) zaten transition: transform 0.25s var; ek polish yok */
+
+/* Wizard nav buton hover lift (ek polish) */
+.bsm-wizard-nav--prev,
+.bsm-wizard-nav--next {
+  transition: background-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* Chart line draw-in animation (path 'stroke-dasharray' tekniği) */
+.bsm-chart-line {
+  stroke-dasharray: 1200;
+  stroke-dashoffset: 1200;
+  animation: bsm-chart-draw 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.05s forwards;
+}
+
+.bsm-chart-line.is-fat { animation-delay: 0.18s; }
+
+@keyframes bsm-chart-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+.bsm-chart-dot {
+  opacity: 0;
+  animation: bsm-chart-dot-enter 0.4s ease-out forwards;
+  animation-delay: 0.9s;
+}
+
+@keyframes bsm-chart-dot-enter {
+  to { opacity: 1; }
+}
+
+/* ── prefers-reduced-motion ─────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  /* Tum animasyonlar minimal hale gelir (opacity-only) */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .bsm-wizard-step:hover .bsm-wizard-step__circle,
+  .bsm-wizard-step:active .bsm-wizard-step__circle {
+    transform: none !important;
+  }
+
+  .bsm-wizard-step.is-active .bsm-wizard-step__circle {
+    animation: none !important;
+    box-shadow: 0 0 0 4px rgba(30, 91, 170, 0.14) !important;
+  }
+
+  .bsm-chart-line {
+    stroke-dasharray: none !important;
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+
+  .bsm-chart-dot {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+}
