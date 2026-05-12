@@ -4,6 +4,7 @@
   var _form = null;
   var _repetitionBuilder = null;
   var _workflowAssistant = null;
+  var _previewPanel = null;
 
   function setup() {
     _form = document.querySelector("#plannerForm");
@@ -36,9 +37,13 @@ function setupBuilderWizard() {
 
   markBuilderWizardSections();
   insertBuilderWizardToolbar();
+  arrangeBuilderUILayout();
+  updateBuilderPreviewPanel();
   setBuilderWizardStep(1);
   _form.addEventListener("click", handleBuilderWizardClick);
   _form.addEventListener("keydown", handleBuilderWizardKeydown);
+  _form.addEventListener("input", updateBuilderPreviewPanel);
+  _form.addEventListener("change", updateBuilderPreviewPanel);
 }
 
 function markBuilderWizardSections() {
@@ -60,8 +65,8 @@ function markBuilderWizardSections() {
   _form.querySelector('input[name="restrictions"]')?.closest(".choice-block")?.setAttribute("data-builder-step", "3");
   _repetitionBuilder?.setAttribute("data-builder-step", "4");
   _form.querySelector("#notes")?.closest(".field")?.setAttribute("data-builder-step", "5");
-  _form.querySelector("._form-footer")?.setAttribute("data-builder-step", "5");
   _workflowAssistant?.setAttribute("data-builder-persistent", "true");
+  _form.querySelector(".form-footer")?.setAttribute("data-builder-persistent", "true");
 }
 
 function insertBuilderWizardToolbar() {
@@ -84,6 +89,59 @@ function insertBuilderWizardToolbar() {
   `;
 
   _form.querySelector(".builder-steps")?.insertAdjacentElement("afterend", toolbar);
+}
+
+function arrangeBuilderUILayout() {
+  const existingLayout = _form.querySelector(".builder-flow-layout");
+
+  if (existingLayout) {
+    _previewPanel = existingLayout.querySelector("#builderProgramPreview");
+    return;
+  }
+
+  const toolbar = _form.querySelector(".builder-wizard-toolbar");
+  const footer = _form.querySelector(".form-footer");
+
+  if (!toolbar || !footer) {
+    return;
+  }
+
+  // UI-only refactor, logic preserved: existing form controls keep ids, names and data-* hooks.
+  const layout = document.createElement("div");
+  layout.className = "builder-flow-layout";
+  layout.innerHTML = `
+    <aside class="builder-flow-guide" aria-label="Program oluşturma akış rehberi"></aside>
+    <div class="builder-flow-main"></div>
+    <aside class="builder-flow-side" aria-label="Program oluşturma hızlı özeti">
+      <section class="builder-preview-panel" id="builderProgramPreview" aria-live="polite"></section>
+    </aside>
+  `;
+
+  toolbar.insertAdjacentElement("afterend", layout);
+
+  const guide = layout.querySelector(".builder-flow-guide");
+  const main = layout.querySelector(".builder-flow-main");
+  _previewPanel = layout.querySelector("#builderProgramPreview");
+
+  const movableNodes = [];
+  let node = layout.nextSibling;
+
+  while (node && node !== footer) {
+    const nextNode = node.nextSibling;
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      movableNodes.push(node);
+    }
+    node = nextNode;
+  }
+
+  movableNodes.forEach((item) => {
+    if (item === _workflowAssistant) {
+      guide.appendChild(item);
+      return;
+    }
+
+    main.appendChild(item);
+  });
 }
 
 function handleBuilderWizardClick(event) {
@@ -152,6 +210,8 @@ function setBuilderWizardStep(step) {
     nextButton.textContent = activeStep === maxStep ? "Önizleme hazır" : "Sonraki";
     nextButton.disabled = activeStep === maxStep;
   }
+
+  updateBuilderPreviewPanel();
 }
 
 function getBuilderWizardStepMeta(step) {
@@ -164,6 +224,84 @@ function getBuilderWizardStepMeta(step) {
   };
 
   return meta[step] || meta[1];
+}
+
+function updateBuilderPreviewPanel() {
+  const panel = _previewPanel || _form?.querySelector("#builderProgramPreview");
+
+  if (!panel || !_form) {
+    return;
+  }
+
+  const memberName = getInputValue("#memberName") || "Üye seçimi bekliyor";
+  const goal = getSelectedText("#goal", "Hedef seçilmedi");
+  const level = getSelectedText("#level", "Seviye seçilmedi");
+  const programStyle = getSelectedText("#programStyle", "Otomatik");
+  const trainingSystem = getSelectedText("#trainingSystem", "Standart");
+  const duration = getSelectedText("#duration", "60 dakika");
+  const days = Array.from(_form.querySelectorAll('input[name="days"]:checked')).map((item) => item.closest("label")?.textContent?.trim() || item.value);
+  const dayText = days.length ? `${days.length} gün / hafta` : "Gün seçilmedi";
+  const repPreview = _form.querySelector("#repTemplatePreview")?.textContent?.trim().replace(/\s+/g, " ") || "Set/tekrar seçilmedi";
+  const activeStep = Number(_form.dataset.builderWizardStep || 1);
+  const nextStep = getBuilderWizardStepMeta(Math.min(activeStep + 1, 5));
+
+  panel.innerHTML = `
+    <div class="builder-preview-panel__head">
+      <span>Program Önizleme</span>
+      <strong>${escapeHtml(memberName)}</strong>
+      <small>Seçilen ayarlara göre oluşturulacak plan özeti</small>
+    </div>
+    <div class="builder-preview-panel__metrics">
+      ${renderPreviewMetric("Hedef", goal)}
+      ${renderPreviewMetric("Seviye", level)}
+      ${renderPreviewMetric("Sıklık", dayText)}
+      ${renderPreviewMetric("Süre", duration)}
+      ${renderPreviewMetric("Sistem", trainingSystem)}
+      ${renderPreviewMetric("Program tipi", programStyle)}
+    </div>
+    <div class="builder-preview-panel__rep">
+      <span>Set / Tekrar Yapısı</span>
+      <strong>${escapeHtml(repPreview)}</strong>
+    </div>
+    <div class="builder-preview-panel__next">
+      <span>Sıradaki doğru adım</span>
+      <strong>${escapeHtml(nextStep.title)}</strong>
+      <small>${escapeHtml(nextStep.hint)}</small>
+    </div>
+    <ul class="builder-preview-panel__checks">
+      <li>Üye bilgileri ve hedefler korunur</li>
+      <li>Tanita / ölçüm verileri varsa öneriye yansır</li>
+      <li>PDF, mail ve kayıt akışı değişmez</li>
+    </ul>
+  `;
+}
+
+function renderPreviewMetric(label, value) {
+  return `
+    <div>
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `;
+}
+
+function getInputValue(selector) {
+  return _form.querySelector(selector)?.value?.trim() || "";
+}
+
+function getSelectedText(selector, fallback) {
+  const select = _form.querySelector(selector);
+  const text = select?.selectedOptions?.[0]?.textContent?.trim();
+  return text || fallback;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
   // ─────────────────────────────────────────────────────────────────────────────
   window.BSMBuilderWizard = { setup: setup };
