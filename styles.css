@@ -13088,6 +13088,180 @@ body.bsm-photo-modal-open { overflow: hidden; }
   to { opacity: 1; }
 }
 
+/* ════════════════════════════════════════════════════════════════
+   BSM Skeleton Loaders (F5j)
+   Üye seçimi sırasında "is-switching" sınıfı 280ms shimmer flash gösterir.
+   Initial load'da rail/hero/content boşken skeleton cardlar görünür.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Base shimmer animation — yumuşak gradient sweep */
+@keyframes bsm-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.bsm-skeleton {
+  background: linear-gradient(90deg,
+    rgba(17, 24, 39, 0.04) 0%,
+    rgba(17, 24, 39, 0.08) 50%,
+    rgba(17, 24, 39, 0.04) 100%);
+  background-size: 200% 100%;
+  animation: bsm-shimmer 1.4s linear infinite;
+  border-radius: 6px;
+  color: transparent !important;
+}
+
+/* Rail skeleton card */
+.bsm-rail-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  min-height: 56px;
+}
+
+.bsm-rail-skeleton__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  animation: bsm-shimmer 1.4s linear infinite;
+  background: linear-gradient(90deg,
+    rgba(17, 24, 39, 0.06) 0%,
+    rgba(17, 24, 39, 0.10) 50%,
+    rgba(17, 24, 39, 0.06) 100%);
+  background-size: 200% 100%;
+}
+
+.bsm-rail-skeleton__lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bsm-rail-skeleton__line {
+  height: 10px;
+  border-radius: 4px;
+  animation: bsm-shimmer 1.4s linear infinite;
+  background: linear-gradient(90deg,
+    rgba(17, 24, 39, 0.05) 0%,
+    rgba(17, 24, 39, 0.09) 50%,
+    rgba(17, 24, 39, 0.05) 100%);
+  background-size: 200% 100%;
+}
+
+.bsm-rail-skeleton__line--short { width: 60%; height: 8px; }
+
+/* Empty/loading state: bsm-rail-empty kontrolü members panel state'i */
+.bsm-member-rail__list:empty,
+.bsm-rail-empty.is-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+}
+
+/* Switching state: workspace fade-out + shimmer overlay */
+#membersPanel.is-switching .bsm-workspace-hero,
+#membersPanel.is-switching .bsm-wizard-bar,
+#membersPanel.is-switching .bsm-wizard-content,
+#membersPanel.is-switching .bsm-utility-panel,
+#membersPanel.is-switching .bsm-wizard-footer {
+  position: relative;
+  pointer-events: none;
+}
+
+#membersPanel.is-switching .bsm-workspace-hero > *,
+#membersPanel.is-switching .bsm-wizard-bar > *,
+#membersPanel.is-switching .bsm-wizard-content > *,
+#membersPanel.is-switching .bsm-utility-panel > *,
+#membersPanel.is-switching .bsm-wizard-footer > * {
+  opacity: 0.45;
+  filter: blur(0.5px);
+  transition: opacity 0.18s ease, filter 0.18s ease;
+}
+
+#membersPanel.is-switching .bsm-workspace-hero::after,
+#membersPanel.is-switching .bsm-wizard-content::after,
+#membersPanel.is-switching .bsm-utility-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0) 100%);
+  background-size: 200% 100%;
+  animation: bsm-shimmer 0.9s linear infinite;
+  border-radius: inherit;
+}
+
+/* Initial mount — rail boş haldeyken 5 skeleton kart göster */
+#bsmMemberRail.is-bootstrapping .bsm-member-rail__list {
+  visibility: visible;
+}
+
+#bsmMemberRail.is-bootstrapping .bsm-member-rail__list::before {
+  content: "";
+  display: block;
+  min-height: 280px;
+  background-image: repeating-linear-gradient(
+    180deg,
+    transparent 0,
+    transparent 8px,
+    rgba(17, 24, 39, 0.04) 8px,
+    rgba(17, 24, 39, 0.04) 64px,
+    transparent 64px,
+    transparent 68px
+  );
+  border-radius: 8px;
+  animation: bsm-shimmer 1.4s linear infinite;
+  background-size: 200% 100%;
+}
+
+/* Hero skeleton (üye seçilmediğinde — empty state'in yerini alır) */
+.bsm-hero-card-skeleton {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 18px;
+  align-items: center;
+}
+
+.bsm-hero-card-skeleton__avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  animation: bsm-shimmer 1.4s linear infinite;
+  background: linear-gradient(90deg,
+    rgba(17, 24, 39, 0.06) 0%,
+    rgba(17, 24, 39, 0.10) 50%,
+    rgba(17, 24, 39, 0.06) 100%);
+  background-size: 200% 100%;
+}
+
+.bsm-hero-card-skeleton__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bsm-hero-card-skeleton__line {
+  height: 14px;
+  border-radius: 5px;
+  animation: bsm-shimmer 1.4s linear infinite;
+  background: linear-gradient(90deg,
+    rgba(17, 24, 39, 0.05) 0%,
+    rgba(17, 24, 39, 0.09) 50%,
+    rgba(17, 24, 39, 0.05) 100%);
+  background-size: 200% 100%;
+}
+
+.bsm-hero-card-skeleton__line--lg { height: 22px; width: 50%; }
+.bsm-hero-card-skeleton__line--md { width: 65%; }
+.bsm-hero-card-skeleton__line--sm { width: 35%; height: 10px; }
+
 /* ── prefers-reduced-motion ─────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   /* Tum animasyonlar minimal hale gelir (opacity-only) */
@@ -13119,5 +13293,27 @@ body.bsm-photo-modal-open { overflow: hidden; }
   .bsm-chart-dot {
     opacity: 1 !important;
     animation: none !important;
+  }
+
+  /* F5j: Skeleton shimmer disable */
+  .bsm-skeleton,
+  .bsm-rail-skeleton__avatar,
+  .bsm-rail-skeleton__line,
+  .bsm-hero-card-skeleton__avatar,
+  .bsm-hero-card-skeleton__line,
+  #membersPanel.is-switching .bsm-workspace-hero::after,
+  #membersPanel.is-switching .bsm-wizard-content::after,
+  #membersPanel.is-switching .bsm-utility-panel::after,
+  #bsmMemberRail.is-bootstrapping .bsm-member-rail__list::before {
+    animation: none !important;
+    background-position: 0 0 !important;
+  }
+
+  #membersPanel.is-switching .bsm-workspace-hero > *,
+  #membersPanel.is-switching .bsm-wizard-bar > *,
+  #membersPanel.is-switching .bsm-wizard-content > *,
+  #membersPanel.is-switching .bsm-utility-panel > *,
+  #membersPanel.is-switching .bsm-wizard-footer > * {
+    filter: none !important;
   }
 }
