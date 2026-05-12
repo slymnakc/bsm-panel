@@ -3,13 +3,11 @@
 
   var _form = null;
   var _repetitionBuilder = null;
-  var _workflowAssistant = null;
   var _previewPanel = null;
 
   function setup() {
     _form = document.querySelector("#plannerForm");
     _repetitionBuilder = document.querySelector(".repetition-builder");
-    _workflowAssistant = document.querySelector("#workflowAssistant");
     setupBuilderWizard();
   }
 
@@ -65,8 +63,6 @@ function markBuilderWizardSections() {
   _form.querySelector('input[name="restrictions"]')?.closest(".choice-block")?.setAttribute("data-builder-step", "3");
   _repetitionBuilder?.setAttribute("data-builder-step", "4");
   _form.querySelector("#notes")?.closest(".field")?.setAttribute("data-builder-step", "5");
-  _workflowAssistant?.setAttribute("data-builder-persistent", "true");
-  _form.querySelector(".form-footer")?.setAttribute("data-builder-persistent", "true");
 }
 
 function insertBuilderWizardToolbar() {
@@ -100,9 +96,8 @@ function arrangeBuilderUILayout() {
   }
 
   const toolbar = _form.querySelector(".builder-wizard-toolbar");
-  const footer = _form.querySelector(".form-footer");
 
-  if (!toolbar || !footer) {
+  if (!toolbar) {
     return;
   }
 
@@ -110,7 +105,6 @@ function arrangeBuilderUILayout() {
   const layout = document.createElement("div");
   layout.className = "builder-flow-layout";
   layout.innerHTML = `
-    <aside class="builder-flow-guide" aria-label="Program oluşturma akış rehberi"></aside>
     <div class="builder-flow-main"></div>
     <aside class="builder-flow-side" aria-label="Program oluşturma hızlı özeti">
       <section class="builder-preview-panel" id="builderProgramPreview" aria-live="polite"></section>
@@ -119,14 +113,13 @@ function arrangeBuilderUILayout() {
 
   toolbar.insertAdjacentElement("afterend", layout);
 
-  const guide = layout.querySelector(".builder-flow-guide");
   const main = layout.querySelector(".builder-flow-main");
   _previewPanel = layout.querySelector("#builderProgramPreview");
 
   const movableNodes = [];
   let node = layout.nextSibling;
 
-  while (node && node !== footer) {
+  while (node) {
     const nextNode = node.nextSibling;
     if (node.nodeType === Node.ELEMENT_NODE) {
       movableNodes.push(node);
@@ -135,11 +128,6 @@ function arrangeBuilderUILayout() {
   }
 
   movableNodes.forEach((item) => {
-    if (item === _workflowAssistant) {
-      guide.appendChild(item);
-      return;
-    }
-
     main.appendChild(item);
   });
 }
@@ -238,10 +226,13 @@ function updateBuilderPreviewPanel() {
   const level = getSelectedText("#level", "Seviye seçilmedi");
   const programStyle = getSelectedText("#programStyle", "Otomatik");
   const trainingSystem = getSelectedText("#trainingSystem", "Standart");
+  const equipmentScope = getSelectedText("#equipmentScope", "Ekipman seçilmedi");
   const duration = getSelectedText("#duration", "60 dakika");
   const days = Array.from(_form.querySelectorAll('input[name="days"]:checked')).map((item) => item.closest("label")?.textContent?.trim() || item.value);
   const dayText = days.length ? `${days.length} gün / hafta` : "Gün seçilmedi";
+  const dayList = days.length ? days.join(", ") : "Henüz gün seçilmedi";
   const repPreview = _form.querySelector("#repTemplatePreview")?.textContent?.trim().replace(/\s+/g, " ") || "Set/tekrar seçilmedi";
+  const restTime = getInputValue("#defaultRestTime") || "Dinlenme seçilmedi";
   const activeStep = Number(_form.dataset.builderWizardStep || 1);
   const nextStep = getBuilderWizardStepMeta(Math.min(activeStep + 1, 5));
 
@@ -254,17 +245,24 @@ function updateBuilderPreviewPanel() {
     <div class="builder-preview-panel__metrics">
       ${renderPreviewMetric("Hedef", goal)}
       ${renderPreviewMetric("Seviye", level)}
-      ${renderPreviewMetric("Sıklık", dayText)}
       ${renderPreviewMetric("Süre", duration)}
-      ${renderPreviewMetric("Sistem", trainingSystem)}
-      ${renderPreviewMetric("Program tipi", programStyle)}
+      ${renderPreviewMetric("Split / Program", programStyle)}
+      ${renderPreviewMetric("Seçili günler", dayText)}
+      ${renderPreviewMetric("Ekipman", equipmentScope)}
+      ${renderPreviewMetric("Dinlenme", restTime)}
     </div>
     <div class="builder-preview-panel__rep">
-      <span>Set / Tekrar Yapısı</span>
+      <span>Aktif preset</span>
       <strong>${escapeHtml(repPreview)}</strong>
+      <small>${escapeHtml(trainingSystem)}</small>
     </div>
     <div class="builder-preview-panel__next">
-      <span>Sıradaki doğru adım</span>
+      <span>PDF özeti</span>
+      <strong>Üyeye verilebilir antrenman çıktısı</strong>
+      <small>${escapeHtml(dayList)} • PDF, mail ve yazdırma akışı korunur.</small>
+    </div>
+    <div class="builder-preview-panel__next">
+      <span>Sonraki adım</span>
       <strong>${escapeHtml(nextStep.title)}</strong>
       <small>${escapeHtml(nextStep.hint)}</small>
     </div>
