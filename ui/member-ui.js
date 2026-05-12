@@ -67,34 +67,52 @@
     }
 
     if (!(model?.items || []).length) {
-      memberList.innerHTML = `<div class="empty-state compact-empty">Kayıtlı üye bulunamadı. "Program Oluştur" sekmesinden formu doldurup "Üyeyi Kaydet" ile ilk dosyayı oluşturabilirsiniz.</div>`;
+      memberList.innerHTML = `<div class="bsm-rail-empty">Kayıtlı üye yok. "Yeni Üye Ekle" ile başlayın.</div>`;
       return;
     }
 
     memberList.innerHTML = model.items
-      .map(
-        (item) => `
-          <article class="member-card member-card--full ${item.isActive ? "is-active" : ""}" data-member-id="${item.memberId}">
-            <div class="member-card__body">
-              <div class="member-card__info">
-                <strong>${escapeHtml(item.memberName)}</strong>
-                <span>${escapeHtml(item.memberCode)} • ${escapeHtml(item.goalLabel)}</span>
-                <small>${escapeHtml(item.measurementText)} • ${escapeHtml(item.programText)}</small>
-              </div>
-              ${item.isActive ? `<span class="member-card__badge">Aktif</span>` : ""}
-            </div>
-            <div class="member-card__actions">
-              <button type="button" class="ghost-button mini-button" data-member-quick-action="load-profile" data-member-id="${item.memberId}">Profili Aç</button>
-              <button type="button" class="ghost-button mini-button" data-member-quick-action="add-measurement" data-member-id="${item.memberId}">Ölçüm Ekle</button>
-              <button type="button" class="ghost-button mini-button" data-member-quick-action="build-program" data-member-id="${item.memberId}">Program Oluştur</button>
-              <button type="button" class="ghost-button mini-button" data-member-quick-action="nutrition" data-member-id="${item.memberId}">Beslenme Planı</button>
-              <button type="button" class="ghost-button mini-button" data-member-quick-action="output" data-member-id="${item.memberId}">Çıktı / PDF</button>
-              <button type="button" class="ghost-button mini-button" data-member-quick-action="history" data-member-id="${item.memberId}">Geçmiş</button>
-            </div>
-          </article>
-        `,
-      )
+      .map((item) => {
+        const initials = escapeHtml(buildMemberInitials(item.memberName, item.memberCode));
+        const goalLabel = escapeHtml(item.goalLabel || item.memberCode || "Hedef yok");
+        const statusClass = resolveRailStatusClass(item);
+        const photoSrc = item.photo ? escapeHtml(item.photo) : "";
+        const avatarHtml = photoSrc
+          ? `<img src="${photoSrc}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'" />`
+          : initials;
+        return `
+          <button type="button" class="bsm-rail-card ${item.isActive ? "is-active" : ""}" data-rail-member-id="${item.memberId}" data-member-id="${item.memberId}" role="listitem">
+            <span class="bsm-rail-card__avatar" aria-hidden="true">${avatarHtml}</span>
+            <span class="bsm-rail-card__body">
+              <span class="bsm-rail-card__name">${escapeHtml(item.memberName)}</span>
+              <span class="bsm-rail-card__goal">${goalLabel}</span>
+            </span>
+            <span class="bsm-rail-card__status ${statusClass}" aria-hidden="true"></span>
+          </button>
+        `;
+      })
       .join("");
+  }
+
+  function resolveRailStatusClass(item) {
+    // active = ölçümü VE programı olan
+    // warning = ölçümü VAR ama programı yok (veya tersi)
+    // default = ikisi de yok
+    const hasMeasurement = !/yok|hen[üu]z/i.test(String(item.measurementText || ""));
+    const hasProgram = !/yok|hen[üu]z/i.test(String(item.programText || ""));
+    if (hasMeasurement && hasProgram) return "bsm-rail-card__status--active";
+    if (hasMeasurement || hasProgram) return "bsm-rail-card__status--warning";
+    return "";
+  }
+
+  function buildMemberInitials(memberName, memberCode) {
+    const source = String(memberName || memberCode || "").trim();
+    if (!source) return "BSM";
+    const parts = source.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toLocaleUpperCase("tr");
+    }
+    return source.slice(0, 2).toLocaleUpperCase("tr");
   }
 
   function renderMeasurementHistory(target, model, escapeHtml) {

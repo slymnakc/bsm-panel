@@ -58,7 +58,10 @@
       "Bash(node_modules\\\\.bin\\\\playwright install *)",
       "Bash(timeout 35)",
       "Bash(npm start *)",
-      "Bash(taskkill /F /IM node.exe /T)"
+      "Bash(taskkill /F /IM node.exe /T)",
+      "PowerShell(Get-Command gh -ErrorAction SilentlyContinue)",
+      "Bash(git reset *)",
+      "Bash(git checkout *)"
     ]
   }
 }

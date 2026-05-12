@@ -140,6 +140,7 @@ const state = {
   activeScreen: "members",
   activeWorkspaceView: "members",
   activeMemberSort: "recent-update",
+  activeWizardStep: "olcum",
   pendingTanitaMeasurement: null,
   programEditMode: false,
   programDefaultSnapshot: null,
@@ -1198,13 +1199,100 @@ measurementReportBackButton?.addEventListener("click", handleMeasurementReportBa
   measurementReportPdfButton?.addEventListener("click", handlePrintMeasurementReport);
   measurementReportPrintButton?.addEventListener("click", handlePrintMeasurementReport);
   membersPanel?.addEventListener("click", handleMemberQuickAction);
-  membersPanel?.querySelector("[data-screen-target]")?.addEventListener("click", (e) => {
-    const target = e.target.closest("[data-screen-target]");
-    if (target) setActiveScreen(target.dataset.screenTarget, { userTriggered: true, silent: true });
+  membersPanel?.addEventListener("click", (e) => {
+    const target = e.target.closest("button[data-screen-target]");
+    if (!target) return;
+    if (target.hasAttribute("data-member-quick-action")) return;
+    setActiveScreen(target.dataset.screenTarget, { userTriggered: true, silent: true });
   });
+  // F5a: Member Rail kart tıklamaları — üye seçimini hızlı yapar, ekran değiştirmez.
+  membersPanel?.addEventListener("click", (e) => {
+    const railBtn = e.target.closest(".bsm-rail-card[data-rail-member-id]");
+    if (!railBtn) return;
+    const railMemberId = railBtn.dataset.railMemberId;
+    const railMember = state.members.find((m) => m.id === railMemberId);
+    if (railMember) selectActiveMemberFromRail(railMember);
+  });
+  // F5b: Wizard step + footer nav click delegasyonu
+  membersPanel?.addEventListener("click", (e) => {
+    const stepBtn = e.target.closest("button[data-wizard-step]");
+    if (stepBtn) {
+      setActiveWizardStep(stepBtn.dataset.wizardStep);
+      return;
+    }
+    const navBtn = e.target.closest("button[data-wizard-nav]");
+    if (navBtn && !navBtn.disabled) {
+      shiftWizardStep(navBtn.dataset.wizardNav === "next" ? 1 : -1);
+    }
+  });
+  // F5c: Utility Panel "Hızlı İşlemler" butonları
+  membersPanel?.addEventListener("click", (e) => {
+    const actionBtn = e.target.closest("button[data-utility-action]");
+    if (!actionBtn) return;
+    const action = actionBtn.dataset.utilityAction;
+    if (BSM_WIZARD_STEPS.find((s) => s.id === action)) {
+      setActiveWizardStep(action);
+    }
+  });
+  // F5e: Hero avatar edit overlay tıklaması → photo modal aç
+  membersPanel?.addEventListener("click", (e) => {
+    const editBtn = e.target.closest("button[data-photo-edit]");
+    if (!editBtn) return;
+    openPhotoModal(editBtn.dataset.photoEdit);
+  });
+  // F5e: Photo modal binding (idempotent)
+  bindPhotoModalHandlers();
   document.addEventListener("click", handleExerciseGifModalClick);
   document.addEventListener("error", handleExerciseGifError, true);
   document.addEventListener("keydown", handleExerciseGifModalKeydown);
+
+  setupAppShellSidebar(navigationHandlers);
+}
+
+function setupAppShellSidebar(navigationHandlers) {
+  const appSidebar = document.querySelector("#appSidebar");
+  const hamburger = document.querySelector("#appTopbarHamburger");
+  const backdrop = document.querySelector("#appSidebarBackdrop");
+  const userSlot = document.querySelector("#appTopbarUserSlot");
+  const userBadge = document.querySelector("#authUserBadge");
+
+  if (appSidebar && navigationHandlers?.handleScreenNavClick) {
+    appSidebar.addEventListener("click", navigationHandlers.handleScreenNavClick);
+  }
+
+  if (userSlot && userBadge) {
+    userSlot.appendChild(userBadge);
+  }
+
+  function setDrawer(open) {
+    const next = typeof open === "boolean" ? open : !document.body.classList.contains("app-sidebar-open");
+    document.body.classList.toggle("app-sidebar-open", next);
+    if (hamburger) hamburger.setAttribute("aria-expanded", String(next));
+  }
+
+  hamburger?.addEventListener("click", () => setDrawer());
+  backdrop?.addEventListener("click", () => setDrawer(false));
+  appSidebar?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-screen-target]")) setDrawer(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && document.body.classList.contains("app-sidebar-open")) {
+      setDrawer(false);
+    }
+  });
+
+  syncSidebarActive();
+  document.querySelector(".studio-nav")?.addEventListener("click", () => requestAnimationFrame(syncSidebarActive));
+  appSidebar?.addEventListener("click", () => requestAnimationFrame(syncSidebarActive));
+}
+
+function syncSidebarActive() {
+  const activeScreen = state.activeScreen
+    || document.querySelector(".studio-nav button.is-active")?.dataset.screenTarget
+    || "members";
+  document.querySelectorAll(".app-sidebar__item[data-screen-target]").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.screenTarget === activeScreen);
+  });
 }
 
 function handleAddCustomExercise() {
@@ -1644,7 +1732,9 @@ function handleRepetitionTemplateControlChange(event) {
 // Handler'lar hâlâ bu isimleri dependency injection ile alıyor.
 
 function setActiveScreen(screen, options) {
-  return window.BSMRouter ? window.BSMRouter.navigate(screen, options) : false;
+  const result = window.BSMRouter ? window.BSMRouter.navigate(screen, options) : false;
+  if (typeof syncSidebarActive === "function") syncSidebarActive();
+  return result;
 }
 
 function activateScreen(screenName) {
@@ -1805,6 +1895,12 @@ function upsertMemberFromCurrentForm(options = {}) {
     }
   }
 
+  // F5e: Mevcut profil fotoğrafını koru — collectFormData() photo alanı içermez,
+  // bu nedenle save sırasında photo silinmemeli. Diğer field'lar formdan gelen
+  // değerlerle güncellenmeye devam eder.
+  if (member.profile?.photo && !profile.photo) {
+    profile.photo = member.profile.photo;
+  }
   member.profile = profile;
   member.updatedAt = now;
   state.activeMemberId = member.id;
@@ -1846,6 +1942,29 @@ function loadMember(member) {
   showStatus(`${member.profile?.memberName || "Üye"} dosyası yüklendi.`, "success");
 }
 
+// F5a: Rail click wrapper — üye seçimini hızlı yapar, ekran değiştirmez.
+// loadMember() ile farkı: setActiveScreen("builder") çağırmaz, üye Üyeler ekranında kalır.
+function selectActiveMemberFromRail(member) {
+  if (!member) return;
+  state.activeMemberId = member.id;
+  state.activeMember = member;
+  state.latestMeasurement = member.measurements?.[0] || null;
+  saveActiveMemberId(member.id);
+
+  // Builder form'unu da güncel tut (sonra Program Oluştur sekmesine geçtiğinde dolu gelsin)
+  try { populateForm(member.profile || {}); } catch (e) { /* form yoksa sessiz geç */ }
+  try {
+    if (measurementDate) measurementDate.value = getTodayInputValue();
+    clearMeasurementInputs();
+  } catch (e) { /* ölçüm input'ları yoksa sessiz */ }
+  try { formHandlers?.handleLiveUpdate?.(); } catch (e) { /* */ }
+
+  state.activeNutritionPlan = normalizeNutritionPlan(member.nutritionPlan || member.nutritionPlans?.[0]) || null;
+  state.activeNutritionMemberId = member.id;
+
+  renderMemberWorkspace();
+}
+
 function renderMemberWorkspace() {
   renderDashboard();
   renderMembersKpiStrip();
@@ -1854,6 +1973,841 @@ function renderMemberWorkspace() {
   renderWorkspacePanels();
   renderNutritionWorkspace();
   renderNutritionOutput();
+  // F5b: Workspace wizard bar + footer
+  renderWizardBar();
+  renderWizardFooter();
+  // F5c: Workspace hero + content + utility panel
+  renderWorkspaceHero();
+  renderWizardContent();
+  renderUtilityPanel();
+  // F5e: Initials avatar'larına pastel HSL accent uygula
+  applyMemberAccentToAvatars(document.querySelector("#bsmMemberRail"));
+  applyMemberAccentToAvatars(document.querySelector("#bsmWorkspaceHero"));
+}
+
+// ════════════════════════════════════════════════════════════════
+// F5c: Workspace Hero + Content + Utility Panel
+// ════════════════════════════════════════════════════════════════
+
+function renderWorkspaceHero() {
+  const host = document.querySelector("#bsmWorkspaceHero");
+  if (!host) return;
+  const member = findActiveMember();
+  if (!member) {
+    host.innerHTML = `
+      <div class="bsm-hero-empty">
+        <strong>Aktif üye seçilmedi</strong>
+        <span>Sol panelden bir üye seçtiğinizde profili burada görüntülenecek.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const profile = member.profile || {};
+  const goalLabel = labelMaps.goal[profile.goal] || "Hedef belirtilmedi";
+  const initials = buildMemberInitials(profile.memberName, profile.memberCode);
+  const photo = profile.photo || null;
+  const lastUpdate = relativeTimeShort(member.updatedAt || member.createdAt);
+  const completedCount = countCompletedWizardSteps(member);
+  const progressPct = Math.round((completedCount / BSM_WIZARD_STEPS.length) * 100);
+  const memberStatus = member.measurements?.length > 0 ? "Aktif Üye" : "Yeni Üye";
+
+  const accent = getMemberAccent(member);
+  const accentStyle = `background: linear-gradient(135deg, ${accent.from} 0%, ${accent.to} 100%)`;
+
+  host.innerHTML = `
+    <div class="bsm-hero-card" data-member-id="${escapeHtml(member.id)}">
+      <button type="button" class="bsm-hero-card__avatar" data-photo-edit="${escapeHtml(member.id)}" aria-label="Profil fotoğrafını değiştir" title="Profil fotoğrafını değiştir" style="${photo ? "" : accentStyle}">
+        ${photo
+          ? `<img src="${escapeHtml(photo)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'" />`
+          : `<span class="bsm-hero-card__initials">${escapeHtml(initials)}</span>`}
+        <span class="bsm-hero-card__edit" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        </span>
+      </button>
+      <div class="bsm-hero-card__body">
+        <div class="bsm-hero-card__title">
+          <h3>${escapeHtml(profile.memberName || "İsimsiz Üye")}</h3>
+          <span class="bsm-pill bsm-pill--${memberStatus === "Aktif Üye" ? "active" : "warning"}">${escapeHtml(memberStatus)}</span>
+        </div>
+        <p class="bsm-hero-card__goal">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+          <span>Hedef: <strong>${escapeHtml(goalLabel)}</strong></span>
+        </p>
+        <p class="bsm-hero-card__meta">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <span>Son güncelleme: ${escapeHtml(lastUpdate)}</span>
+        </p>
+      </div>
+      <div class="bsm-hero-card__progress">
+        <div class="bsm-hero-card__progress-head">
+          <span>Genel İlerleme</span>
+          <strong>%${progressPct}</strong>
+        </div>
+        <div class="bsm-hero-card__progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}">
+          <span class="bsm-hero-card__progress-fill" style="width: ${progressPct}%"></span>
+        </div>
+        <small>${completedCount} / ${BSM_WIZARD_STEPS.length} adım tamamlandı</small>
+      </div>
+    </div>
+  `;
+}
+
+function countCompletedWizardSteps(member) {
+  const states = computeWizardStepStates(member);
+  return Object.values(states).filter((v) => v === "completed").length;
+}
+
+function buildMemberInitials(memberName, memberCode) {
+  const source = String(memberName || memberCode || "").trim();
+  if (!source) return "BSM";
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toLocaleUpperCase("tr");
+  return source.slice(0, 2).toLocaleUpperCase("tr");
+}
+
+// F5e: Premium pastel renk paleti (slate / blue / teal / amber / orange / rose).
+// Üye ID veya isim deterministik hash → sabit renk. Rainbow/neon yok.
+const BSM_AVATAR_PALETTE = [
+  { from: "#475569", to: "#64748b" }, // slate
+  { from: "#1e5baa", to: "#3b82f6" }, // blue
+  { from: "#0e7490", to: "#06b6d4" }, // teal
+  { from: "#b45309", to: "#f59e0b" }, // amber
+  { from: "#c2410c", to: "#f97316" }, // orange
+  { from: "#9f1239", to: "#e11d48" }, // rose
+];
+
+function bsmHashString(str) {
+  const s = String(str || "");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function getMemberAccent(memberOrProfile) {
+  const seed = memberOrProfile?.id
+    || memberOrProfile?.memberId
+    || memberOrProfile?.profile?.memberCode
+    || memberOrProfile?.profile?.memberName
+    || memberOrProfile?.memberCode
+    || memberOrProfile?.memberName
+    || "bsm";
+  const idx = bsmHashString(seed) % BSM_AVATAR_PALETTE.length;
+  return BSM_AVATAR_PALETTE[idx];
+}
+
+function applyMemberAccentToAvatars(root) {
+  if (!root) return;
+  const nodes = root.querySelectorAll("[data-member-id], [data-rail-member-id]");
+  nodes.forEach((el) => {
+    const id = el.dataset.memberId || el.dataset.railMemberId;
+    if (!id) return;
+    const member = state.members?.find?.((m) => m.id === id);
+    const seed = member ? { id: member.id, profile: member.profile } : { id };
+    const accent = getMemberAccent(seed);
+    const av = el.querySelector(".bsm-rail-card__avatar, .bsm-hero-card__avatar");
+    if (av && !av.querySelector("img")) {
+      av.style.background = `linear-gradient(135deg, ${accent.from} 0%, ${accent.to} 100%)`;
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// F5e: Profile Photo Pipeline (file → canvas crop → WebP/PNG dataURL)
+// ════════════════════════════════════════════════════════════════
+
+const BSM_PHOTO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const BSM_PHOTO_TARGET = 300;                // 300x300 square
+const BSM_PHOTO_QUALITY = 0.85;
+
+let _bsmPhotoState = {
+  memberId: null,
+  webcamStream: null,
+  pendingCaptureDataUrl: null,
+};
+
+function loadImageFromUrl(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Görsel yüklenemedi."));
+    img.src = url;
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Dosya okunamadı."));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Image element → square center crop → resize 300x300 → WebP dataURL (fallback PNG)
+function imageToSquareDataUrl(img, size = BSM_PHOTO_TARGET, quality = BSM_PHOTO_QUALITY) {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (!w || !h) throw new Error("Görsel boyutları okunamadı.");
+  const side = Math.min(w, h);
+  const sx = Math.max(0, (w - side) / 2);
+  const sy = Math.max(0, (h - side) / 2);
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+  // WebP dene, desteklenmezse PNG'ye düş
+  let dataUrl;
+  try { dataUrl = canvas.toDataURL("image/webp", quality); } catch (e) { dataUrl = null; }
+  if (!dataUrl || !dataUrl.startsWith("data:image/webp")) {
+    dataUrl = canvas.toDataURL("image/png");
+  }
+  return dataUrl;
+}
+
+async function processImageFile(file) {
+  if (!file) throw new Error("Dosya yok.");
+  if (!/^image\//.test(file.type)) throw new Error("Sadece görsel dosya kabul edilir.");
+  if (file.size > BSM_PHOTO_MAX_BYTES) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    throw new Error(`Dosya çok büyük (${mb} MB). Maksimum 5 MB olmalı.`);
+  }
+  const dataUrl = await readFileAsDataUrl(file);
+  const img = await loadImageFromUrl(dataUrl);
+  return imageToSquareDataUrl(img);
+}
+
+// Persist: member.profile.photo'yu güncelle + member-service üzerinden kaydet
+function setMemberPhoto(memberId, dataUrl) {
+  if (!memberId || !dataUrl) return null;
+  const member = state.members.find((m) => m.id === memberId);
+  if (!member) return null;
+  member.profile = { ...(member.profile || {}), photo: dataUrl };
+  member.updatedAt = new Date().toISOString();
+  if (state.activeMember?.id === memberId) {
+    state.activeMember = member;
+  }
+  persistMembers();
+  renderMemberWorkspace();
+  return member;
+}
+
+function setMemberPhotoRemove(memberId) {
+  const member = state.members.find((m) => m.id === memberId);
+  if (!member) return null;
+  if (member.profile) {
+    const { photo, ...rest } = member.profile;
+    member.profile = rest;
+  }
+  member.updatedAt = new Date().toISOString();
+  persistMembers();
+  renderMemberWorkspace();
+  return member;
+}
+
+// ── Photo Modal Control ─────────────────────────────────────────
+
+function openPhotoModal(memberId) {
+  const modal = document.querySelector("#bsmPhotoModal");
+  if (!modal || !memberId) return;
+  _bsmPhotoState.memberId = memberId;
+  _bsmPhotoState.pendingCaptureDataUrl = null;
+  setPhotoModalTab("upload");
+  showPhotoError("");
+  setPhotoLoading(false);
+  modal.classList.remove("is-hidden");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("bsm-photo-modal-open");
+}
+
+function closePhotoModal() {
+  const modal = document.querySelector("#bsmPhotoModal");
+  if (!modal) return;
+  stopWebcamStream();
+  resetWebcamUi();
+  _bsmPhotoState.memberId = null;
+  _bsmPhotoState.pendingCaptureDataUrl = null;
+  modal.classList.add("is-hidden");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("bsm-photo-modal-open");
+}
+
+function setPhotoModalTab(tabId) {
+  document.querySelectorAll(".bsm-photo-modal__tab").forEach((btn) => {
+    const isActive = btn.dataset.photoTab === tabId;
+    btn.classList.toggle("is-active", isActive);
+    btn.setAttribute("aria-selected", String(isActive));
+  });
+  document.querySelectorAll(".bsm-photo-tabpanel").forEach((panel) => {
+    const isActive = panel.id === `bsmPhotoTab${tabId === "upload" ? "Upload" : "Webcam"}Panel`;
+    panel.classList.toggle("is-active", isActive);
+    panel.hidden = !isActive;
+  });
+  showPhotoError("");
+  if (tabId !== "webcam") {
+    stopWebcamStream();
+    resetWebcamUi();
+  }
+}
+
+function setPhotoLoading(isLoading) {
+  const el = document.querySelector("#bsmPhotoLoading");
+  if (el) el.classList.toggle("is-hidden", !isLoading);
+}
+
+function showPhotoError(message) {
+  const el = document.querySelector("#bsmPhotoError");
+  if (!el) return;
+  el.textContent = message || "";
+  el.classList.toggle("is-visible", Boolean(message));
+}
+
+// ── File Upload (drag-drop + file picker) ───────────────────────
+
+async function handlePhotoFile(file) {
+  if (!file || !_bsmPhotoState.memberId) return;
+  try {
+    showPhotoError("");
+    setPhotoLoading(true);
+    const dataUrl = await processImageFile(file);
+    setMemberPhoto(_bsmPhotoState.memberId, dataUrl);
+    setPhotoLoading(false);
+    closePhotoModal();
+    showStatus("Profil fotoğrafı güncellendi.", "success");
+  } catch (err) {
+    setPhotoLoading(false);
+    showPhotoError(err.message || "Fotoğraf işlenemedi.");
+  }
+}
+
+function bindPhotoModalHandlers() {
+  const modal = document.querySelector("#bsmPhotoModal");
+  if (!modal) return;
+  if (modal.dataset.photoBound === "true") return;
+  modal.dataset.photoBound = "true";
+
+  // Close handlers
+  modal.querySelectorAll("[data-photo-modal-close]").forEach((el) => {
+    el.addEventListener("click", closePhotoModal);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !modal.classList.contains("is-hidden")) {
+      closePhotoModal();
+    }
+  });
+
+  // Tab switching
+  modal.querySelectorAll(".bsm-photo-modal__tab[data-photo-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => setPhotoModalTab(btn.dataset.photoTab));
+  });
+
+  // Dropzone
+  const dropzone = modal.querySelector("#bsmPhotoDropzone");
+  const fileInput = modal.querySelector("#bsmPhotoFileInput");
+  if (dropzone && fileInput) {
+    dropzone.addEventListener("click", () => fileInput.click());
+    dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("is-dragover"); });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("is-dragover"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("is-dragover");
+      const file = e.dataTransfer?.files?.[0];
+      if (file) handlePhotoFile(file);
+    });
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (file) handlePhotoFile(file);
+      fileInput.value = "";
+    });
+  }
+
+  // Webcam buttons (F5f)
+  modal.querySelector("#bsmWebcamStartBtn")?.addEventListener("click", startWebcamStream);
+  modal.querySelector("#bsmWebcamCaptureBtn")?.addEventListener("click", captureWebcamFrame);
+  modal.querySelector("#bsmWebcamRetakeBtn")?.addEventListener("click", retakeWebcamCapture);
+  modal.querySelector("#bsmWebcamConfirmBtn")?.addEventListener("click", confirmWebcamCapture);
+}
+
+// ════════════════════════════════════════════════════════════════
+// F5f: Webcam Capture (getUserMedia → canvas → WebP dataURL)
+// ════════════════════════════════════════════════════════════════
+
+function isMediaDevicesSupported() {
+  return Boolean(navigator?.mediaDevices?.getUserMedia);
+}
+
+function setWebcamStatus(message, opts = {}) {
+  const el = document.querySelector("#bsmWebcamStatus");
+  if (!el) return;
+  el.textContent = message || "";
+  el.classList.toggle("is-error", Boolean(opts.error));
+}
+
+function setWebcamButtonsVisibility({ start, capture, retake, confirm } = {}) {
+  const map = {
+    bsmWebcamStartBtn: start,
+    bsmWebcamCaptureBtn: capture,
+    bsmWebcamRetakeBtn: retake,
+    bsmWebcamConfirmBtn: confirm,
+  };
+  Object.entries(map).forEach(([id, visible]) => {
+    const el = document.querySelector("#" + id);
+    if (!el) return;
+    if (visible) el.removeAttribute("hidden");
+    else el.setAttribute("hidden", "");
+  });
+}
+
+async function startWebcamStream() {
+  if (!isMediaDevicesSupported()) {
+    setWebcamStatus("Bu tarayıcı kamera erişimini desteklemiyor. Lütfen dosya yükleme sekmesini kullanın.", { error: true });
+    setTimeout(() => setPhotoModalTab("upload"), 1200);
+    return;
+  }
+  const video = document.querySelector("#bsmWebcamVideo");
+  const placeholder = document.querySelector("#bsmWebcamPlaceholder");
+  if (!video) return;
+  try {
+    setWebcamStatus("Kamera başlatılıyor…");
+    setWebcamButtonsVisibility({ start: false });
+    // Square crop için square aspect ratio iste (cihaz desteklemezse en yakın)
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } },
+      audio: false,
+    });
+    _bsmPhotoState.webcamStream = stream;
+    video.srcObject = stream;
+    video.hidden = false;
+    if (placeholder) placeholder.hidden = true;
+    await new Promise((resolve) => {
+      const onReady = () => { video.removeEventListener("loadedmetadata", onReady); resolve(); };
+      video.addEventListener("loadedmetadata", onReady, { once: true });
+      // Some browsers fire loadedmetadata synchronously
+      if (video.readyState >= 1) resolve();
+    });
+    await video.play().catch(() => { /* autoplay engellenirse görmezden gel; muted zaten */ });
+    setWebcamStatus("Hazır. Hizalandığınızda 'Fotoğraf Çek' butonuna basın.");
+    setWebcamButtonsVisibility({ capture: true });
+  } catch (err) {
+    const code = err?.name || "";
+    let msg = "Kamera erişimi reddedildi veya başlatılamadı.";
+    if (code === "NotAllowedError" || code === "PermissionDeniedError") {
+      msg = "Kamera izni reddedildi. Lütfen dosya yükleme sekmesini kullanın.";
+    } else if (code === "NotFoundError" || code === "DevicesNotFoundError") {
+      msg = "Kamera bulunamadı. Dosya yükleme sekmesini kullanabilirsiniz.";
+    } else if (code === "NotReadableError" || code === "TrackStartError") {
+      msg = "Kamera başka bir uygulama tarafından kullanılıyor olabilir.";
+    } else if (code === "OverconstrainedError") {
+      msg = "Kamera istenen çözünürlüğü desteklemiyor.";
+    }
+    setWebcamStatus(msg, { error: true });
+    setWebcamButtonsVisibility({ start: true });
+    stopWebcamStream();
+  }
+}
+
+function captureWebcamFrame() {
+  const video = document.querySelector("#bsmWebcamVideo");
+  const canvas = document.querySelector("#bsmWebcamCanvas");
+  if (!video || !canvas || !_bsmPhotoState.webcamStream) return;
+  const vw = video.videoWidth || 720;
+  const vh = video.videoHeight || 720;
+  if (!vw || !vh) {
+    setWebcamStatus("Görüntü hazır değil, biraz bekleyip tekrar deneyin.", { error: true });
+    return;
+  }
+  const side = Math.min(vw, vh);
+  const sx = Math.max(0, (vw - side) / 2);
+  const sy = Math.max(0, (vh - side) / 2);
+  canvas.width = BSM_PHOTO_TARGET;
+  canvas.height = BSM_PHOTO_TARGET;
+  const ctx = canvas.getContext("2d");
+  // Video aynalı gösteriliyor → kullanıcı kendini doğal görüyor.
+  // Çekilen fotoğrafta da aynalı kaydet (selfie tutarlılığı için).
+  ctx.save();
+  ctx.translate(BSM_PHOTO_TARGET, 0);
+  ctx.scale(-1, 1);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(video, sx, sy, side, side, 0, 0, BSM_PHOTO_TARGET, BSM_PHOTO_TARGET);
+  ctx.restore();
+
+  let dataUrl;
+  try { dataUrl = canvas.toDataURL("image/webp", BSM_PHOTO_QUALITY); } catch (e) { dataUrl = null; }
+  if (!dataUrl || !dataUrl.startsWith("data:image/webp")) {
+    dataUrl = canvas.toDataURL("image/png");
+  }
+  _bsmPhotoState.pendingCaptureDataUrl = dataUrl;
+
+  // Show preview: hide video, show canvas
+  video.hidden = true;
+  canvas.hidden = false;
+  setWebcamStatus("Fotoğrafı onaylayın veya tekrar çekin.");
+  setWebcamButtonsVisibility({ retake: true, confirm: true });
+}
+
+function retakeWebcamCapture() {
+  const video = document.querySelector("#bsmWebcamVideo");
+  const canvas = document.querySelector("#bsmWebcamCanvas");
+  if (canvas) canvas.hidden = true;
+  if (video) video.hidden = false;
+  _bsmPhotoState.pendingCaptureDataUrl = null;
+  setWebcamStatus("Hazır olduğunuzda tekrar 'Fotoğraf Çek'.");
+  setWebcamButtonsVisibility({ capture: true });
+}
+
+function confirmWebcamCapture() {
+  const dataUrl = _bsmPhotoState.pendingCaptureDataUrl;
+  const memberId = _bsmPhotoState.memberId;
+  if (!dataUrl || !memberId) return;
+  setMemberPhoto(memberId, dataUrl);
+  stopWebcamStream();
+  closePhotoModal();
+  showStatus("Profil fotoğrafı güncellendi.", "success");
+}
+
+function stopWebcamStream() {
+  if (_bsmPhotoState.webcamStream) {
+    try { _bsmPhotoState.webcamStream.getTracks().forEach((t) => t.stop()); } catch (e) { /* */ }
+    _bsmPhotoState.webcamStream = null;
+  }
+  const video = document.querySelector("#bsmWebcamVideo");
+  if (video) {
+    try { video.pause(); } catch (e) { /* */ }
+    video.srcObject = null;
+  }
+}
+
+function resetWebcamUi() {
+  const video = document.querySelector("#bsmWebcamVideo");
+  if (video) video.srcObject = null;
+  const placeholder = document.querySelector("#bsmWebcamPlaceholder");
+  if (placeholder) placeholder.hidden = false;
+  if (video) video.hidden = true;
+  const canvas = document.querySelector("#bsmWebcamCanvas");
+  if (canvas) canvas.hidden = true;
+  setWebcamButtonsVisibility({ start: true, capture: false, retake: false, confirm: false });
+  setWebcamStatus("");
+}
+
+function relativeTimeShort(value) {
+  if (!value) return "kayıt yok";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  const diffMs = Date.now() - parsed.getTime();
+  const sec = Math.round(diffMs / 1000);
+  const min = Math.round(sec / 60);
+  const hr  = Math.round(min / 60);
+  const day = Math.round(hr / 24);
+  if (sec < 60) return "az önce";
+  if (min < 60) return `${min} dk önce`;
+  if (hr < 24) return `${hr} sa önce`;
+  if (day < 30) return `${day} gün önce`;
+  try { return parsed.toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" }); } catch (e) { return parsed.toISOString().slice(0,10); }
+}
+
+// ── Wizard Content (aktif adıma göre içerik) ────────────────────
+
+function renderWizardContent() {
+  const host = document.querySelector("#bsmWizardContent");
+  if (!host) return;
+  const member = findActiveMember();
+  if (!member) {
+    host.innerHTML = "";
+    return;
+  }
+  const step = state.activeWizardStep || "olcum";
+  switch (step) {
+    case "olcum":     host.innerHTML = renderStepOlcumHtml(member); break;
+    case "program":   host.innerHTML = renderStepGenericHtml("Program", "Program oluşturma adımı sağ paneldeki <strong>Program Oluştur</strong> butonu veya yukarıdaki wizard adımı ile açılır.", "Program oluştur sekmesinde detaylı form vardır."); break;
+    case "beslenme":  host.innerHTML = renderStepGenericHtml("Beslenme Planı", "Beslenme planı sağ paneldeki <strong>Beslenme Planı</strong> butonu veya wizard adımı ile açılır.", "Beslenme sekmesinde üyeye özel plan oluşturulur."); break;
+    case "pdf":       host.innerHTML = renderStepGenericHtml("PDF Çıktısı", "PDF üretimi için önce program oluşturulmalı. Üye Çıktısı sekmesinde indirme seçenekleri yer alır.", "Çıktı sekmesinden PDF, HTML veya mail gönderimi yapılabilir."); break;
+    case "mail":      host.innerHTML = renderStepGenericHtml("Mail Gönder", "Mail gönderimi için üyenin e-posta adresi ve hazır program gerekli.", "Çıktı sekmesinden mail butonu kullanılır."); break;
+    default:          host.innerHTML = "";
+  }
+}
+
+function renderStepGenericHtml(title, description, footnote) {
+  return `
+    <div class="bsm-step-section">
+      <header class="bsm-step-section__head">
+        <h4>${escapeHtml(title)}</h4>
+      </header>
+      <div class="bsm-step-section__body">
+        <p>${description}</p>
+        <small>${escapeHtml(footnote)}</small>
+      </div>
+    </div>
+  `;
+}
+
+function renderStepOlcumHtml(member) {
+  const latest = member?.measurements?.[0];
+  const profile = member?.profile || {};
+  const note = (latest?.note || profile.notes || "").trim();
+  const measureDate = latest ? (latest.date || "Tarih yok") : "Henüz ölçüm yok";
+  const measurementHistory = (member?.measurements || []).slice(0, 6).reverse();
+  const sparkSeries = measurementHistory.length >= 2;
+
+  const metric = (label, valueText, unit, key) => {
+    const values = measurementHistory.map((m) => num(m[key])).filter((v) => v !== null);
+    const sparkline = sparkSeries && values.length >= 2 ? buildSparklineSvg(values) : "";
+    return `
+      <article class="bsm-metric-card">
+        <span class="bsm-metric-card__label">${escapeHtml(label)}</span>
+        <strong class="bsm-metric-card__value">${escapeHtml(valueText)}${unit ? `<em>${escapeHtml(unit)}</em>` : ""}</strong>
+        ${sparkline ? `<div class="bsm-metric-card__spark">${sparkline}</div>` : `<div class="bsm-metric-card__spark bsm-metric-card__spark--empty"></div>`}
+      </article>
+    `;
+  };
+
+  const v = (key, suffix = "") => latest && latest[key] != null && latest[key] !== "" ? String(latest[key]) + suffix : "—";
+
+  return `
+    <div class="bsm-step-section">
+      <header class="bsm-step-section__head">
+        <div>
+          <h4>Vücut Analiz Sonuçları (Tanita)</h4>
+          <small>Ölçüm Tarihi: ${escapeHtml(measureDate)}</small>
+        </div>
+        ${latest
+          ? `<span class="bsm-pill bsm-pill--success"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Ölçüm mevcut</span>`
+          : `<span class="bsm-pill bsm-pill--warning">Ölçüm bekleniyor</span>`}
+      </header>
+
+      <div class="bsm-metric-grid">
+        ${metric("Kilo", v("weight"), "kg", "weight")}
+        ${metric("Vücut Yağ Oranı", v("fat"), "%", "fat")}
+        ${metric("Kas Kütlesi", v("muscleMass"), "kg", "muscleMass")}
+        ${metric("Vücut Yağ Kütlesi", v("fatMass"), "kg", "fatMass")}
+        ${metric("BMI", v("bmi"), "", "bmi")}
+        ${metric("Metabolik Yaş", v("metabolicAge"), "", "metabolicAge")}
+        ${metric("Vücut Suyu", v("bodyWater"), "%", "bodyWater")}
+        ${metric("İç Yağlanma", v("visceralFat"), "", "visceralFat")}
+      </div>
+
+      <div class="bsm-step-secondary">
+        <article class="bsm-side-card">
+          <header><h5>Notlar</h5></header>
+          <p>${note ? escapeHtml(note) : "Bu üye için henüz not eklenmemiş."}</p>
+        </article>
+        <article class="bsm-side-card">
+          <header><h5>Hedef Bilgileri</h5></header>
+          <dl class="bsm-target-list">
+            <div><dt>Hedef</dt><dd>${escapeHtml(labelMaps.goal[profile.goal] || "—")}</dd></div>
+            <div><dt>Başlangıç</dt><dd>${escapeHtml(relativeTimeShort(member?.createdAt) || "—")}</dd></div>
+            <div><dt>Hedef Kilo</dt><dd>—</dd></div>
+            <div><dt>Hedef Yağ %</dt><dd>—</dd></div>
+          </dl>
+          <small>Hedef Kilo ve Yağ % alanları gelecek sprintte builder formuna eklenecek.</small>
+        </article>
+      </div>
+    </div>
+  `;
+}
+
+function num(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function buildSparklineSvg(values) {
+  if (!values || values.length < 2) return "";
+  const w = 96; const h = 22; const pad = 2;
+  const min = Math.min(...values); const max = Math.max(...values);
+  const range = max - min || 1;
+  const dx = (w - pad * 2) / (values.length - 1);
+  const points = values.map((v, i) => {
+    const x = pad + i * dx;
+    const y = pad + (h - pad * 2) * (1 - (v - min) / range);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>`;
+}
+
+// ── Utility Panel ──────────────────────────────────────────────
+
+function renderUtilityPanel() {
+  const host = document.querySelector("#bsmUtilityPanel");
+  if (!host) return;
+  const member = findActiveMember();
+  if (!member) {
+    host.innerHTML = "";
+    return;
+  }
+  const states = computeWizardStepStates(member);
+
+  const statusRow = (id, label) => {
+    const s = states[id] || "pending";
+    const ok = s === "completed";
+    return `
+      <li class="bsm-status-row ${ok ? "is-ok" : "is-pending"}">
+        <span class="bsm-status-row__icon" aria-hidden="true">
+          ${ok
+            ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+            : `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>`}
+        </span>
+        <span class="bsm-status-row__label">${escapeHtml(label)}</span>
+        <span class="bsm-status-row__state">${ok ? "Tamamlandı" : "Eksik"}</span>
+      </li>
+    `;
+  };
+
+  host.innerHTML = `
+    <article class="bsm-utility-card bsm-utility-card--status">
+      <header class="bsm-utility-card__head">
+        <h4>Hızlı Durum</h4>
+      </header>
+      <ul class="bsm-status-list">
+        ${statusRow("olcum", "Ölçüm")}
+        ${statusRow("program", "Program")}
+        ${statusRow("beslenme", "Beslenme")}
+        ${statusRow("pdf", "PDF Çıktısı")}
+        ${statusRow("mail", "Mail Gönder")}
+      </ul>
+    </article>
+
+    <article class="bsm-utility-card bsm-utility-card--actions">
+      <header class="bsm-utility-card__head">
+        <h4>Hızlı İşlemler</h4>
+      </header>
+      <div class="bsm-action-list">
+        <button type="button" class="bsm-action-btn bsm-action-btn--blue" data-utility-action="olcum">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h3l3-9 4 18 3-9h5"></path></svg>
+          <span>Ölçüm Güncelle</span>
+        </button>
+        <button type="button" class="bsm-action-btn bsm-action-btn--orange" data-utility-action="program">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16"></path><path d="M18 4v16"></path><path d="M2 8h4"></path><path d="M2 16h4"></path><path d="M18 8h4"></path><path d="M18 16h4"></path><path d="M6 12h12"></path></svg>
+          <span>Program Oluştur</span>
+        </button>
+        <button type="button" class="bsm-action-btn bsm-action-btn--green" data-utility-action="beslenme">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2v20"></path><path d="M5 2v6a3 3 0 0 0 6 0V2"></path><path d="M18 2v20"></path><path d="M15 2c0 4 3 4 3 8"></path></svg>
+          <span>Beslenme Planı</span>
+        </button>
+        <button type="button" class="bsm-action-btn bsm-action-btn--purple" data-utility-action="pdf">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          <span>PDF Oluştur</span>
+        </button>
+        <button type="button" class="bsm-action-btn bsm-action-btn--cyan" data-utility-action="mail">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          <span>Mail Gönder</span>
+        </button>
+      </div>
+    </article>
+
+    <button type="button" class="bsm-utility-deactivate" disabled aria-disabled="true" title="Bu özellik gelecek sprintte aktif edilecek">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+      <span>Üyeyi Pasif Yap</span>
+    </button>
+  `;
+}
+
+// F5b: Wizard step bar — 5 adım: Ölçüm / Program / Beslenme / PDF / Mail
+const BSM_WIZARD_STEPS = [
+  { id: "olcum",    label: "Ölçüm",       screen: "measurements" },
+  { id: "program",  label: "Program",     screen: "builder"      },
+  { id: "beslenme", label: "Beslenme",    screen: "nutrition"    },
+  { id: "pdf",      label: "PDF Çıktısı", screen: "output"       },
+  { id: "mail",     label: "Mail Gönder", screen: "output"       },
+];
+
+function computeWizardStepStates(member) {
+  const hasMeasurement = !!(member?.measurements?.length);
+  const hasProgram = !!(member?.programs?.length);
+  const hasNutrition = !!(member?.nutritionPlan || member?.nutritionPlans?.length);
+  return {
+    olcum:    hasMeasurement ? "completed" : "pending",
+    program:  hasProgram ? "completed" : "pending",
+    beslenme: hasNutrition ? "completed" : "pending",
+    pdf:      hasProgram ? "completed" : "pending",
+    mail:     "pending",
+  };
+}
+
+function renderWizardBar() {
+  const host = document.querySelector("#bsmWizardBar");
+  if (!host) return;
+  const member = findActiveMember();
+  const states = computeWizardStepStates(member);
+  const active = state.activeWizardStep || "olcum";
+
+  if (!member) {
+    host.innerHTML = `
+      <div class="bsm-wizard-bar__empty">
+        <strong>Üye seçilmedi</strong>
+        <span>Sol panelden üye seçerek antrenör akışını başlatın.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const items = BSM_WIZARD_STEPS.map((step, index) => {
+    const stateKey = states[step.id] || "pending";
+    const isActive = step.id === active;
+    const stateClass = isActive ? "is-active" : stateKey === "completed" ? "is-completed" : "is-pending";
+    const arrow = index < BSM_WIZARD_STEPS.length - 1
+      ? `<span class="bsm-wizard-bar__arrow" aria-hidden="true">›</span>`
+      : "";
+    return `
+      <button type="button" class="bsm-wizard-step ${stateClass}" data-wizard-step="${escapeHtml(step.id)}" data-wizard-screen="${escapeHtml(step.screen)}" aria-current="${isActive ? "step" : "false"}">
+        <span class="bsm-wizard-step__circle" aria-hidden="true">
+          ${stateKey === "completed" && !isActive
+            ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+            : `<span class="bsm-wizard-step__num">${index + 1}</span>`}
+        </span>
+        <span class="bsm-wizard-step__label">${escapeHtml(step.label)}</span>
+      </button>
+      ${arrow}
+    `;
+  }).join("");
+
+  host.innerHTML = `<div class="bsm-wizard-bar__track">${items}</div>`;
+}
+
+function renderWizardFooter() {
+  const host = document.querySelector("#bsmWizardFooter");
+  if (!host) return;
+  const member = findActiveMember();
+  if (!member) {
+    host.innerHTML = "";
+    return;
+  }
+  const activeIdx = Math.max(0, BSM_WIZARD_STEPS.findIndex((s) => s.id === (state.activeWizardStep || "olcum")));
+  const prev = BSM_WIZARD_STEPS[activeIdx - 1];
+  const next = BSM_WIZARD_STEPS[activeIdx + 1];
+  host.innerHTML = `
+    <button type="button" class="bsm-wizard-nav bsm-wizard-nav--prev" data-wizard-nav="prev" ${prev ? "" : "disabled"} aria-label="Önceki adım">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+      <span>Önceki Adım${prev ? ` · ${escapeHtml(prev.label)}` : ""}</span>
+    </button>
+    <button type="button" class="bsm-wizard-nav bsm-wizard-nav--next" data-wizard-nav="next" ${next ? "" : "disabled"} aria-label="Sonraki adım">
+      <span>Sonraki Adım${next ? ` · ${escapeHtml(next.label)}` : ""}</span>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+    </button>
+  `;
+}
+
+function setActiveWizardStep(stepId, options = {}) {
+  const valid = BSM_WIZARD_STEPS.find((s) => s.id === stepId);
+  if (!valid) return;
+  state.activeWizardStep = stepId;
+  renderWizardBar();
+  renderWizardFooter();
+  if (options.navigate !== false && valid.screen) {
+    setActiveScreen(valid.screen, { userTriggered: true, silent: true });
+  }
+}
+
+function shiftWizardStep(delta) {
+  const idx = Math.max(0, BSM_WIZARD_STEPS.findIndex((s) => s.id === (state.activeWizardStep || "olcum")));
+  const nextIdx = Math.max(0, Math.min(BSM_WIZARD_STEPS.length - 1, idx + delta));
+  setActiveWizardStep(BSM_WIZARD_STEPS[nextIdx].id);
 }
 
 function renderMembersKpiStrip() {
@@ -2499,6 +3453,7 @@ function renderMemberList() {
         measurementText: lastMeasurement ? `Son ölçüm: ${lastMeasurement.date}` : "Ölçüm kaydı yok",
         programText: lastProgram ? "Program geçmişi var" : "Program kaydı yok",
         actionLabel: isActive ? "Aktif" : "Yükle",
+        photo: profile.photo || null,
       };
     }),
   };
@@ -4559,4 +5514,28 @@ function renderBackupMeta() {
 function showStatus(message, state) {
   formStatus.textContent = message;
   formStatus.dataset.state = state;
+}
+
+// F5e: Smoke test / dev-debug hook (production'da harmless — sadece okuma erişimi).
+// İçeride çalışan kodun davranışını değiştirmez; sadece testler ve devtools için.
+if (typeof window !== "undefined") {
+  window.__bsm = Object.freeze({
+    get state() { return state; },
+    get photoState() { return Object.assign({}, _bsmPhotoState); },
+    findActiveMember,
+    openPhotoModal,
+    closePhotoModal,
+    handlePhotoFile,
+    setMemberPhoto,
+    setMemberPhotoRemove,
+    processImageFile,
+    getMemberAccent,
+    // F5f webcam hooks
+    startWebcamStream,
+    captureWebcamFrame,
+    retakeWebcamCapture,
+    confirmWebcamCapture,
+    stopWebcamStream,
+    isMediaDevicesSupported,
+  });
 }

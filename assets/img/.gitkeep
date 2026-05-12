@@ -1,0 +1,5 @@
+# Bahçeşehir Spor Merkezi görsel asset klasörü
+# Beklenen dosyalar:
+#   bsm-salon-cardio.webp  (sidebar üst banner, ~480x180, WebP, <50 KB)
+#   bsm-logo.png           (topbar + sidebar logo, transparent PNG, ~240x80)
+# Dosyalar eksik olursa CSS fallback gradient devreye girer; broken image gösterilmez.
