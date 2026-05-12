@@ -1951,6 +1951,9 @@ function selectActiveMemberFromRail(member) {
   state.latestMeasurement = member.measurements?.[0] || null;
   saveActiveMemberId(member.id);
 
+  // F5j: Brief skeleton flash ile geçiş hissi ver (premium snappy feel)
+  flashWorkspaceSkeleton();
+
   // Builder form'unu da güncel tut (sonra Program Oluştur sekmesine geçtiğinde dolu gelsin)
   try { populateForm(member.profile || {}); } catch (e) { /* form yoksa sessiz geç */ }
   try {
@@ -1963,6 +1966,17 @@ function selectActiveMemberFromRail(member) {
   state.activeNutritionMemberId = member.id;
 
   renderMemberWorkspace();
+}
+
+// F5j: Workspace switch sırasında 120ms skeleton flash (CSS-only kontrol).
+// prefers-reduced-motion altinda otomatik devre disi (CSS @media).
+function flashWorkspaceSkeleton() {
+  const panel = document.querySelector("#membersPanel");
+  if (!panel) return;
+  panel.classList.add("is-switching");
+  // Re-trigger animation: force reflow
+  void panel.offsetWidth;
+  setTimeout(() => panel.classList.remove("is-switching"), 280);
 }
 
 function renderMemberWorkspace() {
@@ -2607,6 +2621,8 @@ function renderStepOlcumHtml(member) {
           <small>Hedef Kilo ve Yağ % alanları gelecek sprintte builder formuna eklenecek.</small>
         </article>
       </div>
+
+      ${buildMeasurementHistoryChartHtml(member?.measurements)}
     </div>
   `;
 }
@@ -2629,6 +2645,142 @@ function buildSparklineSvg(values) {
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>`;
+}
+
+// F5h: Ölçüm Geçmişi line chart — dual axis (Kilo kg + Yağ %), inline SVG, dependency-yok.
+function buildMeasurementHistoryChartHtml(measurements) {
+  // En son 12 ölçüm, kronolojik (eski → yeni)
+  const raw = Array.isArray(measurements) ? measurements.slice(0, 12).reverse() : [];
+  const items = raw
+    .map((m) => ({ date: m?.date, weight: num(m?.weight), fat: num(m?.fat) }))
+    .filter((m) => m.weight !== null || m.fat !== null);
+
+  if (items.length < 2) {
+    return `
+      <section class="bsm-chart-card">
+        <header class="bsm-chart-card__head">
+          <h5>Ölçüm Geçmişi</h5>
+          <span class="bsm-chart-card__hint">Trend için en az iki ölçüm gerekir.</span>
+        </header>
+        <div class="bsm-chart-empty">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M7 14l4-4 4 4 5-5"></path></svg>
+          <span>${items.length === 0 ? "Henüz ölçüm kaydı yok." : "İkinci ölçüm eklendiğinde trend grafiği açılır."}</span>
+        </div>
+      </section>
+    `;
+  }
+
+  const w = 640;
+  const h = 220;
+  const padL = 38;
+  const padR = 38;
+  const padT = 16;
+  const padB = 32;
+  const innerW = w - padL - padR;
+  const innerH = h - padT - padB;
+
+  function scale(values) {
+    const valid = values.filter((v) => v !== null);
+    if (!valid.length) return null;
+    let min = Math.min(...valid);
+    let max = Math.max(...valid);
+    const span = max - min || Math.max(1, Math.abs(max) * 0.05 || 1);
+    // Padding for readability
+    min -= span * 0.12;
+    max += span * 0.12;
+    return { min, max };
+  }
+
+  const sW = scale(items.map((m) => m.weight));
+  const sF = scale(items.map((m) => m.fat));
+
+  const xAt = (i) => padL + (items.length === 1 ? innerW / 2 : (i / (items.length - 1)) * innerW);
+  const yAt = (scaleObj, value) => {
+    if (!scaleObj || value === null) return null;
+    const t = (value - scaleObj.min) / (scaleObj.max - scaleObj.min);
+    return padT + (1 - t) * innerH;
+  };
+
+  function buildSeries(getValue, scaleObj, colorClass) {
+    if (!scaleObj) return { path: "", dots: "" };
+    const points = items.map((m, i) => {
+      const value = getValue(m);
+      if (value === null) return null;
+      return { x: xAt(i), y: yAt(scaleObj, value), value, date: m.date };
+    }).filter(Boolean);
+    if (points.length < 2) return { path: "", dots: "" };
+    const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    const dots = points.map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" class="bsm-chart-dot ${colorClass}"><title>${escapeHtml(p.date || "")} — ${p.value}</title></circle>`).join("");
+    return { path: `<path d="${pathD}" class="bsm-chart-line ${colorClass}"></path>`, dots };
+  }
+
+  const weightSeries = buildSeries((m) => m.weight, sW, "is-weight");
+  const fatSeries = buildSeries((m) => m.fat, sF, "is-fat");
+
+  // X axis labels (ilk, orta, son — en fazla 4 etiket)
+  const xLabelCount = Math.min(items.length, 4);
+  const xLabelIndices = Array.from({ length: xLabelCount }, (_, k) => Math.round(k * (items.length - 1) / Math.max(1, xLabelCount - 1)));
+  const xLabels = xLabelIndices.map((i) => {
+    const label = formatShortDate(items[i]?.date);
+    return `<text x="${xAt(i).toFixed(1)}" y="${(h - 10).toFixed(0)}" class="bsm-chart-axis-label" text-anchor="${i === 0 ? "start" : i === items.length - 1 ? "end" : "middle"}">${escapeHtml(label)}</text>`;
+  }).join("");
+
+  // Y axis tick labels
+  function yTicks(scaleObj, side) {
+    if (!scaleObj) return "";
+    const ticks = 3;
+    const items = [];
+    for (let k = 0; k <= ticks; k++) {
+      const v = scaleObj.min + (k / ticks) * (scaleObj.max - scaleObj.min);
+      const y = padT + (1 - k / ticks) * innerH;
+      const label = String(Math.round(v * 10) / 10);
+      const x = side === "left" ? padL - 6 : w - padR + 6;
+      const anchor = side === "left" ? "end" : "start";
+      items.push(`<text x="${x.toFixed(0)}" y="${y.toFixed(1)}" class="bsm-chart-axis-label bsm-chart-axis-label--${side}" text-anchor="${anchor}" dominant-baseline="middle">${escapeHtml(label)}</text>`);
+    }
+    return items.join("");
+  }
+
+  // Grid lines (yatay 3 çizgi)
+  const gridLines = [0, 1, 2, 3].map((k) => {
+    const y = padT + (k / 3) * innerH;
+    return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${(w - padR).toFixed(0)}" y2="${y.toFixed(1)}" class="bsm-chart-grid"></line>`;
+  }).join("");
+
+  return `
+    <section class="bsm-chart-card">
+      <header class="bsm-chart-card__head">
+        <h5>Ölçüm Geçmişi</h5>
+        <div class="bsm-chart-legend" aria-hidden="true">
+          ${sW ? `<span class="bsm-chart-legend__item is-weight"><i></i>Kilo (kg)</span>` : ""}
+          ${sF ? `<span class="bsm-chart-legend__item is-fat"><i></i>Yağ Oranı (%)</span>` : ""}
+        </div>
+      </header>
+      <div class="bsm-chart-card__body">
+        <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Üye ölçüm geçmişi: kilo ve yağ oranı trendi" preserveAspectRatio="xMidYMid meet" class="bsm-chart-svg">
+          ${gridLines}
+          ${yTicks(sW, "left")}
+          ${yTicks(sF, "right")}
+          ${weightSeries.path}
+          ${fatSeries.path}
+          ${weightSeries.dots}
+          ${fatSeries.dots}
+          ${xLabels}
+        </svg>
+      </div>
+    </section>
+  `;
+}
+
+function formatShortDate(value) {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value).slice(0, 10);
+  try {
+    return parsed.toLocaleDateString("tr-TR", { day: "2-digit", month: "short" });
+  } catch (e) {
+    return parsed.toISOString().slice(5, 10);
+  }
 }
 
 // ── Utility Panel ──────────────────────────────────────────────
