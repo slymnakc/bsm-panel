@@ -12791,3 +12791,138 @@ body.bsm-photo-modal-open { overflow: hidden; }
   .bsm-photo-modal__head, .bsm-photo-modal__body { padding-left: 14px; padding-right: 14px; }
   .bsm-photo-dropzone { padding: 24px 12px; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   BSM Ölçüm Geçmişi Chart (F5h) — inline SVG dual-axis line
+   ════════════════════════════════════════════════════════════════ */
+
+.bsm-chart-card {
+  background: #fafbfd;
+  border: 1px solid var(--bsm-border-light);
+  border-radius: 14px;
+  padding: 14px 16px 10px;
+  margin-top: 12px;
+}
+
+.bsm-chart-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.bsm-chart-card__head h5 {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft);
+}
+
+.bsm-chart-card__hint {
+  font-size: 0.74rem;
+  color: var(--bsm-text-on-light-soft);
+  font-style: italic;
+}
+
+.bsm-chart-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.74rem;
+  color: var(--bsm-text-on-light-soft);
+  font-weight: 600;
+}
+
+.bsm-chart-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.bsm-chart-legend__item i {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.bsm-chart-legend__item.is-weight i { background: var(--bsm-blue); }
+.bsm-chart-legend__item.is-weight { color: var(--bsm-blue); }
+
+.bsm-chart-legend__item.is-fat i { background: var(--bsm-orange); }
+.bsm-chart-legend__item.is-fat { color: var(--bsm-orange); }
+
+.bsm-chart-card__body {
+  width: 100%;
+}
+
+.bsm-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 240px;
+}
+
+.bsm-chart-grid {
+  stroke: rgba(17, 24, 39, 0.07);
+  stroke-width: 1;
+  fill: none;
+}
+
+.bsm-chart-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* F5i'de animasyon eklenir */
+}
+
+.bsm-chart-line.is-weight { stroke: var(--bsm-blue); }
+.bsm-chart-line.is-fat { stroke: var(--bsm-orange); }
+
+.bsm-chart-dot {
+  stroke: #fff;
+  stroke-width: 2;
+  transition: r 0.15s ease, stroke-width 0.15s ease;
+}
+
+.bsm-chart-dot.is-weight { fill: var(--bsm-blue); }
+.bsm-chart-dot.is-fat { fill: var(--bsm-orange); }
+
+.bsm-chart-dot:hover {
+  r: 5.5;
+  cursor: pointer;
+}
+
+.bsm-chart-axis-label {
+  font-family: var(--bsm-font);
+  font-size: 10px;
+  fill: var(--bsm-text-on-light-soft);
+  font-weight: 500;
+}
+
+.bsm-chart-axis-label--left { fill: var(--bsm-blue); }
+.bsm-chart-axis-label--right { fill: var(--bsm-orange); }
+
+.bsm-chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 28px 16px;
+  color: var(--bsm-text-on-light-soft);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.bsm-chart-empty svg { opacity: 0.4; }
+
+@media (max-width: 480px) {
+  .bsm-chart-card { padding: 12px; }
+  .bsm-chart-svg { max-height: 180px; }
+}
