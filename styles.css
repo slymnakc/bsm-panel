@@ -13317,3 +13317,110 @@ body.bsm-photo-modal-open { overflow: hidden; }
     filter: none !important;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   v1.1.2: Panel Header Cleanup
+   Tum panellerin ustundeki "kicker + buyuk h2 + uzun lead text"
+   showcase alani sadelestirildi. Action butonlari ve form
+   elementleri korunur — sadece dekoratif basliklar gizlenir.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Builder panel — "Üye Antrenman Planı / Üye ve Program Bilgileri" başlık bloğu */
+.app-main .panel--form > .section-heading > div > .section-kicker,
+.app-main .panel--form > .section-heading > div > h2 {
+  display: none;
+}
+
+/* Measurement panel — kicker + h2 + uzun aciklama gizli; activeMemberCard korunur */
+.app-main .measurement-panel__header > div:first-child > .section-kicker,
+.app-main .measurement-panel__header > div:first-child > h2,
+.app-main .measurement-panel__header > div:first-child > span {
+  display: none;
+}
+
+.app-main .measurement-panel__header {
+  /* Sağdaki activeMemberCard tek başına kalsın; kompakt yer */
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+  margin-bottom: 12px;
+}
+
+/* Nutrition + Library + Output paneller — results__header sol blok sadelestirilir */
+.app-main .nutrition-panel .results__header > div:first-child > .section-kicker,
+.app-main .nutrition-panel .results__header > div:first-child > h2,
+.app-main .nutrition-panel .results__header > div:first-child > p,
+.app-main .library-panel .results__header > div:first-child > .section-kicker,
+.app-main .library-panel .results__header > div:first-child > h2,
+.app-main .library-panel .results__header > div:first-child > p,
+.app-main .results.screen-panel .results__header > div:first-child > .section-kicker,
+.app-main .results.screen-panel .results__header > div:first-child > p {
+  display: none;
+}
+
+/* Output panelinde h2 (id="resultsTitle") DAHA KÜÇÜK kalsın — program adını gösterir */
+.app-main .results.screen-panel .results__header > div:first-child > h2#resultsTitle {
+  font-size: 1.05rem;
+  margin: 0;
+  color: var(--bsm-text-on-light);
+  font-family: var(--bsm-font);
+}
+
+/* Settings panel — h2 küçük, kicker + uzun aciklama gizli */
+.app-main .settings-panel__header > div > .section-kicker,
+.app-main .settings-panel__header > div > span {
+  display: none;
+}
+
+.app-main .settings-panel__header > div > h2 {
+  font-size: 1.05rem;
+  margin: 0;
+  color: var(--bsm-text-on-light);
+  font-family: var(--bsm-font);
+}
+
+.app-main .settings-panel__header {
+  margin-bottom: 14px;
+}
+
+/* Measurement report ekrani — measurement-report-toolbar başlık alanı */
+.app-main .measurement-report .measurement-report-toolbar > div:first-child > .section-kicker,
+.app-main .measurement-report .measurement-report-toolbar > div:first-child > h2,
+.app-main .measurement-report .measurement-report-toolbar > div:first-child > span {
+  display: none;
+}
+
+/* Üst panel boşlukları kompakt — fold üstünde daha fazla içerik */
+.app-main .measurement-panel,
+.app-main .nutrition-panel,
+.app-main .library-panel,
+.app-main .results.screen-panel,
+.app-main .measurement-report {
+  padding-top: 18px;
+}
+
+/* Builder panel'in en üstündeki dev boşluk azaltılır */
+.app-main .panel--form > .section-heading {
+  padding-top: 0;
+  margin-bottom: 12px;
+  min-height: 0;
+}
+
+/* Studio-nav (sub-nav) ile screen panel arası nefes alanı kompakt */
+.app-main > .studio-nav + * {
+  margin-top: 0;
+}
+
+/* Mobile uyumu — kompakt header'lar mobilde de düzgün */
+@media (max-width: 720px) {
+  .app-main .measurement-panel__header > div:first-child,
+  .app-main .nutrition-panel .results__header > div:first-child,
+  .app-main .library-panel .results__header > div:first-child,
+  .app-main .results.screen-panel .results__header > div:first-child {
+    /* Gizli elementler nedeniyle bos div kalmasin */
+    display: none;
+  }
+  .app-main .measurement-panel__header {
+    justify-content: flex-start;
+  }
+}
