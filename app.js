@@ -898,14 +898,507 @@ function prepareMeasurementTabLayout() {
 
   const measurementWorkspaceCard = document.querySelector('[data-workspace-panel="measurements"]');
 
-  if (!measurementWorkspaceCard || measurementWorkspaceCard.parentElement === measurementTabMount) {
+  if (measurementWorkspaceCard && measurementWorkspaceCard.parentElement !== measurementTabMount) {
+    // UI-only refactor, logic preserved: measurement inputs/buttons keep their ids and existing handlers.
+    measurementWorkspaceCard.classList.remove("is-hidden");
+    measurementWorkspaceCard.classList.add("measurement-module-card");
+    measurementTabMount.appendChild(measurementWorkspaceCard);
+  }
+
+  preparePremiumMeasurementLayout();
+}
+
+function preparePremiumMeasurementLayout() {
+  if (!measurementsPanel || measurementsPanel.dataset.premiumUiReady === "true") {
     return;
   }
 
-  // UI-only refactor, logic preserved: measurement inputs/buttons keep their ids and existing handlers.
-  measurementWorkspaceCard.classList.remove("is-hidden");
-  measurementWorkspaceCard.classList.add("measurement-module-card");
-  measurementTabMount.appendChild(measurementWorkspaceCard);
+  const header = measurementsPanel.querySelector(".measurement-panel__header");
+  const stepper = measurementsPanel.querySelector(".measurement-flow-steps");
+  const workspace = measurementsPanel.querySelector(".measurement-workspace");
+
+  if (!header || !workspace) {
+    return;
+  }
+
+  measurementsPanel.dataset.premiumUiReady = "true";
+  measurementsPanel.classList.add("measurement-panel--premium");
+
+  prepareMeasurementTopActions(header);
+
+  const shell = document.createElement("div");
+  shell.className = "measurement-saas-shell";
+  shell.innerHTML = `
+    <aside class="measurement-saas-left" aria-label="Aktif üye ve son ölçüm"></aside>
+    <div class="measurement-saas-main"></div>
+    <aside class="measurement-saas-right" aria-label="Ölçüm içgörüleri"></aside>
+  `;
+
+  if (stepper?.nextSibling) {
+    stepper.parentNode.insertBefore(shell, stepper.nextSibling);
+  } else {
+    measurementsPanel.appendChild(shell);
+  }
+
+  const leftColumn = shell.querySelector(".measurement-saas-left");
+  const mainColumn = shell.querySelector(".measurement-saas-main");
+  const rightColumn = shell.querySelector(".measurement-saas-right");
+
+  if (measurementActiveMemberCard) {
+    leftColumn.appendChild(measurementActiveMemberCard);
+  }
+
+  if (measurementTabNotice) {
+    leftColumn.appendChild(measurementTabNotice);
+  }
+
+  const historyCard = document.createElement("section");
+  historyCard.className = "measurement-side-card measurement-history-card";
+  historyCard.innerHTML = `
+    <div class="measurement-side-card__head">
+      <span>Son Ölçüm Özeti</span>
+      <small>Aktif üyenin kayıt geçmişi</small>
+    </div>
+  `;
+  if (measurementHistory) {
+    historyCard.appendChild(measurementHistory);
+  }
+  leftColumn.appendChild(historyCard);
+
+  mainColumn.appendChild(workspace);
+
+  prepareMeasurementFormSections(workspace);
+  prepareMeasurementWorkspaceCards(workspace);
+
+  const insightPanel = document.createElement("section");
+  insightPanel.className = "measurement-insight-panel";
+  insightPanel.id = "measurementInsightPanel";
+  rightColumn.appendChild(insightPanel);
+
+  const programHistoryCard = workspace.querySelector(".measurement-workspace__history");
+  if (programHistoryCard) {
+    programHistoryCard.classList.add("measurement-side-card");
+    rightColumn.appendChild(programHistoryCard);
+  }
+
+  renderMeasurementPremiumInsight(findActiveMember());
+  measurementsPanel.addEventListener("click", handleMeasurementPremiumAction);
+}
+
+function prepareMeasurementTopActions(header) {
+  let actionBar = header.querySelector(".measurement-top-actions");
+
+  if (!actionBar) {
+    actionBar = document.createElement("div");
+    actionBar.className = "measurement-top-actions";
+    actionBar.innerHTML = `
+      <button type="button" class="ghost-button measurement-top-action" data-measurement-ui-action="load-saved">Son Kaydı Yükle</button>
+      <button type="button" class="ghost-button measurement-top-action" data-measurement-ui-action="new-member">Yeni Üye</button>
+    `;
+    header.appendChild(actionBar);
+  }
+
+  if (buildMeasurementReportButton) {
+    buildMeasurementReportButton.classList.add("measurement-top-primary");
+    actionBar.appendChild(buildMeasurementReportButton);
+  }
+}
+
+function prepareMeasurementFormSections(workspace) {
+  const sourceGrid = workspace?.querySelector(".measurement-grid");
+
+  if (!sourceGrid || workspace.querySelector(".measurement-form-sections")) {
+    return;
+  }
+
+  const sections = [
+    {
+      title: "Temel Bilgiler",
+      text: "Tarih, kilo, boy, BMI ve doğum tarihi.",
+      selectors: ["#measurementDate", "#measurementWeight", "#measurementHeight", "#measurementBmi", "#measurementBirthDay"],
+    },
+    {
+      title: "Vücut Kompozisyonu",
+      text: "Tanita ve manuel vücut kompozisyon değerleri.",
+      selectors: [
+        "#measurementFat",
+        "#measurementFatMass",
+        "#measurementMuscleMass",
+        "#measurementBodyWater",
+        "#measurementVisceralFat",
+        "#measurementBmr",
+        "#measurementMetabolicAge",
+        "#measurementBoneMass",
+      ],
+    },
+    {
+      title: "Çevre Ölçümleri",
+      text: "Bel, kalça ve göğüs takip alanları.",
+      selectors: ["#measurementWaist", "#measurementHip", "#measurementChest"],
+    },
+  ];
+  const wrapper = document.createElement("div");
+  wrapper.className = "measurement-form-sections";
+
+  sections.forEach((section) => {
+    const sectionEl = document.createElement("section");
+    sectionEl.className = "measurement-form-section";
+    sectionEl.innerHTML = `
+      <div class="measurement-form-section__head">
+        <strong>${escapeHtml(section.title)}</strong>
+        <span>${escapeHtml(section.text)}</span>
+      </div>
+      <div class="measurement-form-section__grid"></div>
+    `;
+    const sectionGrid = sectionEl.querySelector(".measurement-form-section__grid");
+
+    section.selectors.forEach((selector) => {
+      const input = workspace.querySelector(selector);
+      const field = input?.closest(".field");
+
+      if (field && !sectionGrid.contains(field)) {
+        sectionGrid.appendChild(field);
+      }
+    });
+
+    wrapper.appendChild(sectionEl);
+  });
+
+  sourceGrid.replaceWith(wrapper);
+}
+
+function prepareMeasurementWorkspaceCards(workspace) {
+  const tanitaCard = workspace?.querySelector(".tanita-import-card");
+  const reportEntry = workspace?.querySelector(".measurement-report-entry");
+  const details = [...(workspace?.querySelectorAll(".segmental-details") || [])];
+
+  tanitaCard?.classList.add("measurement-dropzone-card");
+  details.forEach((detail, index) => {
+    detail.classList.add("measurement-accordion-card");
+    detail.dataset.measurementDetail = index === 0 ? "segmental" : "resistance";
+  });
+
+  if (reportEntry) {
+    reportEntry.classList.add("measurement-report-entry--retired");
+    reportEntry.hidden = true;
+    reportEntry.setAttribute("aria-hidden", "true");
+  }
+
+  if (saveMeasurementButton) {
+    saveMeasurementButton.classList.add("measurement-save-primary");
+  }
+}
+
+function handleMeasurementPremiumAction(event) {
+  const actionButton = event.target.closest("[data-measurement-ui-action]");
+
+  if (!actionButton) {
+    return;
+  }
+
+  const action = actionButton.dataset.measurementUiAction;
+
+  if (action === "load-saved") {
+    loadSavedButton?.click();
+    return;
+  }
+
+  if (action === "new-member") {
+    setActiveScreen("builder", { silent: true });
+    newMemberButton?.click();
+    return;
+  }
+
+  if (action === "focus-note") {
+    measurementNote?.focus();
+    return;
+  }
+
+  if (action === "compare") {
+    measurementHistory?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  if (action === "mail-info") {
+    showStatus("Ölçüm raporunu PDF olarak indirip üyeye mail ile paylaşabilirsiniz.", "info");
+  }
+}
+
+function renderMeasurementPremiumInsight(member = findActiveMember(), latestMeasurement = null) {
+  const panel = document.querySelector("#measurementInsightPanel");
+
+  if (!panel) {
+    return;
+  }
+
+  const measurement = latestMeasurement || member?.measurements?.[0] || state.latestMeasurement || null;
+  const model = buildMeasurementInsightModel(member, measurement);
+  const trendCards = buildMeasurementTrendCards(member?.measurements || []);
+
+  panel.innerHTML = `
+    <div class="measurement-insight-card measurement-score-card">
+      <div class="measurement-score-ring" style="--score:${model.score}">
+        <strong>${escapeHtml(String(model.score))}</strong>
+        <span>/100</span>
+      </div>
+      <div>
+        <span class="measurement-insight-eyebrow">Ölçüm Özeti</span>
+        <h3>Genel Skor</h3>
+        <p>${escapeHtml(model.summary)}</p>
+      </div>
+    </div>
+    <div class="measurement-insight-card measurement-status-list">
+      ${model.statuses
+        .map(
+          (item) => `
+            <div>
+              <span>${escapeHtml(item.label)}</span>
+              <strong class="measurement-status-badge is-${escapeHtml(item.state)}">${escapeHtml(item.value)}</strong>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
+    <div class="measurement-insight-card">
+      <div class="measurement-side-card__head">
+        <span>Son Ölçüm Bilgileri</span>
+        <small>${escapeHtml(model.dateText)}</small>
+      </div>
+      <div class="measurement-mini-metrics">
+        ${model.metrics
+          .map(
+            (metric) => `
+              <div>
+                <span>${escapeHtml(metric.label)}</span>
+                <strong>${escapeHtml(metric.value)}</strong>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+    </div>
+    <div class="measurement-insight-card">
+      <div class="measurement-side-card__head">
+        <span>Trend Analizi</span>
+        <small>Son 3 ölçüm</small>
+      </div>
+      <div class="measurement-trend-grid">
+        ${trendCards.map(renderMeasurementTrendCard).join("")}
+      </div>
+    </div>
+    <div class="measurement-insight-card measurement-quick-actions">
+      <button type="button" class="measurement-quick-action" data-measurement-ui-action="compare">Karşılaştır</button>
+      <button type="button" class="measurement-quick-action" data-measurement-ui-action="focus-note">Not Ekle</button>
+      <button type="button" class="measurement-quick-action" data-measurement-ui-action="mail-info">E-posta</button>
+      <span class="measurement-pdf-slot"></span>
+    </div>
+    <div class="measurement-insight-card measurement-ai-card">
+      <span>AI Önerisi</span>
+      <p>${escapeHtml(model.aiSuggestion)}</p>
+    </div>
+  `;
+
+  const pdfSlot = panel.querySelector(".measurement-pdf-slot");
+
+  if (pdfSlot && measurementTabPdfButton) {
+    measurementTabPdfButton.classList.add("measurement-quick-action", "measurement-quick-action--pdf");
+    pdfSlot.appendChild(measurementTabPdfButton);
+  }
+}
+
+function buildMeasurementInsightModel(member, measurement) {
+  if (!member) {
+    return {
+      score: 0,
+      summary: "Önce üye seçildiğinde ölçüm analizi burada görünür.",
+      dateText: "Üye bekleniyor",
+      aiSuggestion: "Üye seçimi sonrası Tanita CSV veya manuel ölçüm ile takip başlatılabilir.",
+      statuses: [
+        { label: "Veri Kalitesi", value: "Bekliyor", state: "neutral" },
+        { label: "Risk Seviyesi", value: "Belirsiz", state: "neutral" },
+        { label: "Takip Sürekliliği", value: "Başlatılmadı", state: "neutral" },
+      ],
+      metrics: buildEmptyMeasurementMetrics(),
+    };
+  }
+
+  const dataQuality = calculateMeasurementDataQuality(measurement);
+  const risk = resolveMeasurementRisk(measurement);
+  const continuity = resolveMeasurementContinuity(member.measurements || []);
+  const score = Math.max(0, Math.min(100, Math.round(dataQuality.score * 0.35 + risk.score * 0.4 + continuity.score * 0.25)));
+  const profile = member.profile || {};
+  const goalLabel = labelMaps.goal[profile.goal] || "hedef";
+  const summary = measurement
+    ? `${goalLabel} hedefi için ölçüm verisi aktif; takip kalitesi ${dataQuality.label.toLowerCase()}.`
+    : "Bu üye için ölçüm bulunmadığı için analiz beklemede.";
+
+  return {
+    score,
+    summary,
+    dateText: measurement?.date || "Ölçüm yok",
+    aiSuggestion: buildMeasurementAiSuggestion(measurement, risk, continuity),
+    statuses: [
+      { label: "Veri Kalitesi", value: dataQuality.label, state: dataQuality.state },
+      { label: "Risk Seviyesi", value: risk.label, state: risk.state },
+      { label: "Takip Sürekliliği", value: continuity.label, state: continuity.state },
+    ],
+    metrics: buildMeasurementMetrics(measurement),
+  };
+}
+
+function buildMeasurementMetrics(measurement) {
+  if (!measurement) {
+    return buildEmptyMeasurementMetrics();
+  }
+
+  return [
+    { label: "Kilo", value: formatMeasurementMetric(measurement.weight, "kg") },
+    { label: "Yağ", value: formatMeasurementMetric(measurement.fat, "%") },
+    { label: "Kas", value: formatMeasurementMetric(measurement.muscleMass, "kg") },
+    { label: "Bel", value: formatMeasurementMetric(measurement.waist, "cm") },
+  ];
+}
+
+function buildEmptyMeasurementMetrics() {
+  return [
+    { label: "Kilo", value: "Veri yok" },
+    { label: "Yağ", value: "Veri yok" },
+    { label: "Kas", value: "Veri yok" },
+    { label: "Bel", value: "Veri yok" },
+  ];
+}
+
+function calculateMeasurementDataQuality(measurement) {
+  if (!measurement) {
+    return { score: 0, label: "Bekliyor", state: "neutral" };
+  }
+
+  const fields = ["weight", "height", "fat", "muscleMass", "bmr", "waist"];
+  const filled = fields.filter((key) => Number.isFinite(Number(measurement[key]))).length;
+  const score = Math.round((filled / fields.length) * 100);
+
+  if (score >= 75) return { score, label: "İyi", state: "good" };
+  if (score >= 45) return { score, label: "Orta", state: "warning" };
+  return { score, label: "Eksik", state: "danger" };
+}
+
+function resolveMeasurementRisk(measurement) {
+  if (!measurement) {
+    return { score: 30, label: "Belirsiz", state: "neutral" };
+  }
+
+  const bmi = Number(measurement.bmi);
+  const fat = Number(measurement.fat);
+  const visceral = Number(measurement.visceralFat);
+  let penalty = 0;
+
+  if (Number.isFinite(bmi)) penalty += bmi >= 32 ? 24 : bmi >= 28 ? 12 : 0;
+  if (Number.isFinite(fat)) penalty += fat >= 35 ? 28 : fat >= 28 ? 14 : 0;
+  if (Number.isFinite(visceral)) penalty += visceral >= 13 ? 26 : visceral >= 10 ? 12 : 0;
+
+  const score = Math.max(30, 100 - penalty);
+
+  if (score >= 78) return { score, label: "Düşük", state: "good" };
+  if (score >= 58) return { score, label: "Orta", state: "warning" };
+  return { score, label: "Yüksek", state: "danger" };
+}
+
+function resolveMeasurementContinuity(measurements = []) {
+  if (measurements.length >= 3) return { score: 92, label: "İyi", state: "good" };
+  if (measurements.length >= 2) return { score: 74, label: "Takipte", state: "warning" };
+  if (measurements.length === 1) return { score: 52, label: "Yeni", state: "neutral" };
+  return { score: 25, label: "Başlatılmadı", state: "neutral" };
+}
+
+function buildMeasurementAiSuggestion(measurement, risk, continuity) {
+  if (!measurement) {
+    return "İlk ölçüm kaydedildiğinde program, beslenme ve takip önerileri daha kişisel hale gelir.";
+  }
+
+  if (risk.state === "danger") {
+    return "Yağ, BMI veya visceral değerleri dikkat istiyor; düşük etkili kardiyo, kontrollü kuvvet ve düzenli takip önerilir.";
+  }
+
+  if (continuity.state === "neutral") {
+    return "Trend analizi için 14-21 gün içinde ikinci ölçüm alınması planı daha net hale getirir.";
+  }
+
+  return "Veriler tutarlı görünüyor; hedefe göre kuvvet, kardiyo ve beslenme takip ritmini koruyun.";
+}
+
+function buildMeasurementTrendCards(measurements = []) {
+  return [
+    { key: "weight", label: "Kilo", suffix: "kg" },
+    { key: "fat", label: "Yağ %", suffix: "%" },
+    { key: "muscleMass", label: "Kas", suffix: "kg" },
+    { key: "waist", label: "Bel", suffix: "cm" },
+  ].map((item) => {
+    const values = measurements
+      .slice(0, 3)
+      .map((measurement) => Number(measurement?.[item.key]))
+      .filter(Number.isFinite);
+    const latest = values[0];
+    const previous = values[1];
+    const delta = Number.isFinite(latest) && Number.isFinite(previous) ? latest - previous : null;
+
+    return {
+      ...item,
+      value: Number.isFinite(latest) ? formatMeasurementMetric(latest, item.suffix) : "Veri yok",
+      delta,
+      values: values.slice().reverse(),
+    };
+  });
+}
+
+function renderMeasurementTrendCard(card) {
+  const deltaLabel = Number.isFinite(card.delta)
+    ? `${card.delta > 0 ? "+" : ""}${card.delta.toFixed(1)} ${card.suffix}`
+    : "2 ölçüm bekleniyor";
+  const deltaState = !Number.isFinite(card.delta) ? "neutral" : card.delta > 0 ? "up" : card.delta < 0 ? "down" : "stable";
+
+  return `
+    <article class="measurement-trend-card">
+      <div>
+        <span>${escapeHtml(card.label)}</span>
+        <strong>${escapeHtml(card.value)}</strong>
+      </div>
+      <small class="is-${escapeHtml(deltaState)}">${escapeHtml(deltaLabel)}</small>
+      ${renderMeasurementSparkline(card.values)}
+    </article>
+  `;
+}
+
+function renderMeasurementSparkline(values = []) {
+  if (values.length < 2) {
+    return `<div class="measurement-sparkline measurement-sparkline--empty"></div>`;
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const points = values
+    .map((value, index) => {
+      const x = values.length === 1 ? 50 : (index / (values.length - 1)) * 100;
+      const y = 34 - ((value - min) / range) * 28;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  return `
+    <svg class="measurement-sparkline" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points="${escapeHtml(points)}"></polyline>
+    </svg>
+  `;
+}
+
+function formatMeasurementMetric(value, suffix = "") {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "Veri yok";
+  }
+
+  return `${number.toFixed(number % 1 === 0 ? 0 : 1)} ${suffix}`.trim();
 }
 
 function setResultCardTitle(card, title) {
@@ -3301,6 +3794,11 @@ function renderMeasurementTabStatus() {
   const profile = member?.profile || {};
   const latestMeasurement = member?.measurements?.[0] || state.latestMeasurement || null;
   const memberName = profile.memberName || "Aktif üye yok";
+  const initials = buildMemberInitials(profile.memberName, profile.memberCode);
+  const accent = member ? getMemberAccent(member) : null;
+  const avatarStyle = accent ? `style="background: linear-gradient(135deg, ${accent.from} 0%, ${accent.to} 100%)"` : "";
+  const goalLabel = labelMaps.goal[profile.goal] || "Hedef belirtilmedi";
+  const levelLabel = labelMaps.level[profile.level] || "Seviye yok";
   const latestMeasurementText = latestMeasurement
     ? `${latestMeasurement.date || "Tarih yok"} • ${formatWorkflowMetric(latestMeasurement.weight, "kg") || "Kilo yok"} • ${
         formatWorkflowMetric(latestMeasurement.fat, "yağ") || "Yağ yok"
@@ -3310,13 +3808,34 @@ function renderMeasurementTabStatus() {
   if (measurementActiveMemberCard) {
     measurementActiveMemberCard.innerHTML = member
       ? `
-        <strong>${escapeHtml(memberName)}</strong>
-        <span>${escapeHtml(profile.memberCode || "Üye no yok")} • ${escapeHtml(labelMaps.goal[profile.goal] || "Hedef belirtilmedi")}</span>
-        <small>${escapeHtml(latestMeasurementText)}</small>
+        <div class="measurement-member-card__top">
+          <div class="measurement-member-avatar" ${avatarStyle}>
+            ${
+              profile.photo
+                ? `<img src="${escapeHtml(profile.photo)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'" />`
+                : `<span>${escapeHtml(initials)}</span>`
+            }
+          </div>
+          <div>
+            <span class="measurement-member-card__status">Aktif</span>
+            <strong>${escapeHtml(memberName)}</strong>
+            <small>${escapeHtml(profile.memberCode || "Üye no yok")}</small>
+          </div>
+        </div>
+        <dl class="measurement-member-card__meta">
+          <div><dt>Hedef</dt><dd>${escapeHtml(goalLabel)}</dd></div>
+          <div><dt>Seviye</dt><dd>${escapeHtml(levelLabel)}</dd></div>
+          <div><dt>Son ölçüm</dt><dd>${escapeHtml(latestMeasurement?.date || "Yok")}</dd></div>
+          <div><dt>Kilo</dt><dd>${escapeHtml(formatMeasurementMetric(latestMeasurement?.weight, "kg"))}</dd></div>
+          <div><dt>Boy</dt><dd>${escapeHtml(formatMeasurementMetric(profile.height || latestMeasurement?.height, "cm"))}</dd></div>
+        </dl>
+        <p class="measurement-member-card__summary">${escapeHtml(latestMeasurementText)}</p>
       `
       : `
-        <strong>Önce üye seçin veya yeni üye oluşturun.</strong>
-        <span>Üye ve Program sekmesinden aktif üye seçildiğinde burada görünür.</span>
+        <div class="measurement-member-card__empty">
+          <strong>Önce üye seçin veya yeni üye oluşturun.</strong>
+          <span>Üye ve Program sekmesinden aktif üye seçildiğinde burada görünür.</span>
+        </div>
       `;
   }
 
@@ -3328,6 +3847,7 @@ function renderMeasurementTabStatus() {
   }
 
   measurementsPanel?.classList.toggle("has-active-member", Boolean(member));
+  renderMeasurementPremiumInsight(member, latestMeasurement);
 }
 
 function buildWorkflowAssistantModel() {
@@ -3648,6 +4168,7 @@ function renderMeasurementHistory() {
   if (!member) {
     renderBodyAnalysisReportUi(bodyAnalysisReport, null, escapeHtml);
     renderMeasurementHistoryUi(measurementHistory, null, escapeHtml);
+    renderMeasurementPremiumInsight(null, null);
     return;
   }
 
@@ -3665,6 +4186,7 @@ function renderMeasurementHistory() {
     },
     escapeHtml,
   );
+  renderMeasurementPremiumInsight(member, measurementRecords[0] || state.latestMeasurement || null);
 }
 
 function renderProgramHistory() {
