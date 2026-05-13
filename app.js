@@ -952,36 +952,30 @@ function preparePremiumMeasurementLayout() {
     leftColumn.appendChild(measurementTabNotice);
   }
 
-  const historyCard = document.createElement("section");
-  historyCard.className = "measurement-side-card measurement-history-card";
-  historyCard.innerHTML = `
+  const summaryCard = document.createElement("section");
+  summaryCard.className = "measurement-side-card measurement-left-summary-card";
+  summaryCard.innerHTML = `
     <div class="measurement-side-card__head">
       <span>Son Ölçüm Özeti</span>
-      <small>Aktif üyenin kayıt geçmişi</small>
+      <small>Aktif üyenin hızlı görünümü</small>
     </div>
+    <div id="measurementLeftSummary" class="measurement-left-summary"></div>
   `;
-  if (measurementHistory) {
-    historyCard.appendChild(measurementHistory);
-  }
-  leftColumn.appendChild(historyCard);
+  leftColumn.appendChild(summaryCard);
 
   mainColumn.appendChild(workspace);
 
   prepareMeasurementFormSections(workspace);
   prepareMeasurementWorkspaceCards(workspace);
+  prepareMeasurementTabbedWorkspace(workspace);
 
   const insightPanel = document.createElement("section");
   insightPanel.className = "measurement-insight-panel";
   insightPanel.id = "measurementInsightPanel";
   rightColumn.appendChild(insightPanel);
 
-  const programHistoryCard = workspace.querySelector(".measurement-workspace__history");
-  if (programHistoryCard) {
-    programHistoryCard.classList.add("measurement-side-card");
-    rightColumn.appendChild(programHistoryCard);
-  }
-
   renderMeasurementPremiumInsight(findActiveMember());
+  renderMeasurementLeftSummary(findActiveMember());
   measurementsPanel.addEventListener("click", handleMeasurementPremiumAction);
 }
 
@@ -1089,7 +1083,117 @@ function prepareMeasurementWorkspaceCards(workspace) {
   }
 }
 
+function prepareMeasurementTabbedWorkspace(workspace) {
+  if (!workspace || workspace.querySelector(".measurement-inner-tabs")) {
+    return;
+  }
+
+  const tabModel = [
+    { id: "tanita", label: "Tanita CSV", hint: "Dosya yükle" },
+    { id: "manual", label: "Manuel Ölçüm", hint: "Formu düzenle" },
+    { id: "segmental", label: "Segmental Analiz", hint: "Kas / yağ / direnç" },
+    { id: "history", label: "Trend & Geçmiş", hint: "Ölçümleri incele" },
+    { id: "ai", label: "V3 Koçluk / AI", hint: "İçgörü ve takip" },
+  ];
+  const tabShell = document.createElement("section");
+  tabShell.className = "measurement-inner-tabs";
+  tabShell.innerHTML = `
+    <div class="measurement-inner-tabs__bar" role="tablist" aria-label="Ölçüm ve Tanita içerik sekmeleri">
+      ${tabModel
+        .map(
+          (tab, index) => `
+            <button
+              type="button"
+              class="measurement-inner-tab${index === 0 ? " is-active" : ""}"
+              id="measurementTabButton-${escapeHtml(tab.id)}"
+              role="tab"
+              aria-selected="${index === 0 ? "true" : "false"}"
+              aria-controls="measurementPane-${escapeHtml(tab.id)}"
+              data-measurement-tab-target="${escapeHtml(tab.id)}"
+            >
+              <strong>${escapeHtml(tab.label)}</strong>
+              <span>${escapeHtml(tab.hint)}</span>
+            </button>
+          `,
+        )
+        .join("")}
+    </div>
+    <div class="measurement-inner-tabs__content">
+      ${tabModel
+        .map(
+          (tab, index) => `
+            <div
+              class="measurement-tab-pane${index === 0 ? " is-active" : ""}"
+              id="measurementPane-${escapeHtml(tab.id)}"
+              role="tabpanel"
+              aria-labelledby="measurementTabButton-${escapeHtml(tab.id)}"
+              data-measurement-tab-pane="${escapeHtml(tab.id)}"
+              ${index === 0 ? "" : "hidden"}
+            ></div>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+
+  workspace.prepend(tabShell);
+
+  const panes = Object.fromEntries(
+    tabModel.map((tab) => [tab.id, tabShell.querySelector(`[data-measurement-tab-pane="${tab.id}"]`)]),
+  );
+  const tanitaCard = workspace.querySelector(".tanita-import-card");
+  const formSections = workspace.querySelector(".measurement-form-sections");
+  const details = [...workspace.querySelectorAll(".segmental-details")];
+  const v3Card = workspace.querySelector(".measurement-workspace__v3");
+  const programHistoryCard = workspace.querySelector(".measurement-workspace__history");
+
+  appendIfFound(panes.tanita, tanitaCard);
+  appendIfFound(panes.manual, formSections);
+  appendIfFound(panes.manual, measurementNote?.closest(".field"));
+  appendIfFound(panes.manual, saveMeasurementButton);
+
+  details.forEach((detail) => appendIfFound(panes.segmental, detail));
+  appendIfFound(panes.history, bodyAnalysisReport);
+  appendIfFound(panes.history, measurementHistory);
+  appendIfFound(panes.history, programHistoryCard);
+  appendIfFound(panes.ai, v3Card);
+
+  if (panes.segmental) {
+    panes.segmental.insertAdjacentHTML(
+      "afterbegin",
+      `<div class="measurement-tab-intro"><strong>Segmental Analiz</strong><span>Varsayılan olarak derli toplu gelir; ihtiyaç oldukça detayları açabilirsiniz.</span></div>`,
+    );
+  }
+
+  if (panes.history) {
+    panes.history.insertAdjacentHTML(
+      "afterbegin",
+      `<div id="measurementHistoryTrendHost" class="measurement-history-trend-host"></div>`,
+    );
+  }
+
+  if (panes.ai) {
+    panes.ai.insertAdjacentHTML(
+      "afterbegin",
+      `<div class="measurement-tab-intro"><strong>V3 Koçluk / AI</strong><span>Veri kalitesi, risk, revizyon ve kontrol takvimi bu alanda incelenir.</span></div>`,
+    );
+  }
+}
+
+function appendIfFound(parent, child) {
+  if (parent && child) {
+    parent.appendChild(child);
+  }
+}
+
 function handleMeasurementPremiumAction(event) {
+  const tabButton = event.target.closest("[data-measurement-tab-target]");
+
+  if (tabButton) {
+    setActiveMeasurementInnerTab(tabButton.dataset.measurementTabTarget);
+    return;
+  }
+
   const actionButton = event.target.closest("[data-measurement-ui-action]");
 
   if (!actionButton) {
@@ -1110,18 +1214,44 @@ function handleMeasurementPremiumAction(event) {
   }
 
   if (action === "focus-note") {
+    setActiveMeasurementInnerTab("manual");
     measurementNote?.focus();
     return;
   }
 
   if (action === "compare") {
-    measurementHistory?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActiveMeasurementInnerTab("history");
+    document.querySelector("#measurementPane-history")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
 
   if (action === "mail-info") {
     showStatus("Ölçüm raporunu PDF olarak indirip üyeye mail ile paylaşabilirsiniz.", "info");
   }
+}
+
+function setActiveMeasurementInnerTab(tabId = "tanita") {
+  const tabShell = measurementsPanel?.querySelector(".measurement-inner-tabs");
+
+  if (!tabShell) {
+    return;
+  }
+
+  const hasPane = [...tabShell.querySelectorAll("[data-measurement-tab-pane]")].some((pane) => pane.dataset.measurementTabPane === tabId);
+  const normalizedTabId = hasPane ? tabId : "tanita";
+  measurementsPanel.dataset.activeMeasurementTab = normalizedTabId;
+
+  tabShell.querySelectorAll("[data-measurement-tab-target]").forEach((button) => {
+    const isActive = button.dataset.measurementTabTarget === normalizedTabId;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+
+  tabShell.querySelectorAll("[data-measurement-tab-pane]").forEach((pane) => {
+    const isActive = pane.dataset.measurementTabPane === normalizedTabId;
+    pane.classList.toggle("is-active", isActive);
+    pane.hidden = !isActive;
+  });
 }
 
 function renderMeasurementPremiumInsight(member = findActiveMember(), latestMeasurement = null) {
@@ -1204,6 +1334,41 @@ function renderMeasurementPremiumInsight(member = findActiveMember(), latestMeas
     measurementTabPdfButton.classList.add("measurement-quick-action", "measurement-quick-action--pdf");
     pdfSlot.appendChild(measurementTabPdfButton);
   }
+}
+
+function renderMeasurementLeftSummary(member = findActiveMember()) {
+  const host = document.querySelector("#measurementLeftSummary");
+
+  if (!host) {
+    return;
+  }
+
+  const latestMeasurement = member?.measurements?.[0] || state.latestMeasurement || null;
+  const cards = buildMeasurementMetrics(latestMeasurement);
+
+  host.innerHTML = member
+    ? `
+      <div class="measurement-left-summary__date">${escapeHtml(latestMeasurement?.date || "Henüz ölçüm yok")}</div>
+      <div class="measurement-left-summary__grid">
+        ${cards
+          .map(
+            (card) => `
+              <div>
+                <span>${escapeHtml(card.label)}</span>
+                <strong>${escapeHtml(card.value)}</strong>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <button type="button" class="measurement-side-link" data-measurement-ui-action="compare">Tüm Geçmişi Gör</button>
+    `
+    : `
+      <div class="measurement-left-summary__empty">
+        <strong>Ölçüm bekleniyor</strong>
+        <span>Aktif üye seçildikten sonra son ölçüm özeti burada görünecek.</span>
+      </div>
+    `;
 }
 
 function buildMeasurementInsightModel(member, measurement) {
@@ -3848,6 +4013,7 @@ function renderMeasurementTabStatus() {
 
   measurementsPanel?.classList.toggle("has-active-member", Boolean(member));
   renderMeasurementPremiumInsight(member, latestMeasurement);
+  renderMeasurementLeftSummary(member);
 }
 
 function buildWorkflowAssistantModel() {
@@ -4169,6 +4335,8 @@ function renderMeasurementHistory() {
     renderBodyAnalysisReportUi(bodyAnalysisReport, null, escapeHtml);
     renderMeasurementHistoryUi(measurementHistory, null, escapeHtml);
     renderMeasurementPremiumInsight(null, null);
+    renderMeasurementLeftSummary(null);
+    renderMeasurementHistoryTrendHost([]);
     return;
   }
 
@@ -4187,6 +4355,39 @@ function renderMeasurementHistory() {
     escapeHtml,
   );
   renderMeasurementPremiumInsight(member, measurementRecords[0] || state.latestMeasurement || null);
+  renderMeasurementLeftSummary(member);
+  renderMeasurementHistoryTrendHost(measurementRecords);
+}
+
+function renderMeasurementHistoryTrendHost(measurements = []) {
+  const host = document.querySelector("#measurementHistoryTrendHost");
+
+  if (!host) {
+    return;
+  }
+
+  if (!measurements.length) {
+    host.innerHTML = `
+      <div class="measurement-history-empty">
+        <strong>Bu üye için henüz ölçüm kaydı yok.</strong>
+        <span>İlk ölçümü Tanita CSV veya manuel girişle kaydettiğinizde trend kartları otomatik oluşur.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const trendCards = buildMeasurementTrendCards(measurements);
+  const hasTrend = measurements.length > 1;
+
+  host.innerHTML = `
+    <div class="measurement-tab-intro">
+      <strong>Trend & Geçmiş</strong>
+      <span>${hasTrend ? "Son ölçümlerden kilo, yağ, kas ve bel trendi." : "Trend analizi için en az iki ölçüm gereklidir."}</span>
+    </div>
+    <div class="measurement-history-trend-grid">
+      ${trendCards.map(renderMeasurementTrendCard).join("")}
+    </div>
+  `;
 }
 
 function renderProgramHistory() {
