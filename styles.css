@@ -2355,6 +2355,34 @@ input[type="radio"] {
   font-size: 0.9rem;
 }
 
+.tanita-preview-segments {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.tanita-preview-segment-row {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(25, 51, 66, 0.08);
+  text-align: left;
+}
+
+.tanita-preview-segment-row strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.tanita-preview-segment-row span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .measurement-grid {
   display: grid;
   gap: 10px;

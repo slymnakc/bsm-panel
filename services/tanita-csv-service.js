@@ -274,8 +274,48 @@
         ["Visceral yağ", formatValue(item.visceralFat, "")],
         ["Kemik", formatValue(item.boneMass, "kg")],
       ].filter(([, value]) => value !== "-"),
+      segmentRows: buildTanitaSegmentPreviewRows(item),
       segmentSummary: `${segmentCount} segmental kas/yağ alanı, ${resistanceCount} direnç alanı okundu.`,
     };
+  }
+
+  function buildTanitaSegmentPreviewRows(measurement) {
+    const segments = measurement?.segments || {};
+    const resistance = measurement?.resistance || {};
+    const rows = [
+      {
+        label: "Sa\u011f kol",
+        muscle: formatValue(segments.rightArmMuscle, "kg"),
+        fat: formatValue(segments.rightArmFat, "kg"),
+        resistance: formatValue(resistance.rightArmResistance, "\u03a9"),
+      },
+      {
+        label: "Sol kol",
+        muscle: formatValue(segments.leftArmMuscle, "kg"),
+        fat: formatValue(segments.leftArmFat, "kg"),
+        resistance: formatValue(resistance.leftArmResistance, "\u03a9"),
+      },
+      {
+        label: "G\u00f6vde",
+        muscle: formatValue(segments.trunkMuscle, "kg"),
+        fat: formatValue(segments.trunkFat, "kg"),
+        resistance: formatValue(resistance.trunkResistance, "\u03a9"),
+      },
+      {
+        label: "Sa\u011f bacak",
+        muscle: formatValue(segments.rightLegMuscle, "kg"),
+        fat: formatValue(segments.rightLegFat, "kg"),
+        resistance: formatValue(resistance.rightLegResistance, "\u03a9"),
+      },
+      {
+        label: "Sol bacak",
+        muscle: formatValue(segments.leftLegMuscle, "kg"),
+        fat: formatValue(segments.leftLegFat, "kg"),
+        resistance: formatValue(resistance.leftLegResistance, "\u03a9"),
+      },
+    ];
+
+    return rows.filter((row) => row.muscle !== "-" || row.fat !== "-" || row.resistance !== "-");
   }
 
   function parseCsvRows(csvText) {

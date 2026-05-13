@@ -96,11 +96,77 @@ function buildMeasurementReportModel() {
 }
 
 function getLatestMeasurementForReport(member) {
+  var _state = _cfg.state || {};
+  const pendingTanitaMeasurement = _state.pendingTanitaMeasurement || null;
   const formMeasurement = readMeasurementForm();
   const latestMemberMeasurement = member?.measurements?.[0] || null;
 
-  var _state = _cfg.state || {};
-  return latestMemberMeasurement || _state.latestMeasurement || _state.pendingTanitaMeasurement || formMeasurement || null;
+  if (isPendingMeasurementForActiveMember(pendingTanitaMeasurement, member, _state)) {
+    return mergeReportMeasurementDraft(pendingTanitaMeasurement, formMeasurement);
+  }
+
+  return formMeasurement || latestMemberMeasurement || _state.latestMeasurement || null;
+}
+
+function isPendingMeasurementForActiveMember(measurement, member, state) {
+  if (!measurement) {
+    return false;
+  }
+
+  if (!member || !state?.activeMemberId) {
+    return true;
+  }
+
+  return String(member.id || "") === String(state.activeMemberId || "");
+}
+
+function mergeReportMeasurementDraft(pendingMeasurement, formMeasurement) {
+  if (!formMeasurement) {
+    return pendingMeasurement;
+  }
+
+  const merged = { ...pendingMeasurement };
+
+  Object.entries(formMeasurement).forEach(([key, value]) => {
+    if (["id", "createdAtIso", "source", "rawPayload", "time", "gender"].includes(key)) {
+      return;
+    }
+
+    if (key === "segments" || key === "resistance") {
+      merged[key] = mergeFilledReportObjects(pendingMeasurement[key], value);
+      return;
+    }
+
+    if (isReportFilledValue(value)) {
+      merged[key] = value;
+    }
+  });
+
+  return {
+    ...merged,
+    id: pendingMeasurement.id || formMeasurement.id,
+    createdAtIso: pendingMeasurement.createdAtIso || formMeasurement.createdAtIso,
+    source: pendingMeasurement.source || formMeasurement.source,
+    rawPayload: pendingMeasurement.rawPayload || formMeasurement.rawPayload,
+    time: pendingMeasurement.time || formMeasurement.time,
+    gender: pendingMeasurement.gender || formMeasurement.gender,
+  };
+}
+
+function mergeFilledReportObjects(base, override) {
+  const merged = { ...(base || {}) };
+
+  Object.entries(override || {}).forEach(([key, value]) => {
+    if (isReportFilledValue(value)) {
+      merged[key] = value;
+    }
+  });
+
+  return merged;
+}
+
+function isReportFilledValue(value) {
+  return value !== "" && value !== undefined && value !== null;
 }
 
 function getPreviousMeasurementsForReport(member, measurement) {

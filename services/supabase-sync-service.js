@@ -273,7 +273,7 @@
       member_name: text(profile.memberName || member?.memberName),
       measured_at: buildMeasuredAt(normalizedMeasurement),
       source: text(normalizedMeasurement.source) || "manual_entry",
-      raw_payload: normalizedMeasurement.rawPayload || normalizedMeasurement,
+      raw_payload: buildMeasurementRawPayload(normalizedMeasurement, measurement),
       weight: numberOrNull(normalizedMeasurement.weight),
       body_fat_percentage: numberOrNull(normalizedMeasurement.fat ?? normalizedMeasurement.bodyFatPercentage),
       fat_mass: numberOrNull(normalizedMeasurement.fatMass),
@@ -286,6 +286,20 @@
       bone_mass: numberOrNull(normalizedMeasurement.boneMass),
       segmental: normalizedMeasurement.segments || {},
       impedance: normalizedMeasurement.resistance || {},
+    };
+  }
+
+  function buildMeasurementRawPayload(normalizedMeasurement, originalMeasurement) {
+    const tanitaRawPayload = originalMeasurement?.rawPayload || normalizedMeasurement.rawPayload || null;
+
+    return {
+      ...normalizedMeasurement,
+      bodyFatPercentage: normalizedMeasurement.fat,
+      segments: normalizedMeasurement.segments || {},
+      resistance: normalizedMeasurement.resistance || {},
+      rawPayload: tanitaRawPayload,
+      tanitaRawPayload,
+      parserVersion: "tanita-csv-normalized-v2",
     };
   }
 
@@ -377,6 +391,19 @@
 
   function mapMeasurementRow(row) {
     const payload = row.raw_payload && typeof row.raw_payload === "object" ? row.raw_payload : {};
+    const tanitaRawPayload = payload.tanitaRawPayload && typeof payload.tanitaRawPayload === "object" ? payload.tanitaRawPayload : payload.rawPayload;
+    const segments = firstFilledObject(
+      row.segmental,
+      payload.segments,
+      buildSegmentsFromPayload(payload),
+      buildSegmentsFromPayload(tanitaRawPayload),
+    );
+    const resistance = firstFilledObject(
+      row.impedance,
+      payload.resistance,
+      buildResistanceFromPayload(payload),
+      buildResistanceFromPayload(tanitaRawPayload),
+    );
 
     return normalizeMeasurement({
       ...payload,
@@ -395,9 +422,58 @@
       metabolicAge: payload.metabolicAge ?? row.metabolic_age,
       visceralFat: payload.visceralFat ?? row.visceral_fat,
       boneMass: payload.boneMass ?? row.bone_mass,
-      segments: payload.segments || row.segmental || {},
-      resistance: payload.resistance || row.impedance || {},
+      segments,
+      resistance,
     });
+  }
+
+  function firstFilledObject(...objects) {
+    return objects.find(hasFilledObjectValue) || {};
+  }
+
+  function hasFilledObjectValue(value) {
+    return (
+      value &&
+      typeof value === "object" &&
+      Object.values(value).some((item) => item !== "" && item !== undefined && item !== null)
+    );
+  }
+
+  function buildSegmentsFromPayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      return {};
+    }
+
+    return {
+      rightArmMuscle: pickPayloadValue(payload.rightArmMuscle),
+      leftArmMuscle: pickPayloadValue(payload.leftArmMuscle),
+      trunkMuscle: pickPayloadValue(payload.trunkMuscle),
+      rightLegMuscle: pickPayloadValue(payload.rightLegMuscle),
+      leftLegMuscle: pickPayloadValue(payload.leftLegMuscle),
+      rightArmFat: pickPayloadValue(payload.rightArmFat),
+      leftArmFat: pickPayloadValue(payload.leftArmFat),
+      trunkFat: pickPayloadValue(payload.trunkFat),
+      rightLegFat: pickPayloadValue(payload.rightLegFat),
+      leftLegFat: pickPayloadValue(payload.leftLegFat),
+    };
+  }
+
+  function buildResistanceFromPayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      return {};
+    }
+
+    return {
+      rightArmResistance: pickPayloadValue(payload.rightArmResistance, payload.impedanceRightArm),
+      leftArmResistance: pickPayloadValue(payload.leftArmResistance, payload.impedanceLeftArm),
+      trunkResistance: pickPayloadValue(payload.trunkResistance, payload.impedanceTrunk),
+      rightLegResistance: pickPayloadValue(payload.rightLegResistance, payload.impedanceRightLeg),
+      leftLegResistance: pickPayloadValue(payload.leftLegResistance, payload.impedanceLeftLeg),
+    };
+  }
+
+  function pickPayloadValue(...values) {
+    return values.find((value) => value !== "" && value !== undefined && value !== null) ?? "";
   }
 
   function mapProgramRow(row) {

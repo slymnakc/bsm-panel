@@ -1594,10 +1594,26 @@ function renderTanitaPreview(model) {
       `,
     )
     .join("");
+  const segmentRowsHtml = (model.segmentRows || [])
+    .map(
+      (row) => `
+        <div class="tanita-preview-segment-row">
+          <strong>${escapeHtml(row.label || "-")}</strong>
+          <span>Kas: ${escapeHtml(row.muscle || "-")}</span>
+          <span>Yağ: ${escapeHtml(row.fat || "-")}</span>
+          <span>Direnç: ${escapeHtml(row.resistance || "-")}</span>
+        </div>
+      `,
+    )
+    .join("");
+  const segmentPreviewHtml = segmentRowsHtml
+    ? `<div class="tanita-preview-segments" aria-label="Segmental Tanita değerleri">${segmentRowsHtml}</div>`
+    : "";
 
   tanitaPreview.innerHTML = `
     <h5>${escapeHtml(model.title || "Tanita ölçüm önizlemesi")}</h5>
     <div class="tanita-preview-grid">${metricsHtml}</div>
+    ${segmentPreviewHtml}
     <p class="tanita-preview__summary">${escapeHtml(model.segmentSummary || "")}</p>
   `;
 }
@@ -4636,6 +4652,18 @@ function readMeasurementForm() {
     resistance: Object.fromEntries(Object.entries(segmentResistanceInputs).map(([key, input]) => [key, numberOrEmpty(input.value)])),
     note: measurementNote.value.trim(),
   };
+  const pendingTanitaMeasurement = state.pendingTanitaMeasurement && typeof state.pendingTanitaMeasurement === "object"
+    ? state.pendingTanitaMeasurement
+    : null;
+
+  if (pendingTanitaMeasurement) {
+    measurement.source = pendingTanitaMeasurement.source || measurement.source;
+    measurement.rawPayload = pendingTanitaMeasurement.rawPayload || measurement.rawPayload || null;
+    measurement.time = pendingTanitaMeasurement.time || measurement.time || "";
+    measurement.gender = pendingTanitaMeasurement.gender || measurement.gender || "";
+    measurement.fatFreeMass = firstFilledMeasurementValue(measurement.fatFreeMass, pendingTanitaMeasurement.fatFreeMass);
+    measurement.parserVersion = pendingTanitaMeasurement.parserVersion || pendingTanitaMeasurement.rawPayload?.parserVersion || "";
+  }
 
   const hasValue =
     [
@@ -4649,6 +4677,7 @@ function readMeasurementForm() {
       "fat",
       "muscleMass",
       "fatMass",
+      "fatFreeMass",
       "bodyWater",
       "visceralFat",
       "bmr",
