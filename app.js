@@ -998,6 +998,8 @@ function preparePremiumMeasurementLayout() {
   renderMeasurementLeftSummary(findActiveMember());
   renderMeasurementMemberHero(findActiveMember());
   measurementsPanel.addEventListener("click", handleMeasurementPremiumAction);
+  measurementsPanel.addEventListener("input", handleMeasurementManualDraftInput);
+  measurementsPanel.addEventListener("change", handleMeasurementManualDraftInput);
 }
 
 function prepareMeasurementTopActions(header) {
@@ -1026,13 +1028,26 @@ function prepareMeasurementFormSections(workspace) {
     return;
   }
 
+  ensureMeasurementManualExtraFields(sourceGrid);
+
   const sections = [
     {
+      badge: "A",
       title: "Temel Bilgiler",
-      text: "Tarih, kilo, boy, BMI ve doğum tarihi.",
-      selectors: ["#measurementDate", "#measurementWeight", "#measurementHeight", "#measurementBmi", "#measurementBirthDay"],
+      text: "Ölçüm zamanı, kimlik ve ana antropometrik değerler.",
+      selectors: [
+        "#measurementDate",
+        "#measurementBirthDay",
+        "#measurementHeight",
+        "#measurementAge",
+        "#measurementWeight",
+        "#measurementGender",
+        "#measurementBmi",
+        "#measurementTime",
+      ],
     },
     {
+      badge: "B",
       title: "Vücut Kompozisyonu",
       text: "Tanita ve manuel vücut kompozisyon değerleri.",
       selectors: [
@@ -1044,12 +1059,28 @@ function prepareMeasurementFormSections(workspace) {
         "#measurementBmr",
         "#measurementMetabolicAge",
         "#measurementBoneMass",
+        "#measurementProteinPercent",
+        "#measurementIntracellularWater",
       ],
     },
     {
+      badge: "C",
       title: "Çevre Ölçümleri",
-      text: "Bel, kalça ve göğüs takip alanları.",
-      selectors: ["#measurementWaist", "#measurementHip", "#measurementChest"],
+      text: "Bölgesel çevre ölçümleri ve takip alanları.",
+      selectors: [
+        "#measurementWaist",
+        "#measurementHip",
+        "#measurementChest",
+        "#measurementArmCircumference",
+        "#measurementThighCircumference",
+        "#measurementCalfCircumference",
+      ],
+    },
+    {
+      badge: "D",
+      title: "Ek Bilgiler",
+      text: "Ölçüm yöntemi, cihaz, sorumlu kişi ve kısa not.",
+      selectors: ["#measurementMethod", "#measurementDevice", "#measurementMeasuredBy", "#measurementNote"],
     },
   ];
   const wrapper = document.createElement("div");
@@ -1060,7 +1091,7 @@ function prepareMeasurementFormSections(workspace) {
     sectionEl.className = "measurement-form-section";
     sectionEl.innerHTML = `
       <div class="measurement-form-section__head">
-        <strong>${escapeHtml(section.title)}</strong>
+        <strong><span>${escapeHtml(section.badge)}</span> ${escapeHtml(section.title)}</strong>
         <span>${escapeHtml(section.text)}</span>
       </div>
       <div class="measurement-form-section__grid"></div>
@@ -1072,6 +1103,9 @@ function prepareMeasurementFormSections(workspace) {
       const field = input?.closest(".field");
 
       if (field && !sectionGrid.contains(field)) {
+        if (selector === "#measurementNote") {
+          field.classList.add("measurement-note-field");
+        }
         sectionGrid.appendChild(field);
       }
     });
@@ -1080,6 +1114,119 @@ function prepareMeasurementFormSections(workspace) {
   });
 
   sourceGrid.replaceWith(wrapper);
+  decorateMeasurementManualUnits(wrapper);
+}
+
+function ensureMeasurementManualExtraFields(sourceGrid) {
+  const extraFields = [
+    {
+      id: "measurementAge",
+      label: "Yaş",
+      type: "number",
+      attrs: { min: "5", max: "100", step: "1", readonly: "readonly", placeholder: "Otomatik" },
+    },
+    {
+      id: "measurementGender",
+      label: "Cinsiyet",
+      type: "select",
+      options: [
+        ["", "Seçin"],
+        ["female", "Kadın"],
+        ["male", "Erkek"],
+        ["other", "Belirtmek istemiyor"],
+      ],
+    },
+    { id: "measurementTime", label: "Ölçüm saati", type: "time" },
+    { id: "measurementProteinPercent", label: "Protein %", type: "number", attrs: { min: "1", max: "40", step: "0.1", placeholder: "17.2" } },
+    { id: "measurementIntracellularWater", label: "Hücre içi su %", type: "number", attrs: { min: "10", max: "80", step: "0.1", placeholder: "32.4" } },
+    { id: "measurementArmCircumference", label: "Kol çevresi", type: "number", attrs: { min: "10", max: "80", step: "0.1", placeholder: "35" } },
+    { id: "measurementThighCircumference", label: "Uyluk çevresi", type: "number", attrs: { min: "20", max: "120", step: "0.1", placeholder: "60" } },
+    { id: "measurementCalfCircumference", label: "Baldır çevresi", type: "number", attrs: { min: "15", max: "80", step: "0.1", placeholder: "38" } },
+    {
+      id: "measurementMethod",
+      label: "Ölçüm yöntemi",
+      type: "select",
+      options: [
+        ["manual_entry", "Manuel"],
+        ["tanita_bc418_csv", "Tanita BC-418 CSV"],
+        ["segmental_device", "Segmental cihaz"],
+        ["tape_measure", "Mezura"],
+      ],
+    },
+    { id: "measurementDevice", label: "Ölçüm cihazı", type: "text", attrs: { maxlength: "60", placeholder: "Tanita BC-418 / Mezura" } },
+    { id: "measurementMeasuredBy", label: "Ölçümü yapan", type: "text", attrs: { maxlength: "60", placeholder: "Antrenör adı" } },
+  ];
+
+  extraFields.forEach((config) => {
+    if (sourceGrid.querySelector(`#${config.id}`) || document.querySelector(`#${config.id}`)) {
+      return;
+    }
+
+    sourceGrid.appendChild(createMeasurementExtraField(config));
+  });
+}
+
+function createMeasurementExtraField(config) {
+  const field = document.createElement("label");
+  field.className = "field compact-field measurement-extra-field";
+  field.innerHTML = `<span>${escapeHtml(config.label)}</span>`;
+  const input = config.type === "select" ? document.createElement("select") : document.createElement("input");
+
+  input.id = config.id;
+  input.dataset.measurementExtra = "true";
+
+  if (config.type === "select") {
+    (config.options || []).forEach(([value, label]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      input.appendChild(option);
+    });
+  } else {
+    input.type = config.type || "text";
+  }
+
+  Object.entries(config.attrs || {}).forEach(([key, value]) => {
+    input.setAttribute(key, value);
+  });
+
+  field.appendChild(input);
+  return field;
+}
+
+function decorateMeasurementManualUnits(root) {
+  const unitMap = {
+    measurementWeight: "kg",
+    measurementHeight: "cm",
+    measurementFat: "%",
+    measurementFatMass: "kg",
+    measurementMuscleMass: "kg",
+    measurementBodyWater: "%",
+    measurementBmr: "kcal",
+    measurementBoneMass: "kg",
+    measurementWaist: "cm",
+    measurementHip: "cm",
+    measurementChest: "cm",
+    measurementProteinPercent: "%",
+    measurementIntracellularWater: "%",
+    measurementArmCircumference: "cm",
+    measurementThighCircumference: "cm",
+    measurementCalfCircumference: "cm",
+  };
+
+  Object.entries(unitMap).forEach(([id, unit]) => {
+    const input = root.querySelector(`#${id}`);
+
+    if (!input || input.parentElement?.classList.contains("measurement-input-unit")) {
+      return;
+    }
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "measurement-input-unit";
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+    wrapper.insertAdjacentHTML("beforeend", `<em>${escapeHtml(unit)}</em>`);
+  });
 }
 
 function prepareMeasurementWorkspaceCards(workspace) {
@@ -1202,9 +1349,32 @@ function prepareMeasurementTabbedWorkspace(workspace) {
     appendIfFound(panes.tanita.querySelector(".measurement-csv-preview-slot"), tanitaPreview);
   }
 
-  appendIfFound(panes.manual, formSections);
-  appendIfFound(panes.manual, measurementNote?.closest(".field"));
-  appendIfFound(panes.manual, saveMeasurementButton);
+  if (panes.manual) {
+    panes.manual.innerHTML = `
+      <div class="measurement-manual-dashboard">
+        <div class="measurement-manual-toolbar">
+          <div>
+            <strong>Manuel Ölçüm Girişi</strong>
+            <span>Eksik veya Tanita’dan gelen değerleri düzenleyip tek kayıt halinde üye geçmişine ekleyin.</span>
+          </div>
+          <button type="button" class="measurement-required-pill" aria-label="Zorunlu alan bilgisi">i · * Zorunlu alanlar</button>
+        </div>
+        <div class="measurement-manual-form-grid"></div>
+        <div class="measurement-manual-info-strip">
+          <div><strong>Ölçüm Notları ve Uyarılar</strong><span>Ölçüm doğru sonuç için sabah aç karna, tuvalet sonrası ve egzersiz öncesi yapılmalıdır.</span></div>
+          <div><span>Bol su tüketimi sonuçları etkileyebilir.</span></div>
+          <div><span>Her ölçüm aynı koşullarda yapılırsa trend daha güvenilir olur.</span></div>
+        </div>
+        <div class="measurement-manual-actions">
+          <button type="button" class="ghost-button" data-measurement-ui-action="clear-manual">Temizle</button>
+          <button type="button" class="secondary-button" data-measurement-ui-action="save-draft">Taslak Olarak Kaydet</button>
+          <span class="measurement-manual-save-slot"></span>
+        </div>
+      </div>
+    `;
+    appendIfFound(panes.manual.querySelector(".measurement-manual-form-grid"), formSections);
+    appendIfFound(panes.manual.querySelector(".measurement-manual-save-slot"), saveMeasurementButton);
+  }
 
   details.forEach((detail) => appendIfFound(panes.segmental, detail));
   appendIfFound(panes.history, measurementHistory);
@@ -1283,6 +1453,16 @@ function handleMeasurementPremiumAction(event) {
 
   if (action === "new-measurement") {
     prepareNewMeasurementDraft();
+    return;
+  }
+
+  if (action === "clear-manual") {
+    clearManualMeasurementDraft();
+    return;
+  }
+
+  if (action === "save-draft") {
+    saveManualMeasurementDraft();
     return;
   }
 
@@ -1643,6 +1823,10 @@ function buildMeasurementMetrics(measurement) {
     { label: "Kilo", value: formatMeasurementMetric(measurement.weight, "kg") },
     { label: "Yağ", value: formatMeasurementMetric(measurement.fat, "%") },
     { label: "Kas", value: formatMeasurementMetric(measurement.muscleMass, "kg") },
+    { label: "Su", value: formatMeasurementMetric(measurement.bodyWater, "%") },
+    { label: "Visceral", value: formatMeasurementMetric(measurement.visceralFat, "") },
+    { label: "BMR", value: formatMeasurementMetric(measurement.bmr, "kcal") },
+    { label: "BMI", value: formatMeasurementMetric(measurement.bmi, "") },
     { label: "Bel", value: formatMeasurementMetric(measurement.waist, "cm") },
   ];
 }
@@ -1652,6 +1836,10 @@ function buildEmptyMeasurementMetrics() {
     { label: "Kilo", value: "Veri yok" },
     { label: "Yağ", value: "Veri yok" },
     { label: "Kas", value: "Veri yok" },
+    { label: "Su", value: "Veri yok" },
+    { label: "Visceral", value: "Veri yok" },
+    { label: "BMR", value: "Veri yok" },
+    { label: "BMI", value: "Veri yok" },
     { label: "Bel", value: "Veri yok" },
   ];
 }
@@ -4443,6 +4631,80 @@ function getMeasurementSourceLabel(measurement) {
   return "Ölçüm";
 }
 
+function handleMeasurementManualDraftInput(event) {
+  const target = event.target;
+
+  if (!target?.matches?.("input, select, textarea")) {
+    return;
+  }
+
+  const isMeasurementInput =
+    target.id?.startsWith("measurement") ||
+    target.id?.startsWith("segment") ||
+    target.dataset.measurementExtra === "true";
+
+  if (!isMeasurementInput || target.type === "file") {
+    return;
+  }
+
+  refreshManualMeasurementDraft({ silent: true });
+}
+
+function refreshManualMeasurementDraft(options = {}) {
+  const draft = readMeasurementForm();
+  const member = findActiveMember();
+
+  syncMeasurementDerivedFields(draft);
+
+  if (!draft) {
+    if (!options.silent) {
+      showStatus("Taslak için en az bir ölçüm değeri girin.", "error");
+    }
+    return null;
+  }
+
+  const measurement = setActiveMeasurementState(draft, {
+    memberId: member?.id || state.activeMemberId || "",
+    source: draft.source || "manual-draft",
+  });
+
+  renderMeasurementPremiumInsight(member, measurement);
+  renderMeasurementLeftSummary(member);
+  renderMeasurementMemberHero(member);
+  renderMeasurementCsvAnalytics(member);
+
+  return measurement;
+}
+
+function clearManualMeasurementDraft() {
+  clearMeasurementInputs();
+  if (measurementDate) measurementDate.value = getTodayInputValue();
+  state.pendingTanitaMeasurement = null;
+  setActiveMeasurementState(findActiveMember()?.measurements?.[0] || null, { source: "saved" });
+  renderTanitaPreview(null);
+  renderMeasurementTabStatus();
+  renderMeasurementHistory();
+  showStatus("Manuel ölçüm alanları temizlendi.", "success");
+}
+
+function saveManualMeasurementDraft() {
+  const measurement = refreshManualMeasurementDraft({ silent: false });
+
+  if (!measurement) {
+    return;
+  }
+
+  showStatus("Manuel ölçüm taslağı sağ panel ve rapor önizlemesi için güncellendi. Kalıcı kayıt için Ölçümü Kaydet'e basın.", "success");
+}
+
+function syncMeasurementDerivedFields(measurement) {
+  const ageInput = document.querySelector("#measurementAge");
+
+  if (ageInput && measurement?.age !== "" && measurement?.age !== undefined && measurement?.age !== null) {
+    ageInput.value = String(measurement.age);
+  }
+}
+
 function buildWorkflowAssistantModel() {
   const activeMember = findActiveMember();
   const draftProfile = form ? collectFormData() : {};
@@ -5037,11 +5299,19 @@ function renderBodyAnalysisReport(measurements, member) {
 function readMeasurementForm() {
   const birthDateParts = readBirthDateParts();
   const calculatedAge = calculateAgeFromBirthDate(birthDateParts, measurementDate.value || getTodayInputValue());
+  const manualTime = getMeasurementExtraValue("measurementTime");
+  const manualGender = getMeasurementExtraValue("measurementGender");
+  const measurementMethod = getMeasurementExtraValue("measurementMethod");
   const measurement = {
     id: makeId("measurement"),
     createdAtIso: new Date().toISOString(),
     date: measurementDate.value || getTodayInputValue(),
-    source: "manual_entry",
+    time: manualTime,
+    gender: manualGender,
+    source: measurementMethod || "manual_entry",
+    measurementMethod: measurementMethod || "manual_entry",
+    measurementDevice: getMeasurementExtraValue("measurementDevice"),
+    measuredBy: getMeasurementExtraValue("measurementMeasuredBy"),
     weight: numberOrEmpty(measurementWeight.value),
     height: numberOrEmpty(measurementHeight.value),
     bmi: numberOrEmpty(measurementBmi?.value),
@@ -5058,13 +5328,19 @@ function readMeasurementForm() {
     bmr: numberOrEmpty(measurementBmr.value),
     metabolicAge: numberOrEmpty(measurementMetabolicAge.value),
     boneMass: numberOrEmpty(measurementBoneMass.value),
+    proteinPercent: numberOrEmpty(getMeasurementExtraValue("measurementProteinPercent")),
+    intracellularWater: numberOrEmpty(getMeasurementExtraValue("measurementIntracellularWater")),
     waist: numberOrEmpty(measurementWaist.value),
     hip: numberOrEmpty(measurementHip.value),
     chest: numberOrEmpty(measurementChest.value),
+    armCircumference: numberOrEmpty(getMeasurementExtraValue("measurementArmCircumference")),
+    thighCircumference: numberOrEmpty(getMeasurementExtraValue("measurementThighCircumference")),
+    calfCircumference: numberOrEmpty(getMeasurementExtraValue("measurementCalfCircumference")),
     segments: Object.fromEntries(Object.entries(segmentInputs).map(([key, input]) => [key, numberOrEmpty(input.value)])),
     resistance: Object.fromEntries(Object.entries(segmentResistanceInputs).map(([key, input]) => [key, numberOrEmpty(input.value)])),
     note: measurementNote.value.trim(),
   };
+  syncMeasurementDerivedFields(measurement);
   const pendingTanitaMeasurement = state.pendingTanitaMeasurement && typeof state.pendingTanitaMeasurement === "object"
     ? state.pendingTanitaMeasurement
     : null;
@@ -5072,8 +5348,8 @@ function readMeasurementForm() {
   if (pendingTanitaMeasurement) {
     measurement.source = pendingTanitaMeasurement.source || measurement.source;
     measurement.rawPayload = pendingTanitaMeasurement.rawPayload || measurement.rawPayload || null;
-    measurement.time = pendingTanitaMeasurement.time || measurement.time || "";
-    measurement.gender = pendingTanitaMeasurement.gender || measurement.gender || "";
+    measurement.time = measurement.time || pendingTanitaMeasurement.time || "";
+    measurement.gender = measurement.gender || pendingTanitaMeasurement.gender || "";
     measurement.fatFreeMass = firstFilledMeasurementValue(measurement.fatFreeMass, pendingTanitaMeasurement.fatFreeMass);
     measurement.parserVersion = pendingTanitaMeasurement.parserVersion || pendingTanitaMeasurement.rawPayload?.parserVersion || "";
   }
@@ -5096,16 +5372,30 @@ function readMeasurementForm() {
       "bmr",
       "metabolicAge",
       "boneMass",
+      "proteinPercent",
+      "intracellularWater",
       "waist",
       "hip",
       "chest",
+      "armCircumference",
+      "thighCircumference",
+      "calfCircumference",
     ].some(
       (key) => measurement[key] !== "",
     ) ||
     Object.values(measurement.segments).some((value) => value !== "") ||
     Object.values(measurement.resistance).some((value) => value !== "") ||
+    measurement.time ||
+    measurement.gender ||
+    measurement.measurementDevice ||
+    measurement.measuredBy ||
     measurement.note;
   return hasValue ? measurement : null;
+}
+
+function getMeasurementExtraValue(id) {
+  const input = document.querySelector(`#${id}`);
+  return input?.value?.trim?.() || "";
 }
 
 function clearMeasurementInputs() {
@@ -5132,6 +5422,9 @@ function clearMeasurementInputs() {
   Object.values(segmentResistanceInputs).forEach((input) => {
     input.value = "";
   });
+  getMeasurementExtraInputs().forEach((input) => {
+    input.value = input.id === "measurementMethod" ? "manual_entry" : "";
+  });
   measurementNote.value = "";
 }
 
@@ -5139,9 +5432,15 @@ function applyTanitaMeasurementToForm(measurement) {
   const source = measurement && typeof measurement === "object" ? measurement : {};
 
   setInputValue(measurementDate, source.date);
+  setInputValue(document.querySelector("#measurementTime"), source.time);
+  setInputValue(document.querySelector("#measurementGender"), source.gender);
+  setInputValue(document.querySelector("#measurementMethod"), source.measurementMethod || source.source);
+  setInputValue(document.querySelector("#measurementDevice"), source.measurementDevice || (String(source.source || "").includes("tanita") ? "Tanita BC-418" : ""));
+  setInputValue(document.querySelector("#measurementMeasuredBy"), source.measuredBy);
   setInputValue(measurementWeight, source.weight);
   setInputValue(measurementHeight, source.height);
   setInputValue(measurementBmi, source.bmi);
+  setInputValue(document.querySelector("#measurementAge"), source.age);
   setInputValue(measurementBirthDay, source.birthDay);
   setInputValue(measurementBirthMonth, source.birthMonth);
   setInputValue(measurementBirthYear, source.birthYear);
@@ -5153,6 +5452,11 @@ function applyTanitaMeasurementToForm(measurement) {
   setInputValue(measurementBmr, source.bmr);
   setInputValue(measurementMetabolicAge, source.metabolicAge);
   setInputValue(measurementBoneMass, source.boneMass);
+  setInputValue(document.querySelector("#measurementProteinPercent"), source.proteinPercent);
+  setInputValue(document.querySelector("#measurementIntracellularWater"), source.intracellularWater);
+  setInputValue(document.querySelector("#measurementArmCircumference"), source.armCircumference);
+  setInputValue(document.querySelector("#measurementThighCircumference"), source.thighCircumference);
+  setInputValue(document.querySelector("#measurementCalfCircumference"), source.calfCircumference);
 
   Object.entries(source.segments || {}).forEach(([key, value]) => {
     setInputValue(segmentInputs[key], value);
@@ -5283,9 +5587,14 @@ function mergeMeasurementIntoProfile(profile, measurement) {
     metabolicAge: measurement.metabolicAge,
     visceralFat: measurement.visceralFat,
     boneMass: measurement.boneMass,
+    proteinPercent: measurement.proteinPercent,
+    intracellularWater: measurement.intracellularWater,
     waist: measurement.waist,
     hip: measurement.hip,
     chest: measurement.chest,
+    armCircumference: measurement.armCircumference,
+    thighCircumference: measurement.thighCircumference,
+    calfCircumference: measurement.calfCircumference,
   };
 
   Object.entries(fieldMap).forEach(([key, value]) => {
@@ -5342,6 +5651,7 @@ function dispatchMeasurementInputEvents() {
     measurementBmr,
     measurementMetabolicAge,
     measurementBoneMass,
+    ...getMeasurementExtraInputs(),
     ...Object.values(segmentInputs),
     ...Object.values(segmentResistanceInputs),
     measurementNote,
@@ -5351,6 +5661,10 @@ function dispatchMeasurementInputEvents() {
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
+}
+
+function getMeasurementExtraInputs() {
+  return Array.from(document.querySelectorAll("[data-measurement-extra='true']"));
 }
 
 function readBirthDateParts() {

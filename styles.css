@@ -15099,25 +15099,92 @@ body.bsm-photo-modal-open { overflow: hidden; }
     gap: 14px;
   }
 
+  .measurement-manual-dashboard {
+    display: grid;
+    gap: 14px;
+  }
+
+  .measurement-manual-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.05);
+  }
+
+  .measurement-manual-toolbar strong {
+    display: block;
+    color: #0f172a;
+    font-size: 1rem;
+  }
+
+  .measurement-manual-toolbar span {
+    display: block;
+    margin-top: 3px;
+    color: #64748b;
+    font-size: 0.8rem;
+  }
+
+  .measurement-required-pill {
+    min-height: 34px;
+    padding: 0 12px;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 999px;
+    color: #475569;
+    background: #ffffff;
+    font-size: 0.76rem;
+    font-weight: 900;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.045);
+  }
+
+  .measurement-manual-form-grid .measurement-form-sections {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
   .measurement-form-section {
     min-width: 0;
-    padding: 15px;
+    padding: 17px;
   }
 
   .measurement-form-section__head {
-    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
   }
 
   .measurement-form-section__head strong {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     color: #0f172a;
     font-size: 0.98rem;
   }
 
-  .measurement-form-section__head span {
+  .measurement-form-section__head strong span {
+    display: inline-grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border-radius: 9px;
+    color: #ff6b00;
+    background: rgba(255, 122, 26, 0.1);
+    font-size: 0.72rem;
+    font-weight: 950;
+  }
+
+  .measurement-form-section__head > span {
+    max-width: 280px;
     color: #64748b;
     font-size: 0.78rem;
     line-height: 1.35;
+    text-align: right;
   }
 
   .measurement-form-section__grid,
@@ -15139,7 +15206,8 @@ body.bsm-photo-modal-open { overflow: hidden; }
   }
 
   .measurement-panel--premium input,
-  .measurement-panel--premium textarea {
+  .measurement-panel--premium textarea,
+  .measurement-panel--premium select {
     min-height: 40px;
     border: 1px solid rgba(15, 23, 42, 0.11);
     border-radius: 13px;
@@ -15150,9 +15218,49 @@ body.bsm-photo-modal-open { overflow: hidden; }
   }
 
   .measurement-panel--premium input:focus,
-  .measurement-panel--premium textarea:focus {
+  .measurement-panel--premium textarea:focus,
+  .measurement-panel--premium select:focus {
     border-color: rgba(242, 108, 31, 0.5);
     box-shadow: 0 0 0 4px rgba(242, 108, 31, 0.11);
+  }
+
+  .measurement-input-unit {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    overflow: hidden;
+    border: 1px solid rgba(15, 23, 42, 0.11);
+    border-radius: 13px;
+    background: rgba(248, 250, 252, 0.86);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  }
+
+  .measurement-input-unit:focus-within {
+    border-color: rgba(242, 108, 31, 0.5);
+    box-shadow: 0 0 0 4px rgba(242, 108, 31, 0.11);
+  }
+
+  .measurement-input-unit input {
+    min-height: 40px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .measurement-input-unit input:focus {
+    box-shadow: none;
+  }
+
+  .measurement-input-unit em {
+    display: grid;
+    min-width: 42px;
+    place-items: center;
+    border-left: 1px solid rgba(15, 23, 42, 0.08);
+    color: #475569;
+    background: rgba(241, 245, 249, 0.94);
+    font-size: 0.74rem;
+    font-style: normal;
+    font-weight: 900;
   }
 
   .measurement-panel--premium .birthdate-grid {
@@ -15195,7 +15303,11 @@ body.bsm-photo-modal-open { overflow: hidden; }
   }
 
   .measurement-panel--premium #measurementNote {
-    min-height: 82px;
+    min-height: 148px;
+  }
+
+  .measurement-note-field {
+    grid-row: span 3;
   }
 
   .measurement-panel--premium .measurement-save-primary {
@@ -15203,8 +15315,46 @@ body.bsm-photo-modal-open { overflow: hidden; }
     border-radius: 17px;
     color: #ffffff;
     border: 0;
-    background: linear-gradient(135deg, #0f766e, #14b8a6);
-    box-shadow: 0 16px 32px rgba(20, 184, 166, 0.18);
+    background: linear-gradient(135deg, #ff7a1a, #ed5b12);
+    box-shadow: 0 16px 32px rgba(237, 91, 18, 0.2);
+  }
+
+  .measurement-manual-info-strip {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    gap: 10px;
+    padding: 13px;
+    border: 1px solid rgba(59, 130, 246, 0.16);
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(239, 246, 255, 0.94), rgba(255, 255, 255, 0.96));
+    box-shadow: 0 14px 30px rgba(37, 99, 235, 0.055);
+  }
+
+  .measurement-manual-info-strip div {
+    display: grid;
+    gap: 4px;
+    padding: 10px;
+    border-radius: 15px;
+    color: #475569;
+    background: rgba(255, 255, 255, 0.66);
+    font-size: 0.76rem;
+    line-height: 1.35;
+  }
+
+  .measurement-manual-info-strip strong {
+    color: #1d4ed8;
+    font-size: 0.82rem;
+  }
+
+  .measurement-manual-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 0 0;
+  }
+
+  .measurement-manual-save-slot {
+    display: contents;
   }
 
   .measurement-panel--premium #bodyAnalysisReport {
@@ -15609,7 +15759,9 @@ body.bsm-photo-modal-open { overflow: hidden; }
 }
 
 @media screen and (max-width: 1040px) {
-  .measurement-form-sections {
+  .measurement-form-sections,
+  .measurement-manual-form-grid .measurement-form-sections,
+  .measurement-manual-info-strip {
     grid-template-columns: 1fr;
   }
 
@@ -15653,12 +15805,25 @@ body.bsm-photo-modal-open { overflow: hidden; }
   .measurement-top-actions,
   .measurement-top-actions .ghost-button,
   .measurement-top-actions .primary-button,
-  .measurement-top-actions .secondary-button {
+  .measurement-top-actions .secondary-button,
+  .measurement-manual-actions,
+  .measurement-manual-actions .ghost-button,
+  .measurement-manual-actions .secondary-button,
+  .measurement-manual-actions .primary-button {
     width: 100%;
   }
 
-  .measurement-top-actions {
+  .measurement-top-actions,
+  .measurement-manual-toolbar,
+  .measurement-manual-actions,
+  .measurement-form-section__head {
+    display: grid;
     justify-content: stretch;
+  }
+
+  .measurement-form-section__head > span {
+    max-width: none;
+    text-align: left;
   }
 
   .measurement-panel--premium .measurement-flow-steps {
