@@ -15727,12 +15727,467 @@ body.bsm-photo-modal-open { overflow: hidden; }
     color: #0f172a;
   }
 
+  .measurement-history-dashboard {
+    display: grid;
+    gap: 16px;
+  }
+
+  .measurement-history-command,
+  .measurement-history-chart-panel,
+  .measurement-history-table-card,
+  .measurement-history-program-card {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.055);
+  }
+
+  .measurement-history-command {
+    padding: 12px;
+  }
+
+  .measurement-history-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .measurement-history-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    padding: 6px;
+    border-radius: 999px;
+    background: rgba(248, 250, 252, 0.92);
+    border: 1px solid rgba(15, 23, 42, 0.07);
+  }
+
+  .measurement-history-filter-group > span {
+    padding: 0 6px 0 8px;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .measurement-history-filter-group > div {
+    display: flex;
+    gap: 4px;
+  }
+
+  .measurement-history-filter-group button,
+  .measurement-history-export {
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #334155;
+    font-size: 0.79rem;
+    font-weight: 900;
+    white-space: nowrap;
+    cursor: pointer;
+    padding: 8px 11px;
+    transition:
+      transform 0.2s ease,
+      background 0.2s ease,
+      color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .measurement-history-filter-group button:hover,
+  .measurement-history-export:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 247, 237, 0.92);
+    color: #c2410c;
+  }
+
+  .measurement-history-filter-group button.is-active {
+    color: #ffffff;
+    background: linear-gradient(135deg, #ff6b00, #f59e0b);
+    box-shadow: 0 10px 22px rgba(249, 115, 22, 0.25);
+  }
+
+  .measurement-history-export {
+    margin-left: auto;
+    border: 1px solid rgba(242, 108, 31, 0.18);
+    background: #ffffff;
+    color: #c2410c;
+  }
+
+  .measurement-history-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(130px, 1fr));
+    gap: 12px;
+  }
+
+  .measurement-history-kpi-card,
+  .measurement-history-chart-card,
+  .measurement-program-history-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 22px;
+    background:
+      radial-gradient(circle at 100% 0%, rgba(255, 107, 0, 0.08), transparent 34%),
+      rgba(255, 255, 255, 0.96);
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.055);
+  }
+
+  .measurement-history-kpi-card {
+    display: grid;
+    gap: 10px;
+    min-height: 132px;
+    padding: 14px;
+  }
+
+  .measurement-history-kpi-card__head,
+  .measurement-history-kpi-card__value,
+  .measurement-history-chart-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .measurement-history-kpi-card__head span,
+  .measurement-history-chart-card__head strong {
+    color: #334155;
+    font-size: 0.82rem;
+    font-weight: 900;
+  }
+
+  .measurement-history-kpi-card__head em,
+  .measurement-history-kpi-card__value small,
+  .measurement-history-chart-card__head small {
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    font-style: normal;
+    font-weight: 900;
+  }
+
+  .measurement-history-kpi-card__value strong,
+  .measurement-history-chart-card__head span {
+    color: #0f172a;
+    font-size: 1.6rem;
+    font-weight: 950;
+    letter-spacing: -0.04em;
+  }
+
+  .measurement-history-kpi-card__value small,
+  .measurement-history-chart-card__head small {
+    color: #047857;
+    background: rgba(220, 252, 231, 0.8);
+  }
+
+  .measurement-history-kpi-card__value small.is-attention,
+  .measurement-history-chart-card__head small.is-attention,
+  .measurement-history-kpi-card__head em.is-attention {
+    color: #c2410c;
+    background: rgba(255, 237, 213, 0.9);
+  }
+
+  .measurement-history-kpi-card__value small.is-neutral,
+  .measurement-history-chart-card__head small.is-neutral,
+  .measurement-history-kpi-card__head em.is-neutral {
+    color: #475569;
+    background: rgba(226, 232, 240, 0.8);
+  }
+
+  .measurement-history-kpi-card__head em.is-good {
+    color: #047857;
+    background: rgba(220, 252, 231, 0.8);
+  }
+
+  .measurement-history-sparkline {
+    width: 100%;
+    height: 38px;
+    color: #2563eb;
+  }
+
+  .measurement-history-sparkline polyline,
+  .measurement-history-line-chart polyline {
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .measurement-history-sparkline polyline {
+    stroke-width: 4;
+  }
+
+  .measurement-history-sparkline.is-green,
+  .measurement-history-line-chart.is-green {
+    color: #16a34a;
+  }
+
+  .measurement-history-sparkline.is-purple,
+  .measurement-history-line-chart.is-purple {
+    color: #7c3aed;
+  }
+
+  .measurement-history-sparkline.is-orange,
+  .measurement-history-line-chart.is-orange {
+    color: #f97316;
+  }
+
+  .measurement-history-sparkline.is-gold,
+  .measurement-history-line-chart.is-gold {
+    color: #f59e0b;
+  }
+
+  .measurement-history-sparkline.is-empty {
+    min-height: 38px;
+    border-radius: 14px;
+    background: repeating-linear-gradient(90deg, rgba(226, 232, 240, 0.8) 0 8px, transparent 8px 15px);
+  }
+
+  .measurement-history-chart-panel {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .measurement-history-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .measurement-history-chart-card {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .measurement-history-chart-canvas {
+    position: relative;
+    min-height: 190px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffffff, rgba(248, 250, 252, 0.96));
+  }
+
+  .measurement-history-line-chart {
+    width: 100%;
+    height: 170px;
+  }
+
+  .measurement-history-line-chart line {
+    stroke: rgba(148, 163, 184, 0.26);
+    stroke-width: 1;
+  }
+
+  .measurement-history-line-chart polyline {
+    stroke-width: 4;
+  }
+
+  .measurement-history-chart-scale,
+  .measurement-history-chart-dates {
+    display: flex;
+    justify-content: space-between;
+    color: #64748b;
+    font-size: 0.74rem;
+    font-weight: 800;
+  }
+
+  .measurement-history-chart-scale {
+    position: absolute;
+    inset: 10px 12px auto 12px;
+  }
+
+  .measurement-history-chart-dates {
+    margin: -8px 8px 0;
+  }
+
+  .measurement-history-chart-empty {
+    display: grid;
+    place-content: center;
+    min-height: 180px;
+    border: 1px dashed rgba(242, 108, 31, 0.28);
+    border-radius: 18px;
+    text-align: center;
+    color: #64748b;
+    background: rgba(255, 247, 237, 0.52);
+  }
+
+  .measurement-history-chart-empty strong {
+    color: #0f172a;
+  }
+
+  .measurement-history-chart-note {
+    color: #64748b;
+    font-size: 0.8rem;
+    font-weight: 800;
+  }
+
   .measurement-panel--premium .measurement-workspace__history {
     padding: 14px;
     border: 1px solid rgba(15, 23, 42, 0.08);
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.94);
     box-shadow: 0 16px 36px rgba(15, 23, 42, 0.055);
+  }
+
+  .measurement-history-table-card,
+  .measurement-history-program-card {
+    padding: 16px;
+  }
+
+  .measurement-history-table-wrap {
+    overflow-x: auto;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 18px;
+    background: #ffffff;
+  }
+
+  .measurement-history-table {
+    width: 100%;
+    min-width: 920px;
+    border-collapse: collapse;
+  }
+
+  .measurement-history-table th,
+  .measurement-history-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    text-align: left;
+    color: #0f172a;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+
+  .measurement-history-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    color: #64748b;
+    font-size: 0.74rem;
+    font-weight: 950;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: #f8fafc;
+  }
+
+  .measurement-history-table tbody tr:nth-child(even) {
+    background: rgba(248, 250, 252, 0.7);
+  }
+
+  .measurement-history-table tbody tr:hover {
+    background: rgba(255, 247, 237, 0.72);
+  }
+
+  .measurement-source-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 5px 9px;
+    color: #c2410c;
+    font-size: 0.74rem;
+    font-weight: 950;
+    background: rgba(255, 237, 213, 0.78);
+  }
+
+  .measurement-history-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .measurement-history-icon-action,
+  .measurement-history-more {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 999px;
+    background: #ffffff;
+    color: #334155;
+    cursor: pointer;
+    font-size: 0.74rem;
+    font-weight: 900;
+    padding: 7px 10px;
+    transition:
+      transform 0.2s ease,
+      border-color 0.2s ease,
+      background 0.2s ease,
+      color 0.2s ease;
+  }
+
+  .measurement-history-icon-action:hover,
+  .measurement-history-more:hover {
+    transform: translateY(-1px);
+    border-color: rgba(242, 108, 31, 0.28);
+    background: rgba(255, 247, 237, 0.9);
+    color: #c2410c;
+  }
+
+  .measurement-history-icon-action.is-danger {
+    color: #b91c1c;
+    border-color: rgba(248, 113, 113, 0.22);
+    background: rgba(254, 242, 242, 0.9);
+  }
+
+  .measurement-history-more {
+    display: block;
+    margin: 12px auto 0;
+    min-width: 190px;
+  }
+
+  .measurement-program-history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .measurement-program-history-card {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .measurement-program-history-card span {
+    display: inline-flex;
+    width: max-content;
+    margin-bottom: 6px;
+    border-radius: 999px;
+    padding: 5px 9px;
+    color: #047857;
+    font-size: 0.72rem;
+    font-weight: 950;
+    background: rgba(220, 252, 231, 0.85);
+  }
+
+  .measurement-program-history-card strong {
+    display: block;
+    color: #0f172a;
+    font-size: 1rem;
+  }
+
+  .measurement-program-history-card small {
+    color: #64748b;
+    font-weight: 800;
+  }
+
+  .measurement-program-history-card dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+  }
+
+  .measurement-program-history-card dt {
+    color: #94a3b8;
+    font-size: 0.7rem;
+    font-weight: 900;
+  }
+
+  .measurement-program-history-card dd {
+    margin: 2px 0 0;
+    color: #334155;
+    font-size: 0.82rem;
+    font-weight: 900;
   }
 
   .measurement-report-command-card {
@@ -15770,7 +16225,7 @@ body.bsm-photo-modal-open { overflow: hidden; }
   }
 }
 
-@media screen and (max-width: 1320px) {
+@media screen and (max-width: 1540px) {
   .measurement-saas-shell {
     grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
   }
@@ -15911,5 +16366,44 @@ body.bsm-photo-modal-open { overflow: hidden; }
 
   .measurement-report-command-card__actions button {
     width: 100%;
+  }
+}
+
+@media (max-width: 1180px) {
+  .measurement-history-kpi-grid,
+  .measurement-history-chart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .measurement-history-filter-row,
+  .measurement-history-kpi-grid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+
+  .measurement-history-kpi-card {
+    flex: 0 0 220px;
+    scroll-snap-align: start;
+  }
+
+  .measurement-history-chart-grid,
+  .measurement-program-history-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .measurement-history-chart-card__head,
+  .measurement-history-kpi-card__value {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .measurement-history-table-card,
+  .measurement-history-program-card,
+  .measurement-history-chart-panel {
+    padding: 12px;
+    border-radius: 20px;
   }
 }

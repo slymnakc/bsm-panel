@@ -181,6 +181,11 @@ const state = {
   pendingTanitaMeasurement: null,
   activeMeasurementState: null,
   activeMeasurementSource: null,
+  measurementHistoryFilters: {
+    view: "all",
+    range: "all",
+    compare: "previous",
+  },
   programEditMode: false,
   programDefaultSnapshot: null,
   activeNutritionPlan: null,
@@ -1380,8 +1385,6 @@ function prepareMeasurementTabbedWorkspace(workspace) {
   }
 
   details.forEach((detail) => appendIfFound(panes.segmental, detail));
-  appendIfFound(panes.history, measurementHistory);
-  appendIfFound(panes.history, programHistoryCard);
   appendIfFound(panes.ai, v3Card);
   appendIfFound(panes.report, bodyAnalysisReport);
 
@@ -1393,10 +1396,21 @@ function prepareMeasurementTabbedWorkspace(workspace) {
   }
 
   if (panes.history) {
-    panes.history.insertAdjacentHTML(
-      "afterbegin",
-      `<div id="measurementHistoryTrendHost" class="measurement-history-trend-host"></div>`,
-    );
+    panes.history.innerHTML = `
+      <div class="measurement-history-dashboard">
+        <div id="measurementHistoryTrendHost" class="measurement-history-trend-host"></div>
+        <section class="measurement-history-table-card">
+          <div class="measurement-tab-intro">
+            <strong>Ölçüm Geçmişi</strong>
+            <span>Kaydedilen manuel ve Tanita ölçümleri, rapor ve silme aksiyonlarıyla birlikte.</span>
+          </div>
+          <div class="measurement-history-table-slot"></div>
+        </section>
+        <section class="measurement-history-program-card"></section>
+      </div>
+    `;
+    appendIfFound(panes.history.querySelector(".measurement-history-table-slot"), measurementHistory);
+    appendIfFound(panes.history.querySelector(".measurement-history-program-card"), programHistoryCard);
   }
 
   if (panes.ai) {
@@ -1434,6 +1448,13 @@ function appendIfFound(parent, child) {
 }
 
 function handleMeasurementPremiumAction(event) {
+  const viewButton = event.target.closest("[data-measurement-view]");
+
+  if (viewButton) {
+    loadMeasurementRecordById(viewButton.dataset.measurementView);
+    return;
+  }
+
   const deleteButton = event.target.closest("[data-measurement-delete]");
 
   if (deleteButton) {
@@ -1445,6 +1466,16 @@ function handleMeasurementPremiumAction(event) {
 
   if (tabButton) {
     setActiveMeasurementInnerTab(tabButton.dataset.measurementTabTarget);
+    return;
+  }
+
+  const historyFilterButton = event.target.closest("[data-measurement-history-filter]");
+
+  if (historyFilterButton) {
+    updateMeasurementHistoryFilter(
+      historyFilterButton.dataset.measurementHistoryFilter,
+      historyFilterButton.dataset.measurementHistoryValue,
+    );
     return;
   }
 
@@ -1509,9 +1540,46 @@ function handleMeasurementPremiumAction(event) {
     return;
   }
 
+  if (action === "export-history") {
+    exportMeasurementHistoryCsv();
+    return;
+  }
+
   if (action === "mail-info") {
     openMeasurementEmailDraft();
   }
+}
+
+function loadMeasurementRecordById(measurementId) {
+  const member = findActiveMember();
+  const measurement = (member?.measurements || []).find((item) => String(item?.id || "") === String(measurementId || ""));
+
+  if (!member || !measurement) {
+    showStatus("Görüntülenecek ölçüm kaydı bulunamadı.", "error");
+    return;
+  }
+
+  state.pendingTanitaMeasurement = null;
+  setActiveMeasurementState(measurement, { memberId: member.id, source: "saved" });
+  applyTanitaMeasurementToForm(measurement, { dispatch: false });
+  renderTanitaPreview(buildTanitaPreviewModel?.(measurement));
+  renderMeasurementTabStatus();
+  renderMeasurementHistory();
+  renderMeasurementReport();
+  showStatus("Ölçüm kaydı forma ve rapor önizlemesine yüklendi.", "success");
+}
+
+function updateMeasurementHistoryFilter(filterKey, value) {
+  if (!filterKey || !value) {
+    return;
+  }
+
+  state.measurementHistoryFilters = {
+    ...(state.measurementHistoryFilters || {}),
+    [filterKey]: value,
+  };
+
+  renderMeasurementHistory();
 }
 
 function handleDeleteMeasurementRecord(measurementId) {
@@ -5145,9 +5213,19 @@ function renderMeasurementHistory() {
   renderMeasurementHistoryUi(
     measurementHistory,
     {
-      items: measurementRecords.slice(0, 6).map((item) => ({
+      variant: "premium-table",
+      items: measurementRecords.slice(0, 10).map((item) => ({
         id: item.id,
         date: item.date,
+        weight: formatMeasurementCell(item.weight, "kg"),
+        fat: formatMeasurementCell(item.fat ?? item.bodyFatPercentage, "%"),
+        muscleMass: formatMeasurementCell(item.muscleMass, "kg"),
+        waist: formatMeasurementCell(item.waist, "cm"),
+        visceralFat: formatMeasurementCell(item.visceralFat, ""),
+        bmr: formatMeasurementCell(item.bmr, "kcal"),
+        metabolicAge: formatMeasurementCell(item.metabolicAge, ""),
+        sourceLabel: getMeasurementSourceLabel(item),
+        v3Score: buildMeasurementInsightModel(member, item).score,
         line: formatMeasurementLine(item),
         segmentLine: formatSegmentLine(item.segments),
         resistanceLine: formatResistanceLine(item.resistance),
@@ -5158,16 +5236,19 @@ function renderMeasurementHistory() {
   );
   renderMeasurementPremiumInsight(member, activeMeasurement || measurementRecords[0] || state.latestMeasurement || null);
   renderMeasurementLeftSummary(member);
-  renderMeasurementHistoryTrendHost(measurementRecords);
+  renderMeasurementHistoryTrendHost(measurementRecords, member);
   renderMeasurementCsvAnalytics(member);
 }
 
-function renderMeasurementHistoryTrendHost(measurements = []) {
+function renderMeasurementHistoryTrendHost(measurements = [], member = findActiveMember()) {
   const host = document.querySelector("#measurementHistoryTrendHost");
 
   if (!host) {
     return;
   }
+
+  const filters = normalizeMeasurementHistoryFilters();
+  const filteredMeasurements = filterMeasurementsByHistoryRange(measurements, filters.range);
 
   if (!measurements.length) {
     host.innerHTML = `
@@ -5179,23 +5260,412 @@ function renderMeasurementHistoryTrendHost(measurements = []) {
     return;
   }
 
-  const trendCards = buildMeasurementTrendCards(measurements);
-  const hasTrend = measurements.length > 1;
+  const trendCards = buildPremiumMeasurementTrendCards(filteredMeasurements, member, filters);
+  const chartCards = buildPremiumMeasurementChartCards(filteredMeasurements, member, filters);
+  const hasTrend = filteredMeasurements.length > 1;
 
   host.innerHTML = `
-    <div class="measurement-tab-intro">
-      <strong>Trend & Geçmiş</strong>
-      <span>${hasTrend ? "Son ölçümlerden kilo, yağ, kas ve bel trendi." : "Trend analizi için en az iki ölçüm gereklidir."}</span>
-    </div>
-    <div class="measurement-history-trend-grid">
-      ${trendCards.map(renderMeasurementTrendCard).join("")}
+    <section class="measurement-history-command">
+      <div class="measurement-history-filter-row">
+        ${renderMeasurementHistoryFilterGroup("Görüntüle", "view", [
+          ["all", "Tüm Vücut"],
+          ["composition", "Kompozisyon"],
+          ["circumference", "Çevre"],
+          ["segmental", "Segmental"],
+        ], filters.view)}
+        ${renderMeasurementHistoryFilterGroup("Zaman Aralığı", "range", [
+          ["1m", "1A"],
+          ["3m", "3A"],
+          ["6m", "6A"],
+          ["1y", "1Y"],
+          ["all", "Tümü"],
+        ], filters.range)}
+        ${renderMeasurementHistoryFilterGroup("Karşılaştır", "compare", [
+          ["previous", "Önceki Ölçüm"],
+          ["start", "Başlangıç Ölçümü"],
+        ], filters.compare)}
+        <button type="button" class="measurement-history-export" data-measurement-ui-action="export-history">Grafikleri Dışa Aktar</button>
+      </div>
+    </section>
+
+    <section class="measurement-history-kpi-grid">
+      ${trendCards.map(renderPremiumMeasurementTrendCard).join("")}
+    </section>
+
+    <section class="measurement-history-chart-panel">
+      <div class="measurement-tab-intro">
+        <strong>Büyük Trend Grafikleri</strong>
+        <span>${hasTrend ? "Seçilen aralıktaki ölçümlerin görsel gelişim çizgisi." : "Trend için en az iki ölçüm gerekir."}</span>
+      </div>
+      <div class="measurement-history-chart-grid">
+        ${chartCards.map(renderPremiumMeasurementChartCard).join("")}
+      </div>
+      <div class="measurement-history-chart-note">Grafiklerdeki değerler kayıtlı manuel/Tanita ölçüm geçmişinden hesaplanır.</div>
+    </section>
+  `;
+}
+
+function normalizeMeasurementHistoryFilters() {
+  const filters = state.measurementHistoryFilters || {};
+  return {
+    view: ["all", "composition", "circumference", "segmental"].includes(filters.view) ? filters.view : "all",
+    range: ["1m", "3m", "6m", "1y", "all"].includes(filters.range) ? filters.range : "all",
+    compare: ["previous", "start"].includes(filters.compare) ? filters.compare : "previous",
+  };
+}
+
+function renderMeasurementHistoryFilterGroup(label, key, options, activeValue) {
+  return `
+    <div class="measurement-history-filter-group" aria-label="${escapeHtml(label)}">
+      <span>${escapeHtml(label)}</span>
+      <div>
+        ${options
+          .map(
+            ([value, text]) => `
+              <button
+                type="button"
+                class="${value === activeValue ? "is-active" : ""}"
+                data-measurement-history-filter="${escapeHtml(key)}"
+                data-measurement-history-value="${escapeHtml(value)}"
+              >${escapeHtml(text)}</button>
+            `,
+          )
+          .join("")}
+      </div>
     </div>
   `;
+}
+
+function filterMeasurementsByHistoryRange(measurements = [], range = "all") {
+  const records = Array.isArray(measurements) ? measurements : [];
+
+  if (range === "all") {
+    return records;
+  }
+
+  const months = { "1m": 1, "3m": 3, "6m": 6, "1y": 12 }[range] || 0;
+
+  if (!months) {
+    return records;
+  }
+
+  const now = new Date();
+  const start = new Date(now);
+  start.setMonth(start.getMonth() - months);
+
+  return records.filter((measurement) => {
+    const date = parseMeasurementHistoryDate(measurement?.date || measurement?.createdAtIso);
+    return date ? date >= start : true;
+  });
+}
+
+function parseMeasurementHistoryDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const text = String(value);
+  const parts = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+
+  if (parts) {
+    return new Date(Number(parts[3]), Number(parts[2]) - 1, Number(parts[1]));
+  }
+
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function buildPremiumMeasurementTrendCards(measurements = [], member = findActiveMember(), filters = normalizeMeasurementHistoryFilters()) {
+  const definitions = [
+    { key: "weight", label: "Kilo", suffix: "kg", color: "blue", lowerIsBetter: false },
+    { key: "fat", label: "Yağ Oranı", suffix: "%", color: "green", lowerIsBetter: true },
+    { key: "muscleMass", label: "Kas Kütlesi", suffix: "kg", color: "purple", lowerIsBetter: false },
+    { key: "waist", label: "Bel Çevresi", suffix: "cm", color: "orange", lowerIsBetter: true },
+    { key: "v3Score", label: "V3 Skoru", suffix: "/100", color: "gold", lowerIsBetter: false },
+  ];
+
+  return definitions.map((definition) => buildPremiumTrendModel(definition, measurements, member, filters.compare));
+}
+
+function buildPremiumMeasurementChartCards(measurements = [], member = findActiveMember(), filters = normalizeMeasurementHistoryFilters()) {
+  const chartGroups = {
+    all: [
+      { key: "weight", label: "Kilo", suffix: "kg", color: "blue", lowerIsBetter: false },
+      { key: "fat", label: "Yağ Oranı", suffix: "%", color: "green", lowerIsBetter: true },
+      { key: "muscleMass", label: "Kas Kütlesi", suffix: "kg", color: "purple", lowerIsBetter: false },
+      { key: "visceralFat", label: "Visceral Yağ", suffix: "", color: "orange", lowerIsBetter: true },
+    ],
+    composition: [
+      { key: "fat", label: "Yağ Oranı", suffix: "%", color: "green", lowerIsBetter: true },
+      { key: "fatMass", label: "Yağ Kütlesi", suffix: "kg", color: "orange", lowerIsBetter: true },
+      { key: "muscleMass", label: "Kas Kütlesi", suffix: "kg", color: "purple", lowerIsBetter: false },
+      { key: "bodyWater", label: "Vücut Suyu", suffix: "%", color: "blue", lowerIsBetter: false },
+    ],
+    circumference: [
+      { key: "waist", label: "Bel Çevresi", suffix: "cm", color: "orange", lowerIsBetter: true },
+      { key: "hip", label: "Kalça Çevresi", suffix: "cm", color: "blue", lowerIsBetter: true },
+      { key: "chest", label: "Göğüs Çevresi", suffix: "cm", color: "purple", lowerIsBetter: false },
+      { key: "weight", label: "Kilo", suffix: "kg", color: "green", lowerIsBetter: false },
+    ],
+    segmental: [
+      { key: "segments.rightArmMuscle", label: "Sağ Kol Kas", suffix: "kg", color: "purple", lowerIsBetter: false },
+      { key: "segments.leftArmMuscle", label: "Sol Kol Kas", suffix: "kg", color: "purple", lowerIsBetter: false },
+      { key: "segments.rightLegMuscle", label: "Sağ Bacak Kas", suffix: "kg", color: "blue", lowerIsBetter: false },
+      { key: "segments.leftLegMuscle", label: "Sol Bacak Kas", suffix: "kg", color: "blue", lowerIsBetter: false },
+    ],
+  };
+
+  return (chartGroups[filters.view] || chartGroups.all).map((definition) =>
+    buildPremiumTrendModel(definition, measurements, member, filters.compare),
+  );
+}
+
+function buildPremiumTrendModel(definition, measurements = [], member = findActiveMember(), compareMode = "previous") {
+  const newestFirst = (measurements || []).filter(Boolean);
+  const oldestFirst = newestFirst.slice().reverse();
+  const values = oldestFirst
+    .map((measurement) => ({
+      value: getMeasurementTrendValue(measurement, definition.key, member),
+      label: formatShortMeasurementDate(measurement?.date || measurement?.createdAtIso),
+    }))
+    .filter((item) => Number.isFinite(item.value));
+  const latestValue = newestFirst.map((measurement) => getMeasurementTrendValue(measurement, definition.key, member)).find(Number.isFinite);
+  const baselineCandidate = compareMode === "start"
+    ? newestFirst.slice().reverse().map((measurement) => getMeasurementTrendValue(measurement, definition.key, member)).find(Number.isFinite)
+    : newestFirst.slice(1).map((measurement) => getMeasurementTrendValue(measurement, definition.key, member)).find(Number.isFinite);
+  const delta = Number.isFinite(latestValue) && Number.isFinite(baselineCandidate) ? latestValue - baselineCandidate : null;
+  const stateName = resolveTrendState(delta, definition.lowerIsBetter);
+
+  return {
+    ...definition,
+    value: formatMeasurementCell(latestValue, definition.suffix),
+    delta,
+    deltaLabel: formatTrendDelta(delta, definition.suffix),
+    stateName,
+    statusLabel: resolveTrendStatusLabel(delta, definition.lowerIsBetter),
+    values,
+  };
+}
+
+function getMeasurementTrendValue(measurement, key, member = findActiveMember()) {
+  if (!measurement) {
+    return null;
+  }
+
+  if (key === "fat") {
+    return numberOrNull(measurement.fat ?? measurement.bodyFatPercentage);
+  }
+
+  if (key === "v3Score") {
+    return numberOrNull(buildMeasurementInsightModel(member, measurement).score);
+  }
+
+  if (key.includes(".")) {
+    return numberOrNull(key.split(".").reduce((value, part) => value?.[part], measurement));
+  }
+
+  return numberOrNull(measurement[key]);
+}
+
+function numberOrNull(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function resolveTrendState(delta, lowerIsBetter = false) {
+  if (!Number.isFinite(delta) || Math.abs(delta) < 0.05) {
+    return "neutral";
+  }
+
+  const improved = lowerIsBetter ? delta < 0 : delta > 0;
+  return improved ? "good" : "attention";
+}
+
+function resolveTrendStatusLabel(delta, lowerIsBetter = false) {
+  const stateName = resolveTrendState(delta, lowerIsBetter);
+  if (stateName === "good") return "İyi";
+  if (stateName === "attention") return "Dikkat";
+  return "Stabil";
+}
+
+function formatTrendDelta(delta, suffix = "") {
+  if (!Number.isFinite(delta)) {
+    return "2 ölçüm gerekir";
+  }
+
+  const formatted = Math.abs(delta).toFixed(Math.abs(delta) % 1 === 0 ? 0 : 1);
+  return `${delta > 0 ? "+" : delta < 0 ? "-" : ""}${formatted} ${suffix}`.trim();
+}
+
+function formatMeasurementCell(value, suffix = "") {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "-";
+  }
+
+  return `${number.toFixed(number % 1 === 0 ? 0 : 1)} ${suffix}`.trim();
+}
+
+function formatShortMeasurementDate(value) {
+  const date = parseMeasurementHistoryDate(value);
+
+  if (!date) {
+    return String(value || "-").slice(0, 10);
+  }
+
+  return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function renderPremiumMeasurementTrendCard(card) {
+  return `
+    <article class="measurement-history-kpi-card is-${escapeHtml(card.color)}">
+      <div class="measurement-history-kpi-card__head">
+        <span>${escapeHtml(card.label)}</span>
+        <em class="is-${escapeHtml(card.stateName)}">${escapeHtml(card.statusLabel)}</em>
+      </div>
+      <div class="measurement-history-kpi-card__value">
+        <strong>${escapeHtml(card.value)}</strong>
+        <small class="is-${escapeHtml(card.stateName)}">${escapeHtml(card.deltaLabel)}</small>
+      </div>
+      ${renderPremiumMeasurementSparkline(card.values, card.color)}
+    </article>
+  `;
+}
+
+function renderPremiumMeasurementChartCard(card) {
+  return `
+    <article class="measurement-history-chart-card is-${escapeHtml(card.color)}">
+      <div class="measurement-history-chart-card__head">
+        <strong>${escapeHtml(card.label)}</strong>
+        <span>${escapeHtml(card.value)}</span>
+        <small class="is-${escapeHtml(card.stateName)}">${escapeHtml(card.deltaLabel)}</small>
+      </div>
+      ${renderPremiumMeasurementLineChart(card.values, card.color)}
+    </article>
+  `;
+}
+
+function renderPremiumMeasurementSparkline(points = [], color = "blue") {
+  if ((points || []).length < 2) {
+    return `<div class="measurement-history-sparkline is-empty"></div>`;
+  }
+
+  const values = points.map((point) => point.value);
+  const path = buildSvgPoints(values, 100, 34, 4);
+
+  return `
+    <svg class="measurement-history-sparkline is-${escapeHtml(color)}" viewBox="0 0 100 38" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points="${escapeHtml(path)}"></polyline>
+    </svg>
+  `;
+}
+
+function renderPremiumMeasurementLineChart(points = [], color = "blue") {
+  if ((points || []).length < 2) {
+    return `
+      <div class="measurement-history-chart-empty">
+        <strong>Trend için en az iki ölçüm gerekir.</strong>
+        <span>İkinci ölçümden sonra grafik otomatik oluşur.</span>
+      </div>
+    `;
+  }
+
+  const values = points.map((point) => point.value);
+  const polyline = buildSvgPoints(values, 360, 142, 18);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+
+  return `
+    <div class="measurement-history-chart-canvas">
+      <svg class="measurement-history-line-chart is-${escapeHtml(color)}" viewBox="0 0 360 170" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="historyGradient-${escapeHtml(color)}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="currentColor" stop-opacity="0.18"></stop>
+            <stop offset="100%" stop-color="currentColor" stop-opacity="0"></stop>
+          </linearGradient>
+        </defs>
+        <line x1="18" y1="26" x2="342" y2="26"></line>
+        <line x1="18" y1="83" x2="342" y2="83"></line>
+        <line x1="18" y1="140" x2="342" y2="140"></line>
+        <polyline points="${escapeHtml(polyline)}"></polyline>
+      </svg>
+      <div class="measurement-history-chart-scale">
+        <span>${escapeHtml(max.toFixed(max % 1 === 0 ? 0 : 1))}</span>
+        <span>${escapeHtml(min.toFixed(min % 1 === 0 ? 0 : 1))}</span>
+      </div>
+      <div class="measurement-history-chart-dates">
+        <span>${escapeHtml(points[0]?.label || "-")}</span>
+        <span>${escapeHtml(points[points.length - 1]?.label || "-")}</span>
+      </div>
+    </div>
+  `;
+}
+
+function buildSvgPoints(values = [], width = 100, height = 40, padding = 4) {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+
+  return values
+    .map((value, index) => {
+      const x = values.length === 1 ? width / 2 : padding + (index / (values.length - 1)) * (width - padding * 2);
+      const y = padding + (height - padding * 2) * (1 - (value - min) / range);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function getMeasurementSourceLabel(measurement = {}) {
+  const source = String(measurement.source || measurement.measurementMethod || "").toLowerCase();
+
+  if (source.includes("tanita") || source.includes("csv")) {
+    return "Tanita CSV";
+  }
+
+  if (source.includes("manual")) {
+    return "Manuel";
+  }
+
+  return measurement.source ? titleCase(String(measurement.source).replace(/[_-]/g, " ")) : "Manuel";
+}
+
+function exportMeasurementHistoryCsv() {
+  const member = findActiveMember();
+  const records = getActiveMeasurementRecords(member);
+
+  if (!member || !records.length) {
+    showStatus("Dışa aktarılacak ölçüm geçmişi bulunamadı.", "error");
+    return;
+  }
+
+  const rows = [
+    ["Tarih", "Kilo", "Yağ Oranı", "Kas Kütlesi", "Bel", "Visceral Yağ", "BMR", "Metabolik Yaş", "Kaynak"],
+    ...records.map((measurement) => [
+      measurement.date || "",
+      measurement.weight || "",
+      measurement.fat ?? measurement.bodyFatPercentage ?? "",
+      measurement.muscleMass || "",
+      measurement.waist || "",
+      measurement.visceralFat || "",
+      measurement.bmr || "",
+      measurement.metabolicAge || "",
+      getMeasurementSourceLabel(measurement),
+    ]),
+  ];
+  const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
+  downloadFile(`bsm-olcum-gecmisi-${formatFileDate(new Date())}.csv`, csv, "text/csv;charset=utf-8");
+  showStatus("Ölçüm geçmişi CSV olarak dışa aktarıldı.", "success");
 }
 
 function renderProgramHistory() {
   const member = findActiveMember();
   const programRecords = member?.programs || [];
+
+  if (programHistory?.closest(".measurement-history-program-card")) {
+    renderPremiumProgramHistory(programHistory, member, programRecords);
+    return;
+  }
 
   renderProgramHistoryUi(
     programHistory,
@@ -5210,6 +5680,56 @@ function renderProgramHistory() {
       : null,
     escapeHtml,
   );
+}
+
+function renderPremiumProgramHistory(target, member, programRecords = []) {
+  if (!target) {
+    return;
+  }
+
+  if (!member) {
+    target.innerHTML = `<div class="empty-state compact-empty">Bir üye seçildiğinde program geçmişi burada görünür.</div>`;
+    return;
+  }
+
+  if (!programRecords.length) {
+    target.innerHTML = `
+      <div class="measurement-history-empty">
+        <strong>Bu üye için kayıtlı program bulunmuyor.</strong>
+        <span>Program oluşturulduğunda ölçüm gelişimiyle birlikte burada takip edilir.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const latestMeasurement = member.measurements?.[0] || null;
+  target.innerHTML = `
+    <div class="measurement-program-history-grid">
+      ${programRecords
+        .slice(0, 6)
+        .map((record) => {
+          const program = record.program || {};
+          const rawData = program.rawData || program.programContext?.rawData || {};
+          const goal = labelMaps.goal[rawData.goal || member.profile?.goal] || rawData.goal || member.profile?.goal || "-";
+          const savedAt = record.savedAt || program.createdAt || record.savedAtIso || "Tarih yok";
+          return `
+            <article class="measurement-program-history-card">
+              <div>
+                <span>${escapeHtml(record.id === programRecords[0]?.id ? "Aktif / Son Kayıt" : "Kayıtlı")}</span>
+                <strong>${escapeHtml(program.title || record.title || "Antrenman Programı")}</strong>
+                <small>${escapeHtml(savedAt)}</small>
+              </div>
+              <dl>
+                <div><dt>Hedef</dt><dd>${escapeHtml(goal)}</dd></div>
+                <div><dt>İlgili ölçüm</dt><dd>${escapeHtml(latestMeasurement?.date || "Ölçüm yok")}</dd></div>
+              </dl>
+              <button type="button" class="ghost-button mini-button" data-program-id="${escapeHtml(record.id || "")}">Görüntüle</button>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
 }
 
 function renderV3CoachingPanel() {

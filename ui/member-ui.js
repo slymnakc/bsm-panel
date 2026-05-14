@@ -130,6 +130,87 @@
       return;
     }
 
+    if (model.variant === "premium-table") {
+      target.innerHTML = `
+        <div class="measurement-history-table-wrap">
+          <table class="measurement-history-table">
+            <thead>
+              <tr>
+                <th>Tarih</th>
+                <th>Kilo</th>
+                <th>YaÄŸ OranÄ±</th>
+                <th>Kas KÃ¼tlesi</th>
+                <th>Bel</th>
+                <th>Visceral</th>
+                <th>BMR</th>
+                <th>Met. YaÅŸ</th>
+                <th>Kaynak</th>
+                <th>Ä°ÅŸlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${model.items
+                .map(
+                  (item) => `
+                    <tr>
+                      <td><strong>${escapeHtml(item.date || "-")}</strong></td>
+                      <td>${escapeHtml(item.weight || "-")}</td>
+                      <td>${escapeHtml(item.fat || "-")}</td>
+                      <td>${escapeHtml(item.muscleMass || "-")}</td>
+                      <td>${escapeHtml(item.waist || "-")}</td>
+                      <td>${escapeHtml(item.visceralFat || "-")}</td>
+                      <td>${escapeHtml(item.bmr || "-")}</td>
+                      <td>${escapeHtml(item.metabolicAge || "-")}</td>
+                      <td><span class="measurement-source-pill">${escapeHtml(item.sourceLabel || "Manuel")}</span></td>
+                      <td>
+                        <div class="measurement-history-actions">
+                          <button type="button" class="measurement-history-icon-action" data-measurement-view="${escapeHtml(item.id || "")}" aria-label="Ã–lÃ§Ã¼mÃ¼ gÃ¶rÃ¼ntÃ¼le">GÃ¶r</button>
+                          <button type="button" class="measurement-history-icon-action" data-measurement-ui-action="compare" aria-label="Ã–lÃ§Ã¼mleri karÅŸÄ±laÅŸtÄ±r">KarÅŸÄ±laÅŸtÄ±r</button>
+                          <button type="button" class="measurement-history-icon-action" data-measurement-ui-action="build-report" aria-label="Rapor oluÅŸtur">PDF</button>
+                          ${
+                            item.id
+                              ? `<button type="button" class="measurement-history-icon-action is-danger" data-measurement-delete="${escapeHtml(item.id)}" aria-label="Ã–lÃ§Ã¼m kaydÄ±nÄ± sil">Sil</button>`
+                              : ""
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+      return;
+    }
+
+    if (model.variant === "premium-cards") {
+      target.innerHTML = `
+        <div class="measurement-program-history-grid">
+          ${model.items
+            .map(
+              (item) => `
+                <article class="measurement-program-history-card">
+                  <div>
+                    <span>${escapeHtml(item.status || "Kayıtlı")}</span>
+                    <strong>${escapeHtml(item.title || "Program")}</strong>
+                    <small>${escapeHtml(item.savedAt || "Tarih yok")}</small>
+                  </div>
+                  <dl>
+                    <div><dt>Hedef</dt><dd>${escapeHtml(item.goal || "-")}</dd></div>
+                    <div><dt>İlgili ölçüm</dt><dd>${escapeHtml(item.measurement || "-")}</dd></div>
+                  </dl>
+                  <button type="button" class="ghost-button mini-button" data-program-id="${escapeHtml(item.id || "")}">Görüntüle</button>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      `;
+      return;
+    }
+
     target.innerHTML = model.items
       .map(
         (item) => `
