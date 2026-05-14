@@ -138,14 +138,14 @@
               <tr>
                 <th>Tarih</th>
                 <th>Kilo</th>
-                <th>YaÄŸ OranÄ±</th>
-                <th>Kas KÃ¼tlesi</th>
+                <th>Yağ Oranı</th>
+                <th>Kas Kütlesi</th>
                 <th>Bel</th>
                 <th>Visceral</th>
                 <th>BMR</th>
-                <th>Met. YaÅŸ</th>
+                <th>Met. Yaş</th>
                 <th>Kaynak</th>
-                <th>Ä°ÅŸlemler</th>
+                <th>İşlemler</th>
               </tr>
             </thead>
             <tbody>
@@ -164,12 +164,12 @@
                       <td><span class="measurement-source-pill">${escapeHtml(item.sourceLabel || "Manuel")}</span></td>
                       <td>
                         <div class="measurement-history-actions">
-                          <button type="button" class="measurement-history-icon-action" data-measurement-view="${escapeHtml(item.id || "")}" aria-label="Ã–lÃ§Ã¼mÃ¼ gÃ¶rÃ¼ntÃ¼le">GÃ¶r</button>
-                          <button type="button" class="measurement-history-icon-action" data-measurement-ui-action="compare" aria-label="Ã–lÃ§Ã¼mleri karÅŸÄ±laÅŸtÄ±r">KarÅŸÄ±laÅŸtÄ±r</button>
-                          <button type="button" class="measurement-history-icon-action" data-measurement-ui-action="build-report" aria-label="Rapor oluÅŸtur">PDF</button>
+                          <button type="button" class="measurement-history-icon-action" data-measurement-view="${escapeHtml(item.id || "")}" aria-label="Ölçümü görüntüle">Gör</button>
+                          <button type="button" class="measurement-history-icon-action" data-measurement-ui-action="compare" aria-label="Ölçümleri karşılaştır">Karşılaştır</button>
+                          <button type="button" class="measurement-history-icon-action" data-measurement-ui-action="build-report" aria-label="Rapor oluştur">PDF</button>
                           ${
                             item.id
-                              ? `<button type="button" class="measurement-history-icon-action is-danger" data-measurement-delete="${escapeHtml(item.id)}" aria-label="Ã–lÃ§Ã¼m kaydÄ±nÄ± sil">Sil</button>`
+                              ? `<button type="button" class="measurement-history-icon-action is-danger" data-measurement-delete="${escapeHtml(item.id)}" aria-label="Ölçüm kaydını sil">Sil</button>`
                               : ""
                           }
                         </div>
