@@ -14580,13 +14580,14 @@ body.bsm-photo-modal-open { overflow: hidden; }
   }
 
   .measurement-panel--history-fullwidth .measurement-saas-shell {
-    grid-template-columns: minmax(240px, 240px) minmax(0, 1fr) !important;
+    grid-template-columns: minmax(0, 1fr) !important;
     gap: 14px;
     width: 100%;
     max-width: none;
   }
 
   .measurement-panel--history-fullwidth .measurement-saas-main,
+  .measurement-panel--history-fullwidth .measurement-workspace,
   .measurement-panel--history-fullwidth .measurement-inner-tabs,
   .measurement-panel--history-fullwidth .measurement-inner-tabs__bar,
   .measurement-panel--history-fullwidth .measurement-inner-tabs__content,
@@ -14605,6 +14606,13 @@ body.bsm-photo-modal-open { overflow: hidden; }
   }
 
   .measurement-panel--history-fullwidth .measurement-saas-main {
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  .measurement-panel--history-fullwidth .measurement-workspace,
+  .measurement-panel--history-fullwidth .measurement-inner-tabs {
     width: 100%;
     max-width: none;
     justify-self: stretch;
@@ -14642,6 +14650,7 @@ body.bsm-photo-modal-open { overflow: hidden; }
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .measurement-panel--history-fullwidth .measurement-saas-left,
   .measurement-panel--history-fullwidth .measurement-saas-right {
     display: none !important;
   }
