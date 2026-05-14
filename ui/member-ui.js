@@ -280,6 +280,15 @@
       return;
     }
 
+    const decisionModel = buildV3DecisionModel(model);
+
+    professionalMemberFile.innerHTML = renderV3DecisionCenter(decisionModel, escapeHtml);
+    v3MemberDossier.innerHTML = renderV3ScoreDashboard(decisionModel, escapeHtml);
+    v3TrendCharts.innerHTML = renderV3ActionPlanning(decisionModel, escapeHtml);
+    v3RevisionPanel.innerHTML = renderV3CoachingAccordions(decisionModel, escapeHtml);
+    v3ControlCalendar.innerHTML = renderV3ControlCenter(decisionModel, escapeHtml);
+    return;
+
     professionalMemberFile.innerHTML = `
       <article class="member-file-hero">
         <div>
@@ -469,6 +478,668 @@
     }
 
     return `${Number(age)} gün`;
+  }
+
+  function buildV3DecisionModel(model) {
+    const latestMeasurement = model.latestMeasurement || {};
+    const goalText = String(model.goalLabel || "").toLocaleLowerCase("tr");
+    const isFatGoal = /yağ|yag|kilo|definasyon|recomp/.test(goalText);
+    const isMuscleGoal = /kas|hipertrofi|bulk|kuvvet/.test(goalText);
+    const weight = readV3MeasurementNumber(latestMeasurement, ["weight", "kilo", "bodyWeight"]);
+    const bodyFat = readV3MeasurementNumber(latestMeasurement, ["bodyFatPercentage", "fat", "bodyFat", "fatPercent"]);
+    const muscleMass = readV3MeasurementNumber(latestMeasurement, ["muscleMass", "kasKutlesi", "kasKütlesi"]);
+    const bodyWater = readV3MeasurementNumber(latestMeasurement, ["bodyWater", "water", "suOrani"]);
+    const waist = readV3MeasurementNumber(latestMeasurement, ["waist", "bel", "waistCircumference"]);
+    const visceralFat = readV3MeasurementNumber(latestMeasurement, ["visceralFat", "visceral", "icYag"]);
+    const bmr = readV3MeasurementNumber(latestMeasurement, ["bmr", "basalMetabolicRate"]);
+    const bmi = readV3MeasurementNumber(latestMeasurement, ["bmi"]);
+    const readinessScore = clampV3Score(model.readinessScore ?? model.score ?? 0);
+    const dataQualityScore = clampV3Score(model.dataQualityScore ?? 0);
+    const continuityScore = clampV3Score(model.continuityScore ?? 0);
+    const coachingPriorityScore = clampV3Score(model.coachingPriorityScore ?? 0);
+    const measurementCount = Number(model.measurementCount || 0);
+    const programCount = Number(model.programCount || 0);
+    const measurementAge = Number.isFinite(Number(model.measurementAge)) ? Number(model.measurementAge) : null;
+    const riskTone = resolveV3RiskTone(model.riskLabel);
+    const priorityAction = buildV3PriorityAction({
+      bodyFat,
+      muscleMass,
+      measurementCount,
+      measurementAge,
+      programCount,
+      isFatGoal,
+      isMuscleGoal,
+      nextAction: model.nextAction,
+    });
+
+    return {
+      ...model,
+      latestMeasurement,
+      metrics: { weight, bodyFat, muscleMass, bodyWater, waist, visceralFat, bmr, bmi },
+      goalText,
+      isFatGoal,
+      isMuscleGoal,
+      readinessScore,
+      dataQualityScore,
+      continuityScore,
+      coachingPriorityScore,
+      measurementCount,
+      programCount,
+      measurementAge,
+      riskTone,
+      priorityAction,
+      scoreCards: buildV3ScoreCards({
+        readinessScore,
+        dataQualityScore,
+        continuityScore,
+        coachingPriorityScore,
+        measurementCount,
+        programCount,
+        measurementAge,
+        programAge: model.programAge,
+        summary: model.summary,
+      }),
+    };
+  }
+
+  function buildV3PriorityAction(context) {
+    if (!context.measurementCount) {
+      return {
+        title: "Ölçüm verisi tamamlanmalı.",
+        text: "V3 kararları için önce güncel ölçüm girilmesi önerilir.",
+        actionLabel: "Yeni Ölçüm Gir",
+        actionType: "v3",
+        actionValue: "open-measurement",
+      };
+    }
+
+    if (context.measurementAge !== null && context.measurementAge > 21) {
+      return {
+        title: "Ölçüm güncelliği düşüyor.",
+        text: "Yeni ölçüm alarak risk ve hedef yorumlarını tazeleyebilirsiniz.",
+        actionLabel: "Yeni Ölçüm Gir",
+        actionType: "v3",
+        actionValue: "open-measurement",
+      };
+    }
+
+    if (context.isFatGoal && Number.isFinite(context.bodyFat)) {
+      return {
+        title: "Yağ oranı hedefe göre izlenmeli.",
+        text: "Kardiyo, direnç ve beslenme ritmi aynı hedefe bağlanmalı.",
+        actionLabel: "Detayları Gör",
+        actionType: "ui",
+        actionValue: "focus-v3-details",
+      };
+    }
+
+    if (context.isMuscleGoal && Number.isFinite(context.muscleMass)) {
+      return {
+        title: "Kas kütlesi ve yüklenme takip edilmeli.",
+        text: "Program hacmi ve toparlanma düzeni birlikte kontrol edilmeli.",
+        actionLabel: "Program Oluştur",
+        actionType: "v3",
+        actionValue: "generate-revision",
+      };
+    }
+
+    return {
+      title: context.nextAction || "Program ve ölçüm takibi güncellenmeli.",
+      text: "Aktif üyenin bir sonraki koçluk adımı netleştirildi.",
+      actionLabel: "Detayları Gör",
+      actionType: "ui",
+      actionValue: "focus-v3-details",
+    };
+  }
+
+  function buildV3ScoreCards(context) {
+    return [
+      {
+        label: "V3 Hazırlık Skoru",
+        value: context.readinessScore,
+        text: context.summary || "Üyenin ölçüm, program ve takip verileri birlikte değerlendirildi.",
+        tone: resolveV3ScoreTone(context.readinessScore),
+      },
+      {
+        label: "Veri Kalitesi",
+        value: context.dataQualityScore,
+        text: `${context.measurementCount} ölçüm · ${context.programCount} program kaydı`,
+        tone: resolveV3ScoreTone(context.dataQualityScore),
+      },
+      {
+        label: "Takip Sürekliliği",
+        value: context.continuityScore,
+        text: `Ölçüm: ${formatV3AgeClean(context.measurementAge)} · Program: ${formatV3AgeClean(context.programAge)}`,
+        tone: resolveV3ScoreTone(context.continuityScore),
+      },
+      {
+        label: "Koç Önceliği",
+        value: context.coachingPriorityScore,
+        text: "Yüksek değer daha yakın koç takibi gerektiğini gösterir.",
+        tone: context.coachingPriorityScore >= 70 ? "danger" : context.coachingPriorityScore >= 45 ? "attention" : "good",
+      },
+    ];
+  }
+
+  function renderV3DecisionCenter(model, escapeHtml) {
+    const decisions = [
+      {
+        tone: "orange",
+        code: "01",
+        title: "Bugünkü Öncelik",
+        headline: model.priorityAction.title,
+        text: model.priorityAction.text,
+        action: model.priorityAction,
+      },
+      {
+        tone: "green",
+        code: "AI",
+        title: "AI Önerisi",
+        headline: buildV3AiHeadline(model),
+        text: buildV3AiText(model),
+        action: { actionLabel: "Programı Güncelle", actionType: "v3", actionValue: "generate-revision" },
+      },
+      {
+        tone: model.riskTone,
+        code: "R",
+        title: "Risk Durumu",
+        headline: `${model.riskLabel || "Belirsiz"} risk`,
+        text: buildV3RiskText(model),
+        badge: model.riskLabel || "Belirsiz",
+      },
+      {
+        tone: "violet",
+        code: "N",
+        title: "Sonraki Adım",
+        headline: model.programCount ? "Program revizyonu değerlendirilecek." : "Yeni program oluşturulacak.",
+        text: model.nextAction || "Ölçüm ve program takibini güncelle.",
+        action: { actionLabel: "Program Oluştur", actionType: "v3", actionValue: "generate-revision" },
+      },
+    ];
+
+    return `
+      <section class="v3-decision-center">
+        <div class="v3-decision-center__intro">
+          <div>
+            <p class="section-kicker">V3 Koçluk / AI</p>
+            <h4>Koçluk Karar Merkezi</h4>
+            <span>${escapeHtml(model.memberName || "Aktif üye")} için risk, veri kalitesi, odak ve sonraki aksiyon tek ekranda özetlenir.</span>
+          </div>
+          <button type="button" class="ghost-button mini-button" data-measurement-ui-action="focus-v3-calendar">Koçluk Geçmişi</button>
+        </div>
+        <div class="v3-decision-grid">
+          ${decisions.map((item) => renderV3DecisionCard(item, escapeHtml)).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderV3DecisionCard(item, escapeHtml) {
+    const actionHtml = item.action
+      ? `<button type="button" class="v3-card-cta" ${renderV3ActionAttribute(item.action)}>${escapeHtml(item.action.actionLabel)}</button>`
+      : `<span class="v3-status-badge v3-status-badge--${escapeHtml(item.tone)}">${escapeHtml(item.badge || "Aktif")}</span>`;
+
+    return `
+      <article class="v3-decision-card v3-decision-card--${escapeHtml(item.tone)}">
+        <span class="v3-decision-card__icon">${escapeHtml(item.code)}</span>
+        <small>${escapeHtml(item.title)}</small>
+        <strong>${escapeHtml(item.headline)}</strong>
+        <p>${escapeHtml(item.text)}</p>
+        ${actionHtml}
+      </article>
+    `;
+  }
+
+  function renderV3ScoreDashboard(model, escapeHtml) {
+    return `
+      <section class="v3-score-dashboard">
+        <div class="v3-score-dashboard__head">
+          <div>
+            <p class="section-kicker">Skorlar</p>
+            <h4>V3 Hazırlık ve Takip Kalitesi</h4>
+          </div>
+          <span class="v3-status-badge v3-status-badge--${escapeHtml(resolveV3ScoreTone(model.readinessScore))}">
+            ${escapeHtml(resolveV3StatusLabel(model.readinessScore))}
+          </span>
+        </div>
+        <div class="v3-score-grid v3-score-grid--decision">
+          ${model.scoreCards.map((card) => renderV3ScoreTile(card, escapeHtml)).join("")}
+        </div>
+      </section>
+      <section class="v3-focus-projection-grid">
+        ${renderV3FocusAreas(model, escapeHtml)}
+        ${renderV3Projection(model, escapeHtml)}
+      </section>
+    `;
+  }
+
+  function renderV3ScoreTile(card, escapeHtml) {
+    return `
+      <article class="v3-score-card v3-score-card--${escapeHtml(card.tone)}">
+        <div class="v3-score-card__top">
+          <span>${escapeHtml(card.label)}</span>
+          <strong>${escapeHtml(card.value)}/100</strong>
+        </div>
+        <div class="v3-score-progress" aria-hidden="true">
+          <i style="width:${escapeHtml(card.value)}%"></i>
+        </div>
+        <p>${escapeHtml(card.text)}</p>
+      </article>
+    `;
+  }
+
+  function renderV3FocusAreas(model, escapeHtml) {
+    const areas = buildV3FocusAreas(model);
+
+    return `
+      <article class="v3-focus-card">
+        <div class="v3-card-head">
+          <div>
+            <p class="section-kicker">Odaklanma Alanları</p>
+            <h4>Koçluk Öncelikleri</h4>
+          </div>
+        </div>
+        <div class="v3-focus-list">
+          ${areas.map((area) => renderV3FocusRow(area, escapeHtml)).join("")}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderV3FocusRow(area, escapeHtml) {
+    return `
+      <div class="v3-focus-row">
+        <span class="v3-focus-row__icon">${escapeHtml(area.code)}</span>
+        <div>
+          <strong>${escapeHtml(area.title)}</strong>
+          <small>${escapeHtml(area.current)} → ${escapeHtml(area.target)}</small>
+          <div class="v3-focus-progress" aria-hidden="true"><i style="width:${escapeHtml(area.progress)}%"></i></div>
+        </div>
+        <em class="v3-priority-badge v3-priority-badge--${escapeHtml(area.tone)}">${escapeHtml(area.priority)}</em>
+      </div>
+    `;
+  }
+
+  function renderV3Projection(model, escapeHtml) {
+    const rows = buildV3ProjectionRows(model);
+
+    return `
+      <article class="v3-projection-card">
+        <div class="v3-card-head">
+          <div>
+            <p class="section-kicker">Beklenen Etki</p>
+            <h4>8 Haftalık Projeksiyon</h4>
+          </div>
+        </div>
+        ${
+          rows.length
+            ? `<div class="v3-projection-list">${rows.map((row) => renderV3ProjectionRow(row, escapeHtml)).join("")}</div>`
+            : `<div class="v3-empty-state">Projeksiyon için en az iki ölçüm gerekir.</div>`
+        }
+      </article>
+    `;
+  }
+
+  function renderV3ProjectionRow(row, escapeHtml) {
+    return `
+      <div class="v3-projection-row">
+        <span>${escapeHtml(row.label)}</span>
+        <strong>${escapeHtml(row.from)} → ${escapeHtml(row.to)}</strong>
+        <em class="v3-delta v3-delta--${escapeHtml(row.tone)}">${escapeHtml(row.delta)}</em>
+      </div>
+    `;
+  }
+
+  function renderV3ActionPlanning(model, escapeHtml) {
+    const actions = buildV3PlannedActions(model);
+
+    return `
+      <section class="v3-action-plan-card">
+        <div class="v3-card-head">
+          <div>
+            <p class="section-kicker">Planlanan Aksiyonlar</p>
+            <h4>Uygulanabilir Koçluk Listesi</h4>
+          </div>
+        </div>
+        <div class="v3-action-plan-list">
+          ${actions.map((action) => renderV3ActionRow(action, escapeHtml)).join("")}
+        </div>
+      </section>
+      <section class="v3-cta-strip">
+        <button type="button" class="primary-button mini-button" data-v3-action="generate-revision">Program Oluştur</button>
+        <button type="button" class="secondary-button mini-button" data-v3-action="open-measurement">Yeni Ölçüm Gir</button>
+        <button type="button" class="ghost-button mini-button" data-measurement-ui-action="focus-v3-calendar">Hatırlatma Ayarla</button>
+        <button type="button" class="ghost-button mini-button" data-measurement-ui-action="focus-v3-details">Detaylı Analiz Gör</button>
+      </section>
+    `;
+  }
+
+  function renderV3ActionRow(action, escapeHtml) {
+    return `
+      <article class="v3-action-row">
+        <span class="v3-action-row__status v3-action-row__status--${escapeHtml(action.tone)}">${escapeHtml(action.short)}</span>
+        <div>
+          <strong>${escapeHtml(action.title)}</strong>
+          <small>Başlangıç: ${escapeHtml(action.startDate)} · Durum: ${escapeHtml(action.status)}</small>
+        </div>
+        <em>${escapeHtml(action.priority)}</em>
+      </article>
+    `;
+  }
+
+  function renderV3CoachingAccordions(model, escapeHtml) {
+    const accordionGroups = [
+      { title: "AI Revizyon Önerisi", items: [model.fitNote, model.revisionNote].filter(Boolean), open: true },
+      { title: "Önerilen Aksiyonlar", items: model.recommendedActions || [] },
+      { title: "Antrenör Onay Adımları", items: model.approvalSteps || [] },
+      { title: "Risk Kontrol Listesi", items: model.riskControls || [] },
+      { title: "Koç Seans Kontrolü", items: model.coachChecklist || [] },
+      { title: "Kontrol Takvimi", items: (model.controlTimeline || []).map((item) => `${item.title || "Kontrol"} · ${item.dueAtLabel || "Tarih yok"} · ${item.text || ""}`) },
+      { title: "Medya Hazırlığı", items: [model.mediaReadinessText || "Hareket video/görsel alanı V3 için hazır."] },
+    ];
+
+    return `
+      <section class="v3-accordion-card" id="v3DecisionDetails">
+        <div class="v3-card-head">
+          <div>
+            <p class="section-kicker">Detaylı Koçluk Notları</p>
+            <h4>AI Revizyon ve Kontrol Adımları</h4>
+          </div>
+          <span class="v3-status-badge v3-status-badge--${escapeHtml(model.riskTone)}">${escapeHtml(model.revisionPriority || "Normal")}</span>
+        </div>
+        <div class="v3-accordion-stack">
+          ${accordionGroups.map((group) => renderV3Accordion(group, escapeHtml)).join("")}
+        </div>
+        <div class="v3-action-bar v3-action-bar--source">
+          <button type="button" class="secondary-button mini-button" data-v3-action="generate-revision">Revizyonlu Program Oluştur</button>
+          <button type="button" class="ghost-button mini-button" data-v3-action="open-measurement">Yeni Ölçüm Gir</button>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderV3Accordion(group, escapeHtml) {
+    const items = (group.items || []).filter(Boolean);
+
+    return `
+      <details class="v3-ai-accordion" ${group.open ? "open" : ""}>
+        <summary>${escapeHtml(group.title)}</summary>
+        ${
+          items.length
+            ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+            : `<p>Bu başlık için ek aksiyon beklenmiyor.</p>`
+        }
+      </details>
+    `;
+  }
+
+  function renderV3ControlCenter(model, escapeHtml) {
+    return `
+      <section class="v3-control-center-card" id="v3ControlFocus">
+        <div class="v3-card-head">
+          <div>
+            <p class="section-kicker">Kontrol Merkezi</p>
+            <h4>Sonraki Takip Adımları</h4>
+          </div>
+        </div>
+        <div class="v3-control-mini-grid">
+          <div><span>Son ölçüm</span><strong>${escapeHtml(model.latestMeasurementDate || "Yok")}</strong></div>
+          <div><span>Son program</span><strong>${escapeHtml(model.latestProgramDate || "Yok")}</strong></div>
+          <div><span>Risk</span><strong>${escapeHtml(model.riskLabel || "Belirsiz")}</strong></div>
+        </div>
+        <div class="v3-control-note">
+          Düzenli ölçüm yapmak, önerilerin doğruluğunu artırır ve hedefe ilerlemeyi daha net gösterir.
+        </div>
+      </section>
+    `;
+  }
+
+  function buildV3FocusAreas(model) {
+    const { bodyFat, muscleMass, bodyWater } = model.metrics;
+    const fatTarget = Number.isFinite(bodyFat) ? Math.max(8, bodyFat - (model.isFatGoal ? 2.4 : 1.2)) : null;
+    const muscleTarget = Number.isFinite(muscleMass) ? muscleMass + (model.isMuscleGoal ? 1.8 : 0.8) : null;
+
+    return [
+      {
+        code: "Y",
+        title: "Yağ Oranı",
+        current: formatV3Value(bodyFat, "%"),
+        target: Number.isFinite(fatTarget) ? `${formatV3Number(fatTarget, 1)}% hedefi` : "Ölçüm bekleniyor",
+        priority: model.isFatGoal ? "Yüksek" : "Orta",
+        tone: model.isFatGoal ? "danger" : "attention",
+        progress: clampV3Score(Number.isFinite(bodyFat) ? 100 - bodyFat * 2 : 35),
+      },
+      {
+        code: "K",
+        title: "Kas Kütlesi",
+        current: formatV3Value(muscleMass, "kg"),
+        target: Number.isFinite(muscleTarget) ? `${formatV3Number(muscleTarget, 1)} kg hedefi` : "Ölçüm bekleniyor",
+        priority: model.isMuscleGoal ? "Yüksek" : "Orta",
+        tone: model.isMuscleGoal ? "danger" : "attention",
+        progress: clampV3Score(Number.isFinite(muscleMass) ? 55 + Math.min(35, muscleMass / 2) : 35),
+      },
+      {
+        code: "C",
+        title: "Kardiyo Kapasitesi",
+        current: "Program hacmi",
+        target: model.isFatGoal ? "Haftalık +%10-15" : "Hedefe göre koru",
+        priority: model.isFatGoal ? "Yüksek" : "Orta",
+        tone: model.isFatGoal ? "danger" : "attention",
+        progress: model.isFatGoal ? 64 : 52,
+      },
+      {
+        code: "B",
+        title: "Beslenme Düzeni",
+        current: Number.isFinite(model.metrics.bmr) ? `${formatV3Number(model.metrics.bmr, 0)} kcal BMR` : "BMR bekleniyor",
+        target: "Protein ve öğün ritmi",
+        priority: "Orta",
+        tone: "attention",
+        progress: 58,
+      },
+      {
+        code: "U",
+        title: "Uyku Kalitesi",
+        current: "Toparlanma",
+        target: "Günlük 7-8 saat",
+        priority: model.riskTone === "danger" ? "Orta" : "Düşük",
+        tone: model.riskTone === "danger" ? "attention" : "good",
+        progress: model.riskTone === "danger" ? 48 : 72,
+      },
+      {
+        code: "T",
+        title: "Ölçüm Sürekliliği",
+        current: `${model.measurementCount} kayıt`,
+        target: "14-21 gün takip",
+        priority: model.continuityScore < 55 ? "Yüksek" : "Düşük",
+        tone: model.continuityScore < 55 ? "danger" : "good",
+        progress: model.continuityScore,
+      },
+      {
+        code: "S",
+        title: "Hidrasyon",
+        current: formatV3Value(bodyWater, "%"),
+        target: "Dengeli su oranı",
+        priority: Number.isFinite(bodyWater) && bodyWater < 48 ? "Orta" : "Düşük",
+        tone: Number.isFinite(bodyWater) && bodyWater < 48 ? "attention" : "good",
+        progress: clampV3Score(Number.isFinite(bodyWater) ? bodyWater + 20 : 40),
+      },
+    ];
+  }
+
+  function buildV3ProjectionRows(model) {
+    if (model.measurementCount < 2) {
+      return [];
+    }
+
+    const rows = [];
+    const { weight, bodyFat, muscleMass, bodyWater } = model.metrics;
+
+    if (Number.isFinite(bodyFat)) {
+      const target = Math.max(8, bodyFat - (model.isFatGoal ? 2.4 : 1.2));
+      rows.push({ label: "Yağ Oranı", from: `${formatV3Number(bodyFat, 1)}%`, to: `${formatV3Number(target, 1)}%`, delta: `${formatV3Number(target - bodyFat, 1)}%`, tone: "good" });
+    }
+
+    if (Number.isFinite(muscleMass)) {
+      const target = muscleMass + (model.isMuscleGoal ? 1.8 : 0.6);
+      rows.push({ label: "Kas Kütlesi", from: `${formatV3Number(muscleMass, 1)} kg`, to: `${formatV3Number(target, 1)} kg`, delta: `+${formatV3Number(target - muscleMass, 1)} kg`, tone: "good" });
+    }
+
+    if (Number.isFinite(weight)) {
+      const target = weight + (model.isMuscleGoal ? 0.6 : model.isFatGoal ? -1.4 : 0.2);
+      rows.push({ label: "Vücut Ağırlığı", from: `${formatV3Number(weight, 1)} kg`, to: `${formatV3Number(target, 1)} kg`, delta: `${target >= weight ? "+" : ""}${formatV3Number(target - weight, 1)} kg`, tone: model.isFatGoal || model.isMuscleGoal ? "good" : "neutral" });
+    }
+
+    if (Number.isFinite(bodyWater)) {
+      const target = Math.max(bodyWater, Math.min(58, bodyWater + 1));
+      rows.push({ label: "Vücut Suyu", from: `${formatV3Number(bodyWater, 1)}%`, to: `${formatV3Number(target, 1)}%`, delta: `${target >= bodyWater ? "+" : ""}${formatV3Number(target - bodyWater, 1)}%`, tone: "neutral" });
+    }
+
+    rows.push({ label: "V3 Skoru", from: `${model.readinessScore}`, to: `${Math.min(100, model.readinessScore + 10)}`, delta: "+10 puan", tone: "good" });
+    return rows.slice(0, 5);
+  }
+
+  function buildV3PlannedActions(model) {
+    const recommended = (model.recommendedActions || []).filter(Boolean);
+    const baseActions = [
+      recommended[0] || model.priorityAction.title || "Ölçüm ve program takibini güncelle.",
+      model.isFatGoal ? "Kardiyo süresini hedefe göre artır." : "Direnç antrenmanı yüklenmesini kontrol et.",
+      "Protein alımını ve öğün ritmini optimize et.",
+      "Yeni ölçüm hatırlatması oluştur.",
+    ];
+    const uniqueActions = Array.from(new Set(baseActions.filter(Boolean))).slice(0, 5);
+
+    return uniqueActions.map((title, index) => ({
+      title,
+      short: index === 0 ? "Aktif" : index === 1 ? "Plan" : "Takip",
+      status: index === 0 ? "Aktif" : index === 1 ? "Planlandı" : "Beklemede",
+      priority: index === 0 ? (model.riskTone === "danger" ? "Yüksek" : "Orta") : index === 3 ? "Düşük" : "Orta",
+      tone: index === 0 ? model.riskTone : index === 3 ? "good" : "attention",
+      startDate: model.latestMeasurementDate || "Bugün",
+    }));
+  }
+
+  function buildV3AiHeadline(model) {
+    if (model.isFatGoal) {
+      return "Kardiyo hacmini kontrollü artır.";
+    }
+
+    if (model.isMuscleGoal) {
+      return "Yüklenme ve protein hedefini hizala.";
+    }
+
+    return "Takip ritmini sabitle.";
+  }
+
+  function buildV3AiText(model) {
+    if (model.isFatGoal) {
+      return "Yağ kaybı için direnç antrenmanı korunurken kardiyo hacmi kademeli artırılabilir.";
+    }
+
+    if (model.isMuscleGoal) {
+      return "Kas kazanımı için progresif yüklenme, toparlanma ve protein planı birlikte izlenmeli.";
+    }
+
+    return "Ölçüm, program ve beslenme verileri aynı takvimde güncel tutulmalı.";
+  }
+
+  function buildV3RiskText(model) {
+    if (model.riskTone === "danger") {
+      return "Yakın takip, teknik kontrol ve ölçüm güncellemesi önerilir.";
+    }
+
+    if (model.riskTone === "attention") {
+      return "Düzenli takip sürerse risk yönetilebilir seviyede kalır.";
+    }
+
+    return "Mevcut takip düzeni güvenli aralıkta görünüyor.";
+  }
+
+  function renderV3ActionAttribute(action) {
+    if (action.actionType === "v3") {
+      return `data-v3-action="${action.actionValue}"`;
+    }
+
+    return `data-measurement-ui-action="${action.actionValue}"`;
+  }
+
+  function readV3MeasurementNumber(source, keys) {
+    for (const key of keys) {
+      const value = source?.[key];
+      if (value === null || value === undefined || value === "") {
+        continue;
+      }
+      const numeric = Number(String(value ?? "").replace(",", "."));
+
+      if (Number.isFinite(numeric)) {
+        return numeric;
+      }
+    }
+
+    return null;
+  }
+
+  function clampV3Score(value) {
+    const numeric = Number(value);
+
+    if (!Number.isFinite(numeric)) {
+      return 0;
+    }
+
+    return Math.max(0, Math.min(100, Math.round(numeric)));
+  }
+
+  function resolveV3ScoreTone(score) {
+    if (score >= 75) return "good";
+    if (score >= 50) return "attention";
+    return "danger";
+  }
+
+  function resolveV3RiskTone(riskLabel) {
+    const label = String(riskLabel || "").toLocaleLowerCase("tr");
+
+    if (/yüksek|yuksek|kritik|riskli/.test(label)) return "danger";
+    if (/orta|dikkat/.test(label)) return "attention";
+    if (/düşük|dusuk|iyi/.test(label)) return "good";
+    return "neutral";
+  }
+
+  function resolveV3StatusLabel(score) {
+    if (score >= 75) return "İyi";
+    if (score >= 50) return "Orta";
+    return "Takip Gerekir";
+  }
+
+  function formatV3AgeClean(age) {
+    if (age === null || age === undefined || Number.isNaN(Number(age))) {
+      return "yok";
+    }
+
+    if (Number(age) <= 0) {
+      return "bugün";
+    }
+
+    return `${Number(age)} gün`;
+  }
+
+  function formatV3Number(value, digits = 1) {
+    const numeric = Number(value);
+
+    if (!Number.isFinite(numeric)) {
+      return "Veri yok";
+    }
+
+    return numeric.toLocaleString("tr-TR", {
+      maximumFractionDigits: digits,
+      minimumFractionDigits: digits > 0 ? 1 : 0,
+    });
+  }
+
+  function formatV3Value(value, unit) {
+    if (!Number.isFinite(Number(value))) {
+      return "Veri yok";
+    }
+
+    return `${formatV3Number(value, unit === "kg" || unit === "%" ? 1 : 0)} ${unit}`;
   }
 
   window.BSMMemberUI = {

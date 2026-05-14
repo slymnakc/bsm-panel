@@ -1479,6 +1479,30 @@ function handleMeasurementPremiumAction(event) {
     return;
   }
 
+  const v3ActionButton = event.target.closest("button[data-v3-action]");
+
+  if (v3ActionButton && !v3RevisionPanel?.contains(v3ActionButton)) {
+    const v3Action = v3ActionButton.dataset.v3Action;
+
+    if (v3Action === "open-measurement") {
+      setActiveMeasurementInnerTab("manual");
+      measurementDate?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    if (v3Action === "generate-revision") {
+      const revisionButton = v3RevisionPanel?.querySelector('button[data-v3-action="generate-revision"]');
+
+      if (revisionButton) {
+        revisionButton.click();
+      } else {
+        showStatus("V3 revizyon aksiyonu için gerekli kontrol bulunamadı.", "error");
+      }
+
+      return;
+    }
+  }
+
   const actionButton = event.target.closest("[data-measurement-ui-action]");
 
   if (!actionButton) {
@@ -1531,6 +1555,20 @@ function handleMeasurementPremiumAction(event) {
   if (action === "focus-note") {
     setActiveMeasurementInnerTab("manual");
     measurementNote?.focus();
+    return;
+  }
+
+  if (action === "focus-v3-details") {
+    setActiveMeasurementInnerTab("ai");
+    const detailPanel = document.querySelector("#v3DecisionDetails");
+    detailPanel?.querySelector("details")?.setAttribute("open", "");
+    detailPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  if (action === "focus-v3-calendar") {
+    setActiveMeasurementInnerTab("ai");
+    document.querySelector("#v3ControlFocus")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
 
@@ -5776,6 +5814,10 @@ function renderV3CoachingPanel() {
       statusTags,
       latestMeasurementDate: latestMeasurement?.date || "Yok",
       latestProgramDate: latestProgram?.savedAt || latestProgram?.program?.createdAt || "Yok",
+      latestMeasurement,
+      latestProgram,
+      profileGoal: profile.goal || "",
+      profileLevel: profile.level || "",
       score: analysis.score ?? 0,
       goalFitScore: analysis.goalFitScore ?? 0,
       nextAction: analysis.nextAction || "Ölçüm ve program takibini güncelle.",
