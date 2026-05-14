@@ -14573,6 +14573,55 @@ body.bsm-photo-modal-open { overflow: hidden; }
     min-width: 0;
   }
 
+  .measurement-panel--history-fullwidth .measurement-saas-shell {
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) !important;
+  }
+
+  .measurement-panel--history-fullwidth .measurement-saas-main,
+  .measurement-panel--history-fullwidth .measurement-inner-tabs,
+  .measurement-panel--history-fullwidth .measurement-inner-tabs__bar,
+  .measurement-panel--history-fullwidth .measurement-inner-tabs__content,
+  .measurement-panel--history-fullwidth .measurement-tab-pane,
+  .measurement-panel--history-fullwidth .measurement-history-trend-host,
+  .measurement-panel--history-fullwidth .measurement-history-dashboard,
+  .measurement-panel--history-fullwidth .measurement-history-command,
+  .measurement-panel--history-fullwidth .measurement-history-filter-row,
+  .measurement-panel--history-fullwidth .measurement-history-kpi-grid,
+  .measurement-panel--history-fullwidth .measurement-history-chart-panel,
+  .measurement-panel--history-fullwidth .measurement-history-chart-grid,
+  .measurement-panel--history-fullwidth .measurement-history-table-card,
+  .measurement-panel--history-fullwidth .measurement-history-program-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .measurement-panel--history-fullwidth .measurement-history-trend-host,
+  .measurement-panel--history-fullwidth .measurement-history-dashboard,
+  .measurement-panel--history-fullwidth .measurement-history-command,
+  .measurement-panel--history-fullwidth .measurement-history-chart-panel,
+  .measurement-panel--history-fullwidth .measurement-history-table-card,
+  .measurement-panel--history-fullwidth .measurement-history-program-card {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .measurement-panel--history-fullwidth .measurement-history-filter-row,
+  .measurement-panel--history-fullwidth .measurement-history-table-wrap {
+    overflow-x: auto;
+  }
+
+  .measurement-panel--history-fullwidth .measurement-saas-right {
+    display: none !important;
+  }
+
+  .measurement-panel--history-fullwidth .measurement-history-chart-canvas {
+    min-height: 220px;
+  }
+
+  .measurement-panel--history-fullwidth .measurement-history-line-chart {
+    height: 196px;
+  }
+
   .measurement-panel--premium .measurement-workspace {
     display: grid;
     gap: 0;
@@ -15730,6 +15779,8 @@ body.bsm-photo-modal-open { overflow: hidden; }
   .measurement-history-dashboard {
     display: grid;
     gap: 16px;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .measurement-history-command,
@@ -16034,9 +16085,14 @@ body.bsm-photo-modal-open { overflow: hidden; }
   .measurement-history-table-card,
   .measurement-history-program-card {
     padding: 16px;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .measurement-history-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     overflow-x: auto;
     border: 1px solid rgba(15, 23, 42, 0.06);
     border-radius: 18px;
@@ -16254,6 +16310,10 @@ body.bsm-photo-modal-open { overflow: hidden; }
 
   .measurement-saas-shell {
     grid-template-columns: 1fr;
+  }
+
+  .measurement-panel--history-fullwidth .measurement-saas-shell {
+    grid-template-columns: 1fr !important;
   }
 
   .measurement-saas-left {

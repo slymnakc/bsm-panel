@@ -1674,6 +1674,7 @@ function setActiveMeasurementInnerTab(tabId = "tanita") {
   const hasPane = [...tabShell.querySelectorAll("[data-measurement-tab-pane]")].some((pane) => pane.dataset.measurementTabPane === tabId);
   const normalizedTabId = hasPane ? tabId : "tanita";
   measurementsPanel.dataset.activeMeasurementTab = normalizedTabId;
+  measurementsPanel.classList.toggle("measurement-panel--history-fullwidth", normalizedTabId === "history");
 
   tabShell.querySelectorAll("[data-measurement-tab-target]").forEach((button) => {
     const isActive = button.dataset.measurementTabTarget === normalizedTabId;
