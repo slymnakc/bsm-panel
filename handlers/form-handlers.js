@@ -43,6 +43,7 @@
       buildTanitaPreviewModel,
       renderTanitaPreview,
       applyTanitaMeasurementToForm,
+      setActiveMeasurementState,
       applyMeasurementToAppState,
       triggerMeasurementRecalculation,
       saveMeasurementToSupabase,
@@ -116,6 +117,9 @@
       state.activeMemberId = null;
       state.activeMember = null;
       state.latestMeasurement = null;
+      state.pendingTanitaMeasurement = null;
+      state.activeMeasurementState = null;
+      state.activeMeasurementSource = null;
       state.activeProgram = null;
       state.programEditMode = false;
       state.programDefaultSnapshot = null;
@@ -332,10 +336,14 @@
             return;
           }
 
-          const measurement = buildTanitaMeasurement(record, { makeId, getTodayInputValue });
+          const measurement = {
+            ...buildTanitaMeasurement(record, { makeId, getTodayInputValue }),
+            memberId: state.activeMemberId || "",
+          };
           const parsedTanitaData = measurement;
           console.log("TANITA PARSED DATA:", parsedTanitaData);
           state.pendingTanitaMeasurement = measurement;
+          setActiveMeasurementState?.(measurement, { memberId: state.activeMemberId || "", source: "tanita-pending" });
           renderTanitaPreview?.(buildTanitaPreviewModel?.(measurement));
           applyTanitaMeasurementToForm?.(measurement);
           renderLiveSummary(collectFormData());
