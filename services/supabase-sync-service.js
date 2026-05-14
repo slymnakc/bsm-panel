@@ -129,6 +129,32 @@
       });
   }
 
+  function deleteMeasurement(member, measurementId) {
+    const client = getClient();
+    const appMeasurementId = text(measurementId);
+
+    if (!client?.from || !appMeasurementId) {
+      return Promise.resolve(null);
+    }
+
+    const query = client.from(TABLES.measurements).delete().eq("app_measurement_id", appMeasurementId);
+    const scopedQuery = member?.id ? query.eq("member_id", text(member.id)) : query;
+
+    return scopedQuery
+      .then(({ error }) => {
+        if (error) {
+          console.error("Supabase measurement delete error", error);
+          return null;
+        }
+
+        return { app_measurement_id: appMeasurementId };
+      })
+      .catch((error) => {
+        console.error("Supabase measurement delete error", error);
+        return null;
+      });
+  }
+
   function persistAppSetting(key, payload) {
     const client = getClient();
     const settingKey = text(key);
@@ -582,6 +608,7 @@
     loadMembers,
     persistMembers,
     persistMeasurement,
+    deleteMeasurement,
     loadAppSettings,
     persistAppSetting,
     subscribeToChanges,

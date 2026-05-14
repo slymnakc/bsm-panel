@@ -133,12 +133,19 @@
     target.innerHTML = model.items
       .map(
         (item) => `
-          <article class="history-item">
-            <strong>${escapeHtml(item.date)}</strong>
-            <span>${escapeHtml(item.line)}</span>
-            ${item.segmentLine ? `<small>${escapeHtml(item.segmentLine)}</small>` : ""}
-            ${item.resistanceLine ? `<small>${escapeHtml(item.resistanceLine)}</small>` : ""}
-            ${item.note ? `<small>${escapeHtml(item.note)}</small>` : ""}
+          <article class="history-item measurement-history-item">
+            <div class="measurement-history-item__body">
+              <strong>${escapeHtml(item.date)}</strong>
+              <span>${escapeHtml(item.line)}</span>
+              ${item.segmentLine ? `<small>${escapeHtml(item.segmentLine)}</small>` : ""}
+              ${item.resistanceLine ? `<small>${escapeHtml(item.resistanceLine)}</small>` : ""}
+              ${item.note ? `<small>${escapeHtml(item.note)}</small>` : ""}
+            </div>
+            ${
+              item.id
+                ? `<button type="button" class="measurement-history-delete" data-measurement-delete="${escapeHtml(item.id)}" aria-label="Ölçüm kaydını sil">Sil</button>`
+                : ""
+            }
           </article>
         `,
       )

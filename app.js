@@ -554,6 +554,9 @@ const formHandlers = createFormHandlers({
   setActiveMeasurementState,
   applyMeasurementToAppState,
   triggerMeasurementRecalculation,
+  renderMeasurementTabStatus,
+  renderMeasurementHistory,
+  renderMeasurementReport,
   saveMeasurementToSupabase,
   exerciseLibrary,
   buildPrescription,
@@ -1431,6 +1434,13 @@ function appendIfFound(parent, child) {
 }
 
 function handleMeasurementPremiumAction(event) {
+  const deleteButton = event.target.closest("[data-measurement-delete]");
+
+  if (deleteButton) {
+    handleDeleteMeasurementRecord(deleteButton.dataset.measurementDelete);
+    return;
+  }
+
   const tabButton = event.target.closest("[data-measurement-tab-target]");
 
   if (tabButton) {
@@ -1502,6 +1512,88 @@ function handleMeasurementPremiumAction(event) {
   if (action === "mail-info") {
     openMeasurementEmailDraft();
   }
+}
+
+function handleDeleteMeasurementRecord(measurementId) {
+  const member = findActiveMember();
+  const id = String(measurementId || "");
+
+  if (!member || !id) {
+    showStatus("Silinecek ölçüm kaydı bulunamadı.", "error");
+    return;
+  }
+
+  const measurements = Array.isArray(member.measurements) ? member.measurements : [];
+  const measurement = measurements.find((item) => String(item?.id || "") === id);
+
+  if (!measurement) {
+    showStatus("Bu ölçüm kaydı zaten bulunamadı.", "info");
+    renderMeasurementHistory();
+    return;
+  }
+
+  const confirmed = window.confirm("Bu ölçüm kaydı silinsin mi?");
+
+  if (!confirmed) {
+    return;
+  }
+
+  const activeBefore = state.activeMeasurementState ? cloneData(state.activeMeasurementState) : null;
+  const isDeletingActive =
+    String(activeBefore?.id || "") === id ||
+    String(state.latestMeasurement?.id || "") === id ||
+    String(state.pendingTanitaMeasurement?.id || "") === id;
+
+  member.measurements = measurements.filter((item) => String(item?.id || "") !== id);
+  member.updatedAt = new Date().toISOString();
+
+  if (String(state.pendingTanitaMeasurement?.id || "") === id) {
+    state.pendingTanitaMeasurement = null;
+    if (saveTanitaMeasurementButton) saveTanitaMeasurementButton.disabled = true;
+  }
+
+  persistMembers();
+
+  const refreshedMember = syncActiveMemberState();
+  const nextMeasurement = refreshedMember?.measurements?.[0] || null;
+
+  if (isDeletingActive) {
+    setActiveMeasurementState(nextMeasurement, { memberId: refreshedMember?.id || member.id, source: nextMeasurement ? "saved" : null });
+    if (nextMeasurement) {
+      applyTanitaMeasurementToForm(nextMeasurement, { dispatch: false });
+    } else {
+      clearMeasurementInputs();
+      if (measurementDate) measurementDate.value = getTodayInputValue();
+    }
+  } else if (activeBefore) {
+    setActiveMeasurementState(activeBefore, { memberId: member.id, source: state.activeMeasurementSource || activeBefore.source || "measurement" });
+  } else {
+    setActiveMeasurementState(nextMeasurement, { memberId: member.id, source: nextMeasurement ? "saved" : null });
+  }
+
+  deleteMeasurementFromSupabase(member, id);
+  triggerMeasurementRecalculation();
+  renderMeasurementTabStatus();
+  renderMeasurementHistory();
+  renderMeasurementReport();
+
+  showStatus(
+    nextMeasurement ? "Ölçüm kaydı silindi. Özet ve trendler güncellendi." : "Ölçüm kaydı silindi. Bu üye için kayıtlı ölçüm kalmadı.",
+    "success",
+  );
+}
+
+function deleteMeasurementFromSupabase(member, measurementId) {
+  if (!window.BSMSupabaseSyncService?.deleteMeasurement) {
+    return Promise.resolve(null);
+  }
+
+  return window.BSMSupabaseSyncService
+    .deleteMeasurement(member, measurementId)
+    .catch((error) => {
+      console.error("Supabase measurement delete error", error);
+      return null;
+    });
 }
 
 function setActiveMeasurementInnerTab(tabId = "tanita") {
@@ -1593,15 +1685,33 @@ function prepareNewMeasurementDraft() {
   }
 
   state.pendingTanitaMeasurement = null;
-  setActiveMeasurementState(member.measurements?.[0] || null, { memberId: member.id, source: "saved" });
   clearMeasurementInputs();
-  if (measurementDate) measurementDate.value = getTodayInputValue();
+  const today = getTodayInputValue();
+  const nowTime = getCurrentTimeInputValue();
+  if (measurementDate) measurementDate.value = today;
+  setInputValue(document.querySelector("#measurementTime"), nowTime);
+  setActiveMeasurementState(
+    {
+      id: makeId("measurement-draft"),
+      memberId: member.id,
+      date: today,
+      time: nowTime,
+      source: "manual-draft",
+      measurementMethod: "manual_entry",
+    },
+    { memberId: member.id, source: "manual-draft" },
+  );
   renderTanitaPreview(null);
   if (saveTanitaMeasurementButton) saveTanitaMeasurementButton.disabled = true;
-  setActiveMeasurementInnerTab("tanita");
+  setActiveMeasurementInnerTab("manual");
   renderMeasurementTabStatus();
   renderMeasurementHistory();
   showStatus("Yeni ölçüm için Tanita CSV ve manuel giriş alanları hazır.", "success");
+}
+
+function getCurrentTimeInputValue() {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
 function loadLatestMeasurementForActiveMember() {
@@ -5019,6 +5129,7 @@ function renderMemberList() {
 function renderMeasurementHistory() {
   const member = findActiveMember();
   const measurementRecords = getActiveMeasurementRecords(member);
+  const activeMeasurement = getActiveMeasurementSnapshot(member);
 
   if (!member) {
     renderBodyAnalysisReportUi(bodyAnalysisReport, null, escapeHtml);
@@ -5035,6 +5146,7 @@ function renderMeasurementHistory() {
     measurementHistory,
     {
       items: measurementRecords.slice(0, 6).map((item) => ({
+        id: item.id,
         date: item.date,
         line: formatMeasurementLine(item),
         segmentLine: formatSegmentLine(item.segments),
@@ -5044,7 +5156,7 @@ function renderMeasurementHistory() {
     },
     escapeHtml,
   );
-  renderMeasurementPremiumInsight(member, measurementRecords[0] || state.latestMeasurement || null);
+  renderMeasurementPremiumInsight(member, activeMeasurement || measurementRecords[0] || state.latestMeasurement || null);
   renderMeasurementLeftSummary(member);
   renderMeasurementHistoryTrendHost(measurementRecords);
   renderMeasurementCsvAnalytics(member);
@@ -5428,7 +5540,7 @@ function clearMeasurementInputs() {
   measurementNote.value = "";
 }
 
-function applyTanitaMeasurementToForm(measurement) {
+function applyTanitaMeasurementToForm(measurement, options = {}) {
   const source = measurement && typeof measurement === "object" ? measurement : {};
 
   setInputValue(measurementDate, source.date);
@@ -5470,7 +5582,9 @@ function applyTanitaMeasurementToForm(measurement) {
     setInputValue(measurementNote, source.note);
   }
 
-  dispatchMeasurementInputEvents();
+  if (options.dispatch !== false) {
+    dispatchMeasurementInputEvents();
+  }
   console.log("TANITA DATA APPLIED TO FORM");
 }
 

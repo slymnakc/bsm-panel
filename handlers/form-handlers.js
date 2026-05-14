@@ -46,6 +46,9 @@
       setActiveMeasurementState,
       applyMeasurementToAppState,
       triggerMeasurementRecalculation,
+      renderMeasurementTabStatus,
+      renderMeasurementHistory,
+      renderMeasurementReport,
       saveMeasurementToSupabase,
       exerciseLibrary,
       buildPrescription,
@@ -293,7 +296,10 @@
       state.pendingTanitaMeasurement = null;
       setTanitaSaveEnabled(false);
       setActiveScreen("measurements", { silent: true });
-      clearMeasurementInputs();
+      setActiveMeasurementState?.(normalizedMeasurement, { memberId: savedMember?.id || member.id, source: "saved" });
+      renderMeasurementTabStatus?.();
+      renderMeasurementHistory?.();
+      renderMeasurementReport?.();
       renderMemberWorkspace();
       showStatus("Üye ölçümü kaydedildi.", "success");
     }

@@ -1977,6 +1977,38 @@ input[type="radio"] {
   align-items: start;
 }
 
+.measurement-history-item {
+  align-items: flex-start;
+}
+
+.measurement-history-item__body {
+  min-width: 0;
+}
+
+.measurement-history-delete {
+  flex: 0 0 auto;
+  border: 1px solid rgba(248, 113, 113, 0.26);
+  background: rgba(254, 242, 242, 0.9);
+  color: #b91c1c;
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.measurement-history-delete:hover,
+.measurement-history-delete:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(220, 38, 38, 0.45);
+  background: #fee2e2;
+  outline: none;
+}
+
 .mini-button {
   padding: 9px 12px;
   font-size: 0.88rem;
