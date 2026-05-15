@@ -16535,6 +16535,70 @@ body.bsm-photo-modal-open { overflow: hidden; }
     rgba(255, 255, 255, 0.96);
 }
 
+.app-main .measurement-panel.measurement-panel--premium.measurement-panel--v3-fullwidth {
+  width: 100%;
+  max-width: none !important;
+}
+
+.measurement-panel--v3-fullwidth .measurement-saas-shell {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 20px;
+  width: 100%;
+  max-width: none;
+}
+
+.measurement-panel--v3-fullwidth .measurement-saas-left,
+.measurement-panel--v3-fullwidth .measurement-saas-right {
+  display: none !important;
+}
+
+.measurement-panel--v3-fullwidth .measurement-saas-main,
+.measurement-panel--v3-fullwidth .measurement-workspace,
+.measurement-panel--v3-fullwidth .measurement-inner-tabs,
+.measurement-panel--v3-fullwidth .measurement-inner-tabs__content,
+.measurement-panel--v3-fullwidth .measurement-tab-pane[data-measurement-tab-pane="ai"],
+.measurement-panel--v3-fullwidth .measurement-workspace__v3,
+.measurement-panel--v3-fullwidth .professional-member-file,
+.measurement-panel--v3-fullwidth .v3-dossier-grid,
+.measurement-panel--v3-fullwidth .v3-chart-grid,
+.measurement-panel--v3-fullwidth .v3-revision-panel,
+.measurement-panel--v3-fullwidth .v3-calendar-list {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  justify-self: stretch;
+}
+
+.measurement-panel--v3-fullwidth .measurement-tab-pane[data-measurement-tab-pane="ai"] {
+  overflow-x: clip;
+}
+
+.measurement-panel--v3-fullwidth .measurement-workspace__v3 {
+  gap: 18px;
+  padding: 18px;
+}
+
+.measurement-panel--v3-fullwidth .v3-decision-grid,
+.measurement-panel--v3-fullwidth .v3-score-grid--decision {
+  grid-template-columns: repeat(4, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+.measurement-panel--v3-fullwidth .v3-focus-projection-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+  gap: 18px;
+}
+
+.measurement-panel--v3-fullwidth .v3-action-plan-card,
+.measurement-panel--v3-fullwidth .v3-accordion-card,
+.measurement-panel--v3-fullwidth .v3-control-center-card,
+.measurement-panel--v3-fullwidth .v3-decision-center,
+.measurement-panel--v3-fullwidth .v3-score-dashboard,
+.measurement-panel--v3-fullwidth .v3-focus-card,
+.measurement-panel--v3-fullwidth .v3-projection-card {
+  overflow: hidden;
+}
+
 .measurement-panel--premium .measurement-workspace__v3 > .workspace-card__header {
   display: none;
 }
@@ -17023,13 +17087,24 @@ body.bsm-photo-modal-open { overflow: hidden; }
 }
 
 @media (max-width: 1180px) {
+  .measurement-panel--v3-fullwidth .measurement-saas-shell {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .measurement-panel--v3-fullwidth .measurement-saas-left {
+    position: static;
+  }
+
   .v3-decision-grid,
+  .measurement-panel--v3-fullwidth .v3-decision-grid,
   .v3-score-grid--decision,
+  .measurement-panel--v3-fullwidth .v3-score-grid--decision,
   .v3-cta-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .v3-focus-projection-grid {
+  .v3-focus-projection-grid,
+  .measurement-panel--v3-fullwidth .v3-focus-projection-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -17046,7 +17121,9 @@ body.bsm-photo-modal-open { overflow: hidden; }
   }
 
   .v3-decision-grid,
+  .measurement-panel--v3-fullwidth .v3-decision-grid,
   .v3-score-grid--decision,
+  .measurement-panel--v3-fullwidth .v3-score-grid--decision,
   .v3-cta-strip,
   .v3-control-mini-grid {
     grid-template-columns: 1fr;

@@ -1713,6 +1713,7 @@ function setActiveMeasurementInnerTab(tabId = "tanita") {
   const normalizedTabId = hasPane ? tabId : "tanita";
   measurementsPanel.dataset.activeMeasurementTab = normalizedTabId;
   measurementsPanel.classList.toggle("measurement-panel--history-fullwidth", normalizedTabId === "history");
+  measurementsPanel.classList.toggle("measurement-panel--v3-fullwidth", normalizedTabId === "ai");
 
   tabShell.querySelectorAll("[data-measurement-tab-target]").forEach((button) => {
     const isActive = button.dataset.measurementTabTarget === normalizedTabId;
