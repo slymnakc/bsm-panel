@@ -1537,6 +1537,12 @@ function handleMeasurementPremiumAction(event) {
     return;
   }
 
+  if (action === "open-builder") {
+    setActiveScreen("builder", { userTriggered: true, silent: true });
+    form?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
   if (action === "build-report") {
     handleBuildMeasurementReport();
     return;

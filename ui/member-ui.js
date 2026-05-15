@@ -282,11 +282,11 @@
 
     const decisionModel = buildV3DecisionModel(model);
 
-    professionalMemberFile.innerHTML = renderV3DecisionCenter(decisionModel, escapeHtml);
-    v3MemberDossier.innerHTML = renderV3ScoreDashboard(decisionModel, escapeHtml);
-    v3TrendCharts.innerHTML = renderV3ActionPlanning(decisionModel, escapeHtml);
-    v3RevisionPanel.innerHTML = renderV3CoachingAccordions(decisionModel, escapeHtml);
-    v3ControlCalendar.innerHTML = renderV3ControlCenter(decisionModel, escapeHtml);
+    professionalMemberFile.innerHTML = renderV3LeanDecisionCenter(decisionModel, escapeHtml);
+    v3MemberDossier.innerHTML = renderV3MainRecommendation(decisionModel, escapeHtml);
+    v3TrendCharts.innerHTML = renderV3ActionAndChecklist(decisionModel, escapeHtml);
+    v3RevisionPanel.innerHTML = renderV3AiNoteAndDetails(decisionModel, escapeHtml);
+    v3ControlCalendar.innerHTML = renderV3FollowUpPlan(decisionModel, escapeHtml);
     return;
 
     professionalMemberFile.innerHTML = `
@@ -493,23 +493,41 @@
     const visceralFat = readV3MeasurementNumber(latestMeasurement, ["visceralFat", "visceral", "icYag"]);
     const bmr = readV3MeasurementNumber(latestMeasurement, ["bmr", "basalMetabolicRate"]);
     const bmi = readV3MeasurementNumber(latestMeasurement, ["bmi"]);
-    const readinessScore = clampV3Score(model.readinessScore ?? model.score ?? 0);
     const dataQualityScore = clampV3Score(model.dataQualityScore ?? 0);
     const continuityScore = clampV3Score(model.continuityScore ?? 0);
     const coachingPriorityScore = clampV3Score(model.coachingPriorityScore ?? 0);
     const measurementCount = Number(model.measurementCount || 0);
     const programCount = Number(model.programCount || 0);
     const measurementAge = Number.isFinite(Number(model.measurementAge)) ? Number(model.measurementAge) : null;
-    const riskTone = resolveV3RiskTone(model.riskLabel);
+    const programAge = Number.isFinite(Number(model.programAge)) ? Number(model.programAge) : null;
+    const goalDefined = Boolean(model.profileGoal && model.goalLabel && model.goalLabel !== "Hedef yok");
+    const readinessScore = calculateV3UsableScore(model.readinessScore ?? model.score ?? 0, {
+      dataQualityScore,
+      continuityScore,
+      measurementCount,
+      programCount,
+      measurementAge,
+    });
+    const riskState = buildV3RiskState({
+      engineRiskLabel: model.riskLabel,
+      measurementCount,
+      programCount,
+      measurementAge,
+      goalDefined,
+      continuityScore,
+    });
     const priorityAction = buildV3PriorityAction({
       bodyFat,
       muscleMass,
       measurementCount,
       measurementAge,
       programCount,
+      programAge,
+      goalDefined,
       isFatGoal,
       isMuscleGoal,
       nextAction: model.nextAction,
+      riskState,
     });
 
     return {
@@ -525,8 +543,12 @@
       coachingPriorityScore,
       measurementCount,
       programCount,
+      programAge,
       measurementAge,
-      riskTone,
+      goalDefined,
+      riskState,
+      riskLabel: riskState.label,
+      riskTone: riskState.tone,
       priorityAction,
       scoreCards: buildV3ScoreCards({
         readinessScore,
@@ -536,59 +558,146 @@
         measurementCount,
         programCount,
         measurementAge,
-        programAge: model.programAge,
+        programAge,
         summary: model.summary,
       }),
     };
   }
 
+  function calculateV3UsableScore(rawScore, context) {
+    let score = clampV3Score(rawScore || Math.round(context.dataQualityScore * 0.48 + context.continuityScore * 0.34 + (context.programCount ? 18 : 0)));
+
+    if (!context.measurementCount) {
+      score = Math.min(score, 42);
+    } else if (!context.programCount) {
+      score = Math.min(score, 68);
+    }
+
+    if (context.measurementAge !== null && context.measurementAge > 14) {
+      score = Math.min(score, 60);
+    }
+
+    return clampV3Score(score);
+  }
+
+  function buildV3RiskState(context) {
+    const engineTone = resolveV3RiskTone(context.engineRiskLabel);
+
+    if (!context.measurementCount) {
+      return { label: "Yüksek Risk", tone: "danger", text: "Güncel ölçüm yok." };
+    }
+
+    if (!context.programCount) {
+      return { label: "Orta Risk", tone: "attention", text: "Program kaydı eksik." };
+    }
+
+    if (context.measurementAge !== null && context.measurementAge > 14) {
+      return { label: "Orta Risk", tone: "attention", text: "Son ölçüm güncel değil." };
+    }
+
+    if (!context.goalDefined) {
+      return { label: "Orta Risk", tone: "attention", text: "Hedef tanımı eksik." };
+    }
+
+    if (engineTone === "danger") {
+      return { label: "Yüksek Risk", tone: "danger", text: "Analiz yakın takip öneriyor." };
+    }
+
+    if (engineTone === "attention" || context.continuityScore < 55) {
+      return { label: "Orta Risk", tone: "attention", text: "Takip ritmi güçlendirilmeli." };
+    }
+
+    return { label: "Düşük Risk", tone: "good", text: "Mevcut takip güvenli aralıkta." };
+  }
+
   function buildV3PriorityAction(context) {
     if (!context.measurementCount) {
       return {
-        title: "Ölçüm verisi tamamlanmalı.",
-        text: "V3 kararları için önce güncel ölçüm girilmesi önerilir.",
+        title: "Yeni ölçüm girilmeli",
+        text: "Üyenin güncel ölçüm kaydı olmadığı için risk ve program kararı güvenilir oluşmaz.",
+        why: "V3 skoru ölçüm geçmişi olmadan sadece profil bilgisine dayanır.",
+        what: "Ölçüm & Tanita ekranında manuel ölçüm veya Tanita CSV kaydı ekleyin.",
+        expected: "Skor, risk ve program yönlendirmesi gerçek veriye göre güncellenir.",
         actionLabel: "Yeni Ölçüm Gir",
         actionType: "v3",
         actionValue: "open-measurement",
       };
     }
 
-    if (context.measurementAge !== null && context.measurementAge > 21) {
+    if (context.measurementAge !== null && context.measurementAge > 14) {
       return {
-        title: "Ölçüm güncelliği düşüyor.",
-        text: "Yeni ölçüm alarak risk ve hedef yorumlarını tazeleyebilirsiniz.",
+        title: "Yeni ölçüm alınmalı",
+        text: "Son ölçüm 14 günü geçtiği için mevcut kararlar güncelliğini kaybediyor.",
+        why: "Kilo, yağ oranı ve kas kütlesi değişmiş olabilir.",
+        what: "Yeni ölçüm girip program ve beslenme kararlarını tazeleyin.",
+        expected: "Trend takibi netleşir ve gereksiz program revizyonu riski azalır.",
         actionLabel: "Yeni Ölçüm Gir",
         actionType: "v3",
         actionValue: "open-measurement",
+      };
+    }
+
+    if (!context.programCount) {
+      return {
+        title: "İlk program oluşturulmalı",
+        text: "Üyenin ölçüm verisi var ancak aktif program geçmişi bulunmuyor.",
+        why: "Program olmadan takip ve gelişim skorları anlamlı şekilde ilerlemez.",
+        what: `${context.isMuscleGoal ? "Kas kazanımı" : context.isFatGoal ? "Yağ kaybı" : "Hedefe uygun"} başlangıç programı oluşturun.`,
+        expected: "Takip planı, ölçüm trendleri ve gelişim skorları anlamlı hale gelir.",
+        actionLabel: "Program Oluştur",
+        actionType: "ui",
+        actionValue: "open-builder",
+      };
+    }
+
+    if (context.programAge !== null && context.programAge > 21) {
+      return {
+        title: "Program gözden geçirilmeli",
+        text: "Program kaydı var ancak revizyon tarihi yaklaşıyor.",
+        why: "Aynı programın uzun süre değişmeden sürmesi adaptasyonu yavaşlatabilir.",
+        what: "Program hacmi, set/tekrar ve kardiyo dengesini son ölçüme göre kontrol edin.",
+        expected: "Program hedefe daha yakın ve sürdürülebilir hale gelir.",
+        actionLabel: "Programı Gözden Geçir",
+        actionType: "ui",
+        actionValue: "open-builder",
       };
     }
 
     if (context.isFatGoal && Number.isFinite(context.bodyFat)) {
       return {
-        title: "Yağ oranı hedefe göre izlenmeli.",
-        text: "Kardiyo, direnç ve beslenme ritmi aynı hedefe bağlanmalı.",
-        actionLabel: "Detayları Gör",
+        title: "Yağ kaybı ritmi korunmalı",
+        text: "Ölçüm güncel ve program var; yağ oranı hedefe göre izlenmeli.",
+        why: "Yağ kaybı hedefinde direnç, kardiyo ve beslenme aynı yönde ilerlemeli.",
+        what: "Programı son ölçüme göre gözden geçirip kardiyo hacmini kontrollü ayarlayın.",
+        expected: "Kas kaybı riski düşerken yağ kaybı takibi daha net ilerler.",
+        actionLabel: "Programı Gözden Geçir",
         actionType: "ui",
-        actionValue: "focus-v3-details",
+        actionValue: "open-builder",
       };
     }
 
     if (context.isMuscleGoal && Number.isFinite(context.muscleMass)) {
       return {
-        title: "Kas kütlesi ve yüklenme takip edilmeli.",
-        text: "Program hacmi ve toparlanma düzeni birlikte kontrol edilmeli.",
-        actionLabel: "Program Oluştur",
-        actionType: "v3",
-        actionValue: "generate-revision",
+        title: "Kas gelişimi takip edilmeli",
+        text: "Ölçüm güncel ve program var; yüklenme-toparlanma dengesi izlenmeli.",
+        why: "Kas kazanımı hedefinde program hacmi, protein ve uyku aynı anda takip edilmeli.",
+        what: "Programı son ölçüm ve performans notuna göre gözden geçirin.",
+        expected: "Kas kütlesi korunur veya kademeli artış için daha net takip sağlanır.",
+        actionLabel: "Programı Gözden Geçir",
+        actionType: "ui",
+        actionValue: "open-builder",
       };
     }
 
     return {
-      title: context.nextAction || "Program ve ölçüm takibi güncellenmeli.",
-      text: "Aktif üyenin bir sonraki koçluk adımı netleştirildi.",
-      actionLabel: "Detayları Gör",
+      title: context.nextAction || "Programı gözden geçir",
+      text: "Ölçüm ve program güncel; koçluk takibi sürdürülmeli.",
+      why: "Sistem kritik eksik görmüyor, bu nedenle düzenli kontrol yeterli.",
+      what: "Üye geçmişini ve son program çıktısını birlikte kontrol edin.",
+      expected: "Takip sürdürülebilir kalır ve küçük sapmalar erken yakalanır.",
+      actionLabel: "Üye Geçmişini Gör",
       actionType: "ui",
-      actionValue: "focus-v3-details",
+      actionValue: "compare",
     };
   }
 
@@ -619,6 +728,291 @@
         tone: context.coachingPriorityScore >= 70 ? "danger" : context.coachingPriorityScore >= 45 ? "attention" : "good",
       },
     ];
+  }
+
+  function renderV3LeanDecisionCenter(model, escapeHtml) {
+    const cards = [
+      {
+        label: "Genel V3 Skoru",
+        value: `${model.readinessScore}/100`,
+        text: resolveV3StatusLabel(model.readinessScore),
+        tone: resolveV3ScoreTone(model.readinessScore),
+      },
+      {
+        label: "Risk Durumu",
+        value: model.riskState.label,
+        text: model.riskState.text,
+        tone: model.riskState.tone,
+      },
+      {
+        label: "Veri Kalitesi",
+        value: `${model.dataQualityScore}/100`,
+        text: `${model.measurementCount} ölçüm · ${model.programCount} program`,
+        tone: resolveV3ScoreTone(model.dataQualityScore),
+      },
+      {
+        label: "Sonraki En Doğru Adım",
+        value: model.priorityAction.actionLabel,
+        text: model.priorityAction.title,
+        tone: "violet",
+        action: model.priorityAction,
+      },
+    ];
+
+    return `
+      <section class="v3-lean-center">
+        <div class="v3-lean-header">
+          <div>
+            <p class="section-kicker">V3 Koçluk / AI</p>
+            <h4>Koçluk Karar Merkezi</h4>
+            <span>${escapeHtml(model.memberName || "Aktif üye")} için ölçüm, program ve risk durumu tek ekranda özetlenir.</span>
+          </div>
+          <em>Son güncelleme: ${escapeHtml(new Date().toLocaleDateString("tr-TR"))}</em>
+        </div>
+        <div class="v3-lean-summary-grid">
+          ${cards.map((card) => renderV3LeanScoreCard(card, escapeHtml)).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderV3LeanScoreCard(card, escapeHtml) {
+    const action = card.action
+      ? `<button type="button" class="v3-card-cta" ${renderV3ActionAttribute(card.action)}>${escapeHtml(card.action.actionLabel)}</button>`
+      : "";
+
+    return `
+      <article class="v3-lean-score-card v3-lean-score-card--${escapeHtml(card.tone)}">
+        <span>${escapeHtml(card.label)}</span>
+        <strong>${escapeHtml(card.value)}</strong>
+        <p>${escapeHtml(card.text)}</p>
+        ${action}
+      </article>
+    `;
+  }
+
+  function renderV3MainRecommendation(model, escapeHtml) {
+    const recommendation = model.priorityAction;
+
+    return `
+      <section class="v3-main-recommendation">
+        <div class="v3-main-recommendation__badge">Bugünkü Öncelik</div>
+        <div class="v3-main-recommendation__content">
+          <div>
+            <p class="section-kicker">Ana Koçluk Önerisi</p>
+            <h4>${escapeHtml(recommendation.title)}</h4>
+            <p>${escapeHtml(recommendation.text)}</p>
+          </div>
+          <div class="v3-main-recommendation__action">
+            <button type="button" class="primary-button mini-button" ${renderV3ActionAttribute(recommendation)}>
+              ${escapeHtml(recommendation.actionLabel)}
+            </button>
+          </div>
+        </div>
+        <div class="v3-recommendation-grid">
+          <div><span>Neden?</span><strong>${escapeHtml(recommendation.why || "Ölçüm ve program verileri bu aksiyonu işaret ediyor.")}</strong></div>
+          <div><span>Ne yapılacak?</span><strong>${escapeHtml(recommendation.what || "Antrenör tarafından hızlı kontrol yapılacak.")}</strong></div>
+          <div><span>Beklenen sonuç</span><strong>${escapeHtml(recommendation.expected || "Takip ve karar kalitesi artar.")}</strong></div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderV3ActionAndChecklist(model, escapeHtml) {
+    const actions = [
+      {
+        title: "Program Oluştur",
+        text: model.programCount ? "Programı son ölçüme göre gözden geçir." : "İlk aktif programı oluştur.",
+        tone: "orange",
+        action: { actionLabel: "Başlat", actionType: "ui", actionValue: "open-builder" },
+      },
+      {
+        title: "Yeni Ölçüm Gir",
+        text: "Manuel ölçüm veya Tanita CSV ile güncel veri ekle.",
+        tone: "blue",
+        action: { actionLabel: "Ölçüm Aç", actionType: "v3", actionValue: "open-measurement" },
+      },
+      {
+        title: "Rapor Oluştur",
+        text: "Son ölçümden üyeye verilecek raporu hazırla.",
+        tone: "green",
+        action: { actionLabel: "Rapor", actionType: "ui", actionValue: "build-report" },
+      },
+      {
+        title: "Üye Geçmişini Gör",
+        text: "Ölçüm ve program geçmişini birlikte incele.",
+        tone: "violet",
+        action: { actionLabel: "Geçmiş", actionType: "ui", actionValue: "compare" },
+      },
+    ];
+    const checklist = buildV3Checklist(model);
+
+    return `
+      <section class="v3-action-check-grid">
+        <article class="v3-working-actions-card">
+          <div class="v3-card-head">
+            <div>
+              <p class="section-kicker">Aksiyon Planı</p>
+              <h4>Sadece Çalışan Hızlı Aksiyonlar</h4>
+            </div>
+          </div>
+          <div class="v3-working-actions">
+            ${actions.map((action) => renderV3ActionTile(action, escapeHtml)).join("")}
+          </div>
+        </article>
+        <article class="v3-checklist-card">
+          <div class="v3-card-head">
+            <div>
+              <p class="section-kicker">Takip Kontrol Listesi</p>
+              <h4>Koçun Hızlı Kontrolü</h4>
+            </div>
+          </div>
+          <div class="v3-checklist">
+            ${checklist.map((item) => renderV3ChecklistRow(item, escapeHtml)).join("")}
+          </div>
+        </article>
+      </section>
+    `;
+  }
+
+  function renderV3ActionTile(item, escapeHtml) {
+    return `
+      <button type="button" class="v3-action-tile v3-action-tile--${escapeHtml(item.tone)}" ${renderV3ActionAttribute(item.action)}>
+        <strong>${escapeHtml(item.title)}</strong>
+        <span>${escapeHtml(item.text)}</span>
+        <em>${escapeHtml(item.action.actionLabel)}</em>
+      </button>
+    `;
+  }
+
+  function renderV3ChecklistRow(item, escapeHtml) {
+    return `
+      <div class="v3-checklist-row v3-checklist-row--${escapeHtml(item.tone)}">
+        <span>${escapeHtml(item.status)}</span>
+        <strong>${escapeHtml(item.label)}</strong>
+        <em>${escapeHtml(item.detail)}</em>
+      </div>
+    `;
+  }
+
+  function renderV3AiNoteAndDetails(model, escapeHtml) {
+    const bullets = buildV3AiBullets(model);
+    const accordionGroups = [
+      {
+        title: "V3 skor detayları",
+        items: [
+          `Genel skor: ${model.readinessScore}/100`,
+          `Veri kalitesi: ${model.dataQualityScore}/100`,
+          `Takip sürekliliği: ${model.continuityScore}/100`,
+          `Koç önceliği: ${model.coachingPriorityScore}/100`,
+        ],
+      },
+      { title: "Risk kontrol listesi", items: model.riskControls || [] },
+      { title: "Antrenör kontrol notları", items: model.coachChecklist || [] },
+      { title: "Revizyon önerileri", items: [model.fitNote, model.revisionNote, ...(model.recommendedActions || [])].filter(Boolean) },
+    ];
+
+    return `
+      <section class="v3-ai-compact">
+        <article class="v3-ai-note-card">
+          <div class="v3-card-head">
+            <div>
+              <p class="section-kicker">Koç Notu / AI Önerisi</p>
+              <h4>Bugün İçin Kısa Öneri</h4>
+            </div>
+            <span class="v3-status-badge v3-status-badge--${escapeHtml(model.riskTone)}">${escapeHtml(model.riskState.label)}</span>
+          </div>
+          <ol>
+            ${bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+          </ol>
+        </article>
+        <article class="v3-accordion-card" id="v3DecisionDetails">
+          <div class="v3-card-head">
+            <div>
+              <p class="section-kicker">Detaylar</p>
+              <h4>Varsayılan Kapalı Detaylar</h4>
+            </div>
+          </div>
+          <div class="v3-accordion-stack">
+            ${accordionGroups.map((group) => renderV3Accordion(group, escapeHtml)).join("")}
+          </div>
+        </article>
+      </section>
+    `;
+  }
+
+  function renderV3FollowUpPlan(model, escapeHtml) {
+    const nextMeasurementText = !model.measurementCount
+      ? "Ölçüm bekleniyor"
+      : model.measurementAge !== null && model.measurementAge > 14
+        ? "Bugün yeni ölçüm önerilir"
+        : "14-21 gün içinde tekrar ölçüm";
+    const programText = model.programCount ? "Program takipte" : "İlk program oluşturulmalı";
+
+    return `
+      <section class="v3-followup-strip" id="v3ControlFocus">
+        <div>
+          <span>Takip planı</span>
+          <strong>${escapeHtml(nextMeasurementText)}</strong>
+        </div>
+        <div>
+          <span>Program yönlendirmesi</span>
+          <strong>${escapeHtml(programText)}</strong>
+        </div>
+        <div>
+          <span>Hedef</span>
+          <strong>${escapeHtml(model.goalDefined ? model.goalLabel : "Hedef tanımlanmalı")}</strong>
+        </div>
+      </section>
+    `;
+  }
+
+  function buildV3Checklist(model) {
+    const measurementFresh = model.measurementCount > 0 && !(model.measurementAge !== null && model.measurementAge > 14);
+    const riskNormal = model.riskTone === "good";
+
+    return [
+      {
+        label: "Ölçüm var mı?",
+        detail: model.measurementCount ? `${model.measurementCount} kayıt` : "Ölçüm yok",
+        status: model.measurementCount ? "Tamamlandı" : "Eksik",
+        tone: model.measurementCount ? "good" : "danger",
+      },
+      {
+        label: "Program var mı?",
+        detail: model.programCount ? `${model.programCount} kayıt` : "Program bulunmuyor",
+        status: model.programCount ? "Tamamlandı" : "Eksik",
+        tone: model.programCount ? "good" : "danger",
+      },
+      {
+        label: "Son ölçüm 14 günü geçti mi?",
+        detail: model.measurementAge === null ? "Ölçüm yok" : `${model.measurementAge} gün`,
+        status: measurementFresh ? "Tamamlandı" : "Uyarı",
+        tone: measurementFresh ? "good" : "attention",
+      },
+      {
+        label: "Hedef tanımlı mı?",
+        detail: model.goalDefined ? model.goalLabel : "Hedef yok",
+        status: model.goalDefined ? "Tamamlandı" : "Eksik",
+        tone: model.goalDefined ? "good" : "danger",
+      },
+      {
+        label: "Risk seviyesi normal mi?",
+        detail: model.riskState.label,
+        status: riskNormal ? "Tamamlandı" : model.riskTone === "attention" ? "Uyarı" : "Eksik",
+        tone: riskNormal ? "good" : model.riskTone,
+      },
+    ];
+  }
+
+  function buildV3AiBullets(model) {
+    const bullets = [
+      model.priorityAction.what,
+      model.priorityAction.expected,
+      model.riskTone === "good" ? "Mevcut takip ritmini koruyup bir sonraki kontrolü 14-21 gün içinde planlayın." : model.riskState.text,
+    ];
+
+    return bullets.filter(Boolean).slice(0, 3);
   }
 
   function renderV3DecisionCenter(model, escapeHtml) {
