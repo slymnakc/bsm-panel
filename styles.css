@@ -13379,7 +13379,7 @@ body.bsm-photo-modal-open { overflow: hidden; }
 }
 
 /* ════════════════════════════════════════════════════════════════
-   v1.1.2: Panel Header Cleanup
+   v1.1.7: Panel Header Cleanup
    Tum panellerin ustundeki "kicker + buyuk h2 + uzun lead text"
    showcase alani sadelestirildi. Action butonlari ve form
    elementleri korunur — sadece dekoratif basliklar gizlenir.
@@ -13910,7 +13910,7 @@ body.bsm-photo-modal-open { overflow: hidden; }
   }
 }
 
-/* Program builder v1.1.4 compact SaaS dashboard polish, UI-only refactor. */
+/* Program builder v1.1.7 compact SaaS dashboard polish, UI-only refactor. */
 @media screen {
   .app-main .app-shell[data-screen="builder"],
   .app-shell[data-screen="builder"] {

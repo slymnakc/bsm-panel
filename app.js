@@ -15,16 +15,16 @@
 
 // ── BSM Build Version ───────────────────────────────────────────
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
-// Bumping: minor (1.1 -> 1.2) ozellik eklemelerinde, patch (1.1.0 -> 1.1.1)
+// Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.1.2";
+const BSM_BUILD_VERSION = "1.1.7";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
 console.log("NUTRITION PRO VERSION: v" + BSM_BUILD_VERSION + "-member-supplement-wizard");
 
 // ── BSM Wizard + Avatar Palette Sabitleri ───────────────────────
-// HOTFIX (v1.1.1): Bu sabitler dosyanin asagisindaydi (line ~2027 ve ~2870).
+// HOTFIX: Bu sabitler dosyanin asagisindaydi (line ~2027 ve ~2870).
 // initialize() -> syncStartupUi() -> renderMemberWorkspace() top-level'da
 // calistirildigindan, BSM_WIZARD_STEPS / BSM_AVATAR_PALETTE'e erisen render
 // fonksiyonlari const'larin INITIALIZE edilmedigi anda (Temporal Dead Zone)
@@ -3423,7 +3423,7 @@ function buildMemberInitials(memberName, memberCode) {
   return source.slice(0, 2).toLocaleUpperCase("tr");
 }
 
-// BSM_AVATAR_PALETTE artik dosyanin basinda (v1.1.1 hotfix - TDZ fix).
+// BSM_AVATAR_PALETTE artik dosyanin basinda (hotfix - TDZ fix).
 
 function bsmHashString(str) {
   const s = String(str || "");
@@ -4194,7 +4194,7 @@ function renderUtilityPanel() {
   `;
 }
 
-// BSM_WIZARD_STEPS artik dosyanin basinda (v1.1.1 hotfix - TDZ fix).
+// BSM_WIZARD_STEPS artik dosyanin basinda (hotfix - TDZ fix).
 
 function computeWizardStepStates(member) {
   const hasMeasurement = !!(member?.measurements?.length);
