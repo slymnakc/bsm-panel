@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# BSM Panel — pre-commit hook
+# Amac: 1) Binary/arsiv dosyalarinin yanlislikla commit edilmesini engelle
+#       2) 5 MB ustu tek dosya commit'lerini blokla
+#       3) Smart quote (curly quote) icermesin .js / .html / .css icinde
+#
+# Kurulum (ana repo'da bir kere):
+#   git config --local core.hooksPath tools/git-hooks
+#
+# Atlamak gerekirse (acil hotfix):
+#   git commit --no-verify
+
+set -eu
+
+red()   { printf "\e[31m%s\e[0m\n" "$1" >&2; }
+green() { printf "\e[32m%s\e[0m\n" "$1"; }
+yellow(){ printf "\e[33m%s\e[0m\n" "$1" >&2; }
+
+# 1) BLOCK: Binary / arsiv / büyük artifact dosyalari
+forbidden_pattern='\.(zip|tar|tar\.gz|tgz|7z|rar|exe|dll|msi|iso|dmg)$'
+
+# Staged dosyalari kontrol et (Add veya Modify, Delete'te problem yok)
+mapfile -t added_files < <(git diff --cached --name-only --diff-filter=AM)
+
+violations=0
+for f in "${added_files[@]}"; do
+  # Pattern check
+  if [[ "$f" =~ $forbidden_pattern ]]; then
+    red "[REDDEDILDI] '$f' yasakli uzanti (binary/arsiv). Repoya commitlenmemeli."
+    yellow "  -> Bu tur dosyalar .gitignore'a eklenmis olmali. Gerekirse --no-verify ile atla."
+    violations=$((violations+1))
+    continue
+  fi
+
+  # Boyut check: 5 MB ustu (5242880 byte)
+  if [[ -f "$f" ]]; then
+    size=$(wc -c < "$f" 2>/dev/null | tr -d ' ')
+    if [[ -n "$size" && "$size" -gt 5242880 ]]; then
+      mb=$(awk "BEGIN {printf \"%.1f\", $size/1048576}")
+      red "[REDDEDILDI] '$f' ${mb} MB (limit 5 MB). Buyuk artifact'ler repoya girmemeli."
+      violations=$((violations+1))
+    fi
+  fi
+done
+
+# 2) WARN: smart quote (curly quote) kontrolu (.js, .html, .css)
+# BSM kural seti: yalnizca duz tirnak kullan ('  "  `).
+smart_pattern='[\xE2][\x80][\x98-\x9D]'  # U+2018-U+201D UTF-8 bytes
+mapfile -t code_files < <(git diff --cached --name-only --diff-filter=AM | grep -E '\.(js|html|css)$' || true)
+
+for f in "${code_files[@]}"; do
+  if [[ -f "$f" ]] && grep -P "$smart_pattern" "$f" > /dev/null 2>&1; then
+    yellow "[UYARI] '$f' icinde smart-quote (curly quote) tespit edildi (' ' " "). Duz tirnak kullanin."
+    # Uyari, blocker degil — istisnai durumlar icin reject etmiyoruz.
+  fi
+done
+
+if [[ "$violations" -gt 0 ]]; then
+  red "Pre-commit hook $violations dosyada hata buldu."
+  yellow "  Acil senaryolarda 'git commit --no-verify' ile atlanabilir."
+  exit 1
+fi
+
+green "Pre-commit hook OK"
+exit 0
