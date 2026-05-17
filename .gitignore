@@ -14,3 +14,22 @@ tmp-screenshots/
 # settings.local.json otomatik güncellenen permission listesi — yerel kalır.
 .claude/worktrees/
 .claude/settings.local.json
+
+# Geçici artifact ve build çıktıları — repo'ya commit edilmemeli.
+# tmp-server-out.zip 26 MB olarak yanlışlıkla eklenmişti (v1.1.7 cleanup).
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+tmp-*
+tmp/
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# IDE/editor klasörleri (yerel ayarlar repoya girmesin)
+.vscode/
+.idea/
+*.code-workspace
