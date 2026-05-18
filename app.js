@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.1.8";
+const BSM_BUILD_VERSION = "1.1.9";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -6229,11 +6229,11 @@ function loadLatestProgramForOutput() {
   const latestProgramRecord = member?.programs?.[0];
 
   if (!latestProgramRecord?.program) {
-    // Program yok ama uye Report Center'da gozukmesi icin output panel'e
-    // gecise izin veriyoruz (eski davranis null donuyor; bu degisikligi
-    // yapmiyoruz cunku router'in bu davranisina degil, sidebar tik'lemesine
-    // bagli).
-    return null;
+    // v1.1.8+ Report Center erisimi: uye seciliyse program yok bile olsa
+    // output panel'e gecis serbest (Report Center'da olcum verilerini
+    // gostermek icin). Eski davranis (return null) router'i blokluyordu —
+    // kullanici Uye Ciktisi sekmesine tiklayamiyordu.
+    return member ? true : null;
   }
 
   renderProgram(cloneData(latestProgramRecord.program), { savedProgramRecordId: latestProgramRecord.id || null });
