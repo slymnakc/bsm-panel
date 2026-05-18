@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.2.0";
+const BSM_BUILD_VERSION = "1.2.1";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -1434,29 +1434,48 @@ function prepareMeasurementTabbedWorkspace(workspace) {
                 <span class="bsm-report-hero__avatar-initials" id="bsmReportAvatarInitials">--</span>
               </div>
               <div class="bsm-report-hero__info">
-                <strong class="bsm-report-hero__name" id="bsmReportMemberName">Üye seçilmedi</strong>
-                <div class="bsm-report-hero__chips">
+                <div class="bsm-report-hero__title-row">
+                  <strong class="bsm-report-hero__name" id="bsmReportMemberName">Üye seçilmedi</strong>
+                  <span class="bsm-report-chip bsm-report-chip--status">Aktif Üye</span>
                   <span class="bsm-report-chip bsm-report-chip--goal" id="bsmReportGoalChip">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
                     <span>Hedef belirtilmedi</span>
                   </span>
-                  <span class="bsm-report-chip bsm-report-chip--status">Aktif Üye</span>
                 </div>
+                <ul class="bsm-report-hero__tags" aria-label="Üye temel bilgileri">
+                  <li><span>Üye No:</span> <strong id="bsmReportHeroCode">—</strong></li>
+                  <li><span>Seviye:</span> <strong id="bsmReportHeroLevel">—</strong></li>
+                  <li><span>Program:</span> <strong id="bsmReportHeroProgram">—</strong></li>
+                </ul>
               </div>
             </div>
 
             <div class="bsm-report-hero__meta">
               <div class="bsm-report-hero__meta-row">
-                <span class="bsm-report-hero__meta-label">Son Ölçüm</span>
-                <strong class="bsm-report-hero__meta-value" id="bsmReportLastMeasurement">—</strong>
+                <span class="bsm-report-hero__meta-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                </span>
+                <div>
+                  <span class="bsm-report-hero__meta-label">Son Ölçüm</span>
+                  <strong class="bsm-report-hero__meta-value" id="bsmReportLastMeasurement">—</strong>
+                </div>
               </div>
               <div class="bsm-report-hero__meta-row">
-                <span class="bsm-report-hero__meta-label">Rapor Türü</span>
-                <strong class="bsm-report-hero__meta-value">Vücut Analiz Raporu</strong>
+                <span class="bsm-report-hero__meta-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                </span>
+                <div>
+                  <span class="bsm-report-hero__meta-label">Rapor Türü</span>
+                  <strong class="bsm-report-hero__meta-value">Vücut Analiz Raporu</strong>
+                </div>
               </div>
               <div class="bsm-report-hero__meta-row">
-                <span class="bsm-report-hero__meta-label">Sayfa</span>
-                <strong class="bsm-report-hero__meta-value" id="bsmReportPageCount">4 sayfa</strong>
+                <span class="bsm-report-hero__meta-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><line x1="9" y1="13" x2="15" y2="13"></line></svg>
+                </span>
+                <div>
+                  <span class="bsm-report-hero__meta-label">Sayfa Sayısı</span>
+                  <strong class="bsm-report-hero__meta-value" id="bsmReportPageCount">4 sayfa</strong>
+                </div>
               </div>
             </div>
 
@@ -6508,6 +6527,20 @@ function renderReportCenter() {
   if (goalChipEl) {
     const goalLabel = (typeof labelMaps === "object" && labelMaps?.goal?.[profile.goal]) || profile.goal || "Hedef belirtilmedi";
     goalChipEl.textContent = goalLabel;
+  }
+
+  // ── Hero tag rozetleri: Uye No / Seviye / Program ──────────────
+  const codeEl = document.querySelector("#bsmReportHeroCode");
+  if (codeEl) codeEl.textContent = profile.memberCode || "Yok";
+  const levelEl = document.querySelector("#bsmReportHeroLevel");
+  if (levelEl) {
+    const lvlLabel = (typeof labelMaps === "object" && labelMaps?.level?.[profile.level]) || profile.level || "Seviye yok";
+    levelEl.textContent = lvlLabel;
+  }
+  const programEl = document.querySelector("#bsmReportHeroProgram");
+  if (programEl) {
+    const hasProgram = Array.isArray(member?.programs) && member.programs.length > 0;
+    programEl.textContent = hasProgram ? "Aktif" : "Bekliyor";
   }
 
   // ── Meta: son olcum tarihi ────────────────────────────────────

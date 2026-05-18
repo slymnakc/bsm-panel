@@ -17500,8 +17500,9 @@ body.bsm-photo-modal-open { overflow: hidden; }
   background: transparent;
 }
 
-/* v1.2.0: Report Center measurement panel'in 'report' alt sekmesinde de
-   yer aliyor. In-tab modifier ile padding/sizing tab icine uygun olur. */
+/* v1.2.0+1.2.1: Report Center measurement panel'in 'report' alt sekmesinde
+   tam ekran focus mode. Üstte gereksiz measurement-panel header/flow/notice
+   gizlenir; sadece tab bar + Report Center kalir. */
 .bsm-report-center {
   font-family: var(--bsm-font);
 }
@@ -17509,7 +17510,8 @@ body.bsm-photo-modal-open { overflow: hidden; }
 .bsm-report-center--in-tab {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
+  padding: 4px 0 8px;
 }
 
 .bsm-report-center--in-tab .bsm-report-hero {
@@ -17518,6 +17520,127 @@ body.bsm-photo-modal-open { overflow: hidden; }
 
 .bsm-report-center--in-tab .bsm-report-layout {
   margin-top: 4px;
+  gap: 20px;
+  grid-template-columns: 348px minmax(0, 1fr);
+}
+
+/* v1.2.1: Rapor & PDF aktifken measurement panel kabugunu (header + flow-steps +
+   notice) gizleyip Report Center'i tam ferah goster. Modern :has() ile. */
+#measurementsPanel:has([data-measurement-tab-pane="report"].is-active) .measurement-panel__header,
+#measurementsPanel:has([data-measurement-tab-pane="report"].is-active) .measurement-flow-steps,
+#measurementsPanel:has([data-measurement-tab-pane="report"].is-active) #measurementTabNotice {
+  display: none;
+}
+
+/* Rapor & PDF aktifken tab bar daha kompakt + alt cizgi belirgin */
+#measurementsPanel:has([data-measurement-tab-pane="report"].is-active) .measurement-inner-tabs__bar {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+
+/* Tab pane kendi padding'i devreden cikar (Report Center kendi spacing'ini yonetir) */
+.measurement-tab-pane:has(> .bsm-report-center--in-tab) {
+  padding: 0 !important;
+}
+
+/* Hero refinement: tag rozetleri + meta icon */
+.bsm-report-hero__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bsm-report-hero__tags {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.78rem;
+  color: var(--bsm-text-on-light-soft);
+}
+
+.bsm-report-hero__tags li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.bsm-report-hero__tags li span {
+  color: var(--bsm-text-on-light-soft);
+  font-weight: 500;
+}
+
+.bsm-report-hero__tags li strong {
+  color: var(--bsm-text-on-light);
+  font-weight: 700;
+}
+
+.bsm-report-hero__meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.bsm-report-hero__meta-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--bsm-orange-soft);
+  color: var(--bsm-orange);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bsm-report-hero__meta-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.bsm-report-hero__meta-label {
+  font-size: 0.72rem;
+  color: var(--bsm-text-on-light-soft);
+  font-weight: 500;
+}
+
+.bsm-report-hero__meta-value {
+  font-size: 0.88rem;
+  color: var(--bsm-text-on-light);
+  font-weight: 700;
+}
+
+/* Hero daha ferah */
+.bsm-report-center--in-tab .bsm-report-hero {
+  padding: 22px 26px;
+  gap: 28px;
+  border-radius: 20px;
+}
+
+/* Config panel daha temiz */
+.bsm-report-center--in-tab .bsm-report-config {
+  padding: 20px 18px 14px;
+  border-radius: 18px;
+}
+
+/* Preview panel daha ferah */
+.bsm-report-center--in-tab .bsm-report-preview {
+  padding: 20px 24px 24px;
+  border-radius: 18px;
+}
+
+/* Tablet altinda layout tek kolon */
+@media (max-width: 1100px) {
+  .bsm-report-center--in-tab .bsm-report-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Legacy DOM: render handler'lari bu elementleri DOM'da bekler,
