@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.1.7";
+const BSM_BUILD_VERSION = "1.1.8";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -2519,6 +2519,8 @@ function bindApplicationHandlers() {
     },
     outputHandlers,
   );
+  // v1.1.8: Report Center UI etkilesimleri (toggle counter + thumbnail switch)
+  try { bindReportCenterHandlers(); } catch (e) { /* defansif */ }
   bindNutritionHandlers(
     {
       generateNutritionButton,
@@ -6215,6 +6217,10 @@ function refreshActiveProgramFromMeasurement(formData) {
 }
 
 function loadLatestProgramForOutput() {
+  // v1.1.8: Output panel'e gecerken Report Center'i da besle (uye + son olcum).
+  // renderReportCenter() program yoksa bile uye datasi varsa doldurur.
+  try { renderReportCenter(); } catch (e) { /* defansif */ }
+
   if (state.activeProgram) {
     return state.activeProgram;
   }
@@ -6223,11 +6229,148 @@ function loadLatestProgramForOutput() {
   const latestProgramRecord = member?.programs?.[0];
 
   if (!latestProgramRecord?.program) {
+    // Program yok ama uye Report Center'da gozukmesi icin output panel'e
+    // gecise izin veriyoruz (eski davranis null donuyor; bu degisikligi
+    // yapmiyoruz cunku router'in bu davranisina degil, sidebar tik'lemesine
+    // bagli).
     return null;
   }
 
   renderProgram(cloneData(latestProgramRecord.program), { savedProgramRecordId: latestProgramRecord.id || null });
   return state.activeProgram;
+}
+
+// v1.1.8: Premium Report Center renderer.
+// Aktif uye + son olcum bilgisini hero + preview alanlarina yansitir.
+// JS minimal — sadece textContent ve class toggle, mevcut handler'lara dokunmaz.
+function renderReportCenter() {
+  const member = findActiveMember();
+  const profile = member?.profile || {};
+  const latestMeasurement = member?.measurements?.[0] || null;
+
+  // ── Hero: avatar + isim + hedef ────────────────────────────────
+  const initialsEl = document.querySelector("#bsmReportAvatarInitials");
+  if (initialsEl) {
+    const name = String(profile.memberName || "").trim();
+    if (name) {
+      const parts = name.split(/\s+/).filter(Boolean);
+      const initials = parts.length >= 2 ? parts[0][0] + parts[parts.length - 1][0] : name.slice(0, 2);
+      initialsEl.textContent = initials.toLocaleUpperCase("tr");
+    } else {
+      initialsEl.textContent = "--";
+    }
+  }
+
+  const avatarHost = document.querySelector("#bsmReportAvatar");
+  if (avatarHost && profile.photo && typeof profile.photo === "string" && profile.photo.startsWith("data:image/")) {
+    avatarHost.innerHTML = `<img src="${escapeHtml(profile.photo)}" alt="" loading="lazy" decoding="async" />`;
+  } else if (avatarHost && !avatarHost.querySelector(".bsm-report-hero__avatar-initials")) {
+    avatarHost.innerHTML = `<span class="bsm-report-hero__avatar-initials" id="bsmReportAvatarInitials">${escapeHtml(initialsEl?.textContent || "--")}</span>`;
+  }
+
+  const nameEl = document.querySelector("#bsmReportMemberName");
+  if (nameEl) {
+    nameEl.textContent = profile.memberName || "Üye seçilmedi";
+  }
+
+  const goalChipEl = document.querySelector("#bsmReportGoalChip span");
+  if (goalChipEl) {
+    const goalLabel = (typeof labelMaps === "object" && labelMaps?.goal?.[profile.goal]) || profile.goal || "Hedef belirtilmedi";
+    goalChipEl.textContent = goalLabel;
+  }
+
+  // ── Meta: son olcum tarihi ────────────────────────────────────
+  const lastMeasurementEl = document.querySelector("#bsmReportLastMeasurement");
+  if (lastMeasurementEl) {
+    lastMeasurementEl.textContent = latestMeasurement?.date || "Ölçüm yok";
+  }
+
+  // ── Preview page: member name + date + metric values ──────────
+  const pageMemberEl = document.querySelector("#bsmReportPageMember");
+  if (pageMemberEl) {
+    pageMemberEl.textContent = profile.memberName || "Üye seçilmedi";
+  }
+
+  const pageDateEl = document.querySelector("#bsmReportPageDate");
+  if (pageDateEl) {
+    pageDateEl.textContent = latestMeasurement?.date || "—";
+  }
+
+  // Preview metrics doldur
+  const metricsHost = document.querySelector("#bsmReportPreviewMetrics");
+  if (metricsHost && latestMeasurement) {
+    const fmt = (v, unit) => {
+      if (v === null || v === undefined || v === "") return "—";
+      const n = Number(v);
+      return Number.isFinite(n) ? `${n}${unit ? " " + unit : ""}` : String(v);
+    };
+    metricsHost.innerHTML = `
+      <div class="bsm-report-page__metric"><small>Kilo</small><strong>${escapeHtml(fmt(latestMeasurement.weight, "kg"))}</strong></div>
+      <div class="bsm-report-page__metric"><small>Yağ Oranı</small><strong>${escapeHtml(fmt(latestMeasurement.fat, "%"))}</strong></div>
+      <div class="bsm-report-page__metric"><small>Kas Kütlesi</small><strong>${escapeHtml(fmt(latestMeasurement.muscleMass, "kg"))}</strong></div>
+      <div class="bsm-report-page__metric"><small>BMI</small><strong>${escapeHtml(fmt(latestMeasurement.bmi))}</strong></div>
+      <div class="bsm-report-page__metric"><small>Visceral Yağ</small><strong>${escapeHtml(fmt(latestMeasurement.visceralFat))}</strong></div>
+      <div class="bsm-report-page__metric"><small>BMR</small><strong>${escapeHtml(fmt(latestMeasurement.bmr, "kcal"))}</strong></div>
+    `;
+  }
+
+  // ── Toggle counter ────────────────────────────────────────────
+  updateReportSectionCounter();
+}
+
+function updateReportSectionCounter() {
+  const counterEl = document.querySelector("#bsmReportSectionCounter");
+  const toggles = document.querySelectorAll('[data-report-toggle]');
+  if (!counterEl || !toggles.length) return;
+  let checked = 0;
+  toggles.forEach((t) => {
+    if (t.checked) {
+      checked++;
+      t.closest(".bsm-report-section")?.classList.remove("is-disabled");
+    } else {
+      t.closest(".bsm-report-section")?.classList.add("is-disabled");
+    }
+  });
+  counterEl.textContent = `${checked}/${toggles.length} seçili`;
+}
+
+// v1.1.8: Report Center UI etkilesimleri (toggle counter + thumbnail switch)
+function bindReportCenterHandlers() {
+  const panel = document.querySelector("#resultsSection");
+  if (!panel || panel.dataset.bsmReportBound === "true") return;
+  panel.dataset.bsmReportBound = "true";
+
+  // Toggle counter
+  panel.addEventListener("change", (e) => {
+    const t = e.target.closest("[data-report-toggle]");
+    if (!t) return;
+    updateReportSectionCounter();
+  });
+
+  // Thumbnail switch (visual only — gercek sayfa rendering scope disinda)
+  panel.addEventListener("click", (e) => {
+    const thumb = e.target.closest("[data-report-thumb]");
+    if (!thumb) return;
+    panel.querySelectorAll("[data-report-thumb]").forEach((t) => t.classList.remove("is-active"));
+    thumb.classList.add("is-active");
+    const num = thumb.dataset.reportThumb;
+    const currentEl = document.querySelector("#bsmReportCurrentPage");
+    if (currentEl) currentEl.textContent = num;
+    const footerPage = document.querySelector(".bsm-report-page__footer-page");
+    if (footerPage) footerPage.textContent = `Sayfa ${num} / 4`;
+  });
+
+  // Pager buttons
+  const prev = panel.querySelector("#bsmReportPagePrev");
+  const next = panel.querySelector("#bsmReportPageNext");
+  const navigate = (delta) => {
+    const thumbs = Array.from(panel.querySelectorAll("[data-report-thumb]"));
+    const activeIdx = thumbs.findIndex((t) => t.classList.contains("is-active"));
+    const newIdx = Math.max(0, Math.min(thumbs.length - 1, activeIdx + delta));
+    thumbs[newIdx]?.click();
+  };
+  prev?.addEventListener("click", () => navigate(-1));
+  next?.addEventListener("click", () => navigate(1));
 }
 
 function refreshNutritionPlanFromMeasurement(member) {
