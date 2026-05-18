@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.1.9";
+const BSM_BUILD_VERSION = "1.2.0";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -1421,21 +1421,252 @@ function prepareMeasurementTabbedWorkspace(workspace) {
   }
 
   if (panes.report) {
+    // v1.2.0: Premium Report Center, measurement panel'in 'report' alt sekmesinin
+    // içine yerlestirildi. Mevcut export/PDF/email handler id'leri korunur:
+    // build-report / print-report / email-report (data-measurement-ui-action).
     panes.report.insertAdjacentHTML(
       "afterbegin",
       `
-        <section class="measurement-report-command-card">
-          <div>
-            <p class="section-kicker">Rapor & PDF</p>
-            <h3>Tanita ölçüm raporu ve paylaşım</h3>
-            <span>En güncel ölçümden üyeye verilebilir rapor oluşturun, yazdırın veya e-posta akışına geçin.</span>
+        <div class="bsm-report-center bsm-report-center--in-tab">
+          <header class="bsm-report-hero">
+            <div class="bsm-report-hero__member">
+              <div class="bsm-report-hero__avatar" id="bsmReportAvatar" aria-hidden="true">
+                <span class="bsm-report-hero__avatar-initials" id="bsmReportAvatarInitials">--</span>
+              </div>
+              <div class="bsm-report-hero__info">
+                <strong class="bsm-report-hero__name" id="bsmReportMemberName">Üye seçilmedi</strong>
+                <div class="bsm-report-hero__chips">
+                  <span class="bsm-report-chip bsm-report-chip--goal" id="bsmReportGoalChip">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    <span>Hedef belirtilmedi</span>
+                  </span>
+                  <span class="bsm-report-chip bsm-report-chip--status">Aktif Üye</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bsm-report-hero__meta">
+              <div class="bsm-report-hero__meta-row">
+                <span class="bsm-report-hero__meta-label">Son Ölçüm</span>
+                <strong class="bsm-report-hero__meta-value" id="bsmReportLastMeasurement">—</strong>
+              </div>
+              <div class="bsm-report-hero__meta-row">
+                <span class="bsm-report-hero__meta-label">Rapor Türü</span>
+                <strong class="bsm-report-hero__meta-value">Vücut Analiz Raporu</strong>
+              </div>
+              <div class="bsm-report-hero__meta-row">
+                <span class="bsm-report-hero__meta-label">Sayfa</span>
+                <strong class="bsm-report-hero__meta-value" id="bsmReportPageCount">4 sayfa</strong>
+              </div>
+            </div>
+
+            <div class="bsm-report-hero__actions" role="toolbar" aria-label="Rapor aksiyonlari">
+              <button type="button" class="bsm-report-btn bsm-report-btn--primary" data-measurement-ui-action="build-report">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                <span>PDF Oluştur</span>
+              </button>
+              <button type="button" class="bsm-report-btn bsm-report-btn--ghost" data-measurement-ui-action="email-report">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                <span>E-posta ile Gönder</span>
+              </button>
+              <button type="button" class="bsm-report-btn bsm-report-btn--ghost" data-measurement-ui-action="print-report">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                <span>Yazdır</span>
+              </button>
+            </div>
+          </header>
+
+          <div class="bsm-report-layout">
+            <aside class="bsm-report-config" aria-label="Rapor icerigi yapilandirmasi">
+              <header class="bsm-report-config__head">
+                <h3>Rapor İçeriği</h3>
+                <span class="bsm-report-config__sub">Rapora dahil edilecek bölümleri seçin ve sıralayın.</span>
+                <span class="bsm-report-config__counter" id="bsmReportSectionCounter">6/6 seçili</span>
+              </header>
+
+              <ul class="bsm-report-sections" id="bsmReportSections" role="list">
+                <li class="bsm-report-section" data-report-section="composition">
+                  <span class="bsm-report-section__handle" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"></circle><circle cx="15" cy="6" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="18" r="1"></circle><circle cx="15" cy="18" r="1"></circle></svg>
+                  </span>
+                  <span class="bsm-report-section__icon bsm-report-section__icon--orange" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="3"></circle><path d="M12 9v6"></path><path d="M9 14h6"></path><path d="M7 21h10"></path></svg>
+                  </span>
+                  <span class="bsm-report-section__body">
+                    <strong>Vücut Kompozisyonu</strong>
+                    <small>Kilo, yağ, kas, su, BMI ve temel kompozisyon</small>
+                  </span>
+                  <label class="bsm-report-section__toggle">
+                    <input type="checkbox" data-report-toggle="composition" checked />
+                    <span class="bsm-report-section__check" aria-hidden="true"></span>
+                  </label>
+                </li>
+
+                <li class="bsm-report-section" data-report-section="segmental">
+                  <span class="bsm-report-section__handle" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"></circle><circle cx="15" cy="6" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="18" r="1"></circle><circle cx="15" cy="18" r="1"></circle></svg>
+                  </span>
+                  <span class="bsm-report-section__icon bsm-report-section__icon--blue" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"></circle><path d="M12 7v6"></path><path d="M9 13l3-2 3 2"></path><path d="M8 18l4-4 4 4"></path></svg>
+                  </span>
+                  <span class="bsm-report-section__body">
+                    <strong>Segmental Analiz</strong>
+                    <small>Kas, yağ ve segmental denge</small>
+                  </span>
+                  <label class="bsm-report-section__toggle">
+                    <input type="checkbox" data-report-toggle="segmental" checked />
+                    <span class="bsm-report-section__check" aria-hidden="true"></span>
+                  </label>
+                </li>
+
+                <li class="bsm-report-section" data-report-section="trend">
+                  <span class="bsm-report-section__handle" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"></circle><circle cx="15" cy="6" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="18" r="1"></circle><circle cx="15" cy="18" r="1"></circle></svg>
+                  </span>
+                  <span class="bsm-report-section__icon bsm-report-section__icon--green" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"></polyline><polyline points="14 7 21 7 21 14"></polyline></svg>
+                  </span>
+                  <span class="bsm-report-section__body">
+                    <strong>Trend Grafikleri</strong>
+                    <small>Zaman içindeki değişim ve gelişim</small>
+                  </span>
+                  <label class="bsm-report-section__toggle">
+                    <input type="checkbox" data-report-toggle="trend" checked />
+                    <span class="bsm-report-section__check" aria-hidden="true"></span>
+                  </label>
+                </li>
+
+                <li class="bsm-report-section" data-report-section="program-notes">
+                  <span class="bsm-report-section__handle" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"></circle><circle cx="15" cy="6" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="18" r="1"></circle><circle cx="15" cy="18" r="1"></circle></svg>
+                  </span>
+                  <span class="bsm-report-section__icon bsm-report-section__icon--purple" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>
+                  </span>
+                  <span class="bsm-report-section__body">
+                    <strong>Program Notları</strong>
+                    <small>Mevcut program, hedefler ve takip</small>
+                  </span>
+                  <label class="bsm-report-section__toggle">
+                    <input type="checkbox" data-report-toggle="program-notes" checked />
+                    <span class="bsm-report-section__check" aria-hidden="true"></span>
+                  </label>
+                </li>
+
+                <li class="bsm-report-section" data-report-section="nutrition-notes">
+                  <span class="bsm-report-section__handle" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"></circle><circle cx="15" cy="6" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="18" r="1"></circle><circle cx="15" cy="18" r="1"></circle></svg>
+                  </span>
+                  <span class="bsm-report-section__icon bsm-report-section__icon--teal" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2v20"></path><path d="M5 2v6a3 3 0 0 0 6 0V2"></path><path d="M18 2v20"></path><path d="M15 2c0 4 3 4 3 8"></path></svg>
+                  </span>
+                  <span class="bsm-report-section__body">
+                    <strong>Beslenme Notları</strong>
+                    <small>Beslenme planı ve makro hedefleri</small>
+                  </span>
+                  <label class="bsm-report-section__toggle">
+                    <input type="checkbox" data-report-toggle="nutrition-notes" checked />
+                    <span class="bsm-report-section__check" aria-hidden="true"></span>
+                  </label>
+                </li>
+
+                <li class="bsm-report-section" data-report-section="history">
+                  <span class="bsm-report-section__handle" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"></circle><circle cx="15" cy="6" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="18" r="1"></circle><circle cx="15" cy="18" r="1"></circle></svg>
+                  </span>
+                  <span class="bsm-report-section__icon bsm-report-section__icon--rose" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><polyline points="3 3 3 8 8 8"></polyline><path d="M12 7v5l3 2"></path></svg>
+                  </span>
+                  <span class="bsm-report-section__body">
+                    <strong>Ölçüm Geçmişi Özeti</strong>
+                    <small>Geçmiş ölçümlerin kısa karşılaştırması</small>
+                  </span>
+                  <label class="bsm-report-section__toggle">
+                    <input type="checkbox" data-report-toggle="history" checked />
+                    <span class="bsm-report-section__check" aria-hidden="true"></span>
+                  </label>
+                </li>
+              </ul>
+
+              <footer class="bsm-report-config__footer">
+                <button type="button" class="bsm-report-config__add" id="bsmReportAddSection" disabled aria-disabled="true" title="Bu ozellik yakinda">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  <span>Yeni Bölüm Ekle</span>
+                </button>
+              </footer>
+            </aside>
+
+            <section class="bsm-report-preview" aria-label="Rapor onizlemesi">
+              <header class="bsm-report-preview__head">
+                <div>
+                  <h3>Rapor Önizleme</h3>
+                  <span class="bsm-report-preview__sub">Raporun PDF önizlemesini görüntüleyin.</span>
+                </div>
+                <div class="bsm-report-preview__pager" id="bsmReportPager">
+                  <span class="bsm-report-preview__pager-label">Sayfa <strong id="bsmReportCurrentPage">1</strong> / <strong id="bsmReportTotalPages">4</strong></span>
+                  <button type="button" class="bsm-report-preview__pager-btn" id="bsmReportPagePrev" aria-label="Onceki sayfa">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                  </button>
+                  <button type="button" class="bsm-report-preview__pager-btn" id="bsmReportPageNext" aria-label="Sonraki sayfa">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </button>
+                </div>
+              </header>
+
+              <div class="bsm-report-preview__body">
+                <article class="bsm-report-page" id="bsmReportPage" aria-label="PDF sayfa onizlemesi">
+                  <header class="bsm-report-page__head">
+                    <div>
+                      <span class="bsm-report-page__brand">Bahçeşehir Spor Merkezi</span>
+                      <h2>VÜCUT ANALİZ RAPORU</h2>
+                      <p id="bsmReportPageMember">Üye seçilmedi</p>
+                    </div>
+                    <div class="bsm-report-page__date" id="bsmReportPageDate">—</div>
+                  </header>
+                  <div class="bsm-report-page__section">
+                    <span class="bsm-report-page__section-title">Vücut Kompozisyonu</span>
+                    <div class="bsm-report-page__metrics" id="bsmReportPreviewMetrics">
+                      <div class="bsm-report-page__metric"><small>Kilo</small><strong>—</strong></div>
+                      <div class="bsm-report-page__metric"><small>Yağ Oranı</small><strong>—</strong></div>
+                      <div class="bsm-report-page__metric"><small>Kas Kütlesi</small><strong>—</strong></div>
+                      <div class="bsm-report-page__metric"><small>BMI</small><strong>—</strong></div>
+                      <div class="bsm-report-page__metric"><small>Visceral Yağ</small><strong>—</strong></div>
+                      <div class="bsm-report-page__metric"><small>BMR</small><strong>—</strong></div>
+                    </div>
+                  </div>
+                  <div class="bsm-report-page__section">
+                    <span class="bsm-report-page__section-title">Trend Grafikleri</span>
+                    <div class="bsm-report-page__charts" id="bsmReportPreviewCharts" aria-hidden="true">
+                      <div class="bsm-report-page__chart bsm-report-page__chart--blue">
+                        <span>Kilo (kg)</span>
+                        <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="2,22 18,18 34,20 50,16 66,14 82,12 98,10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+                      </div>
+                      <div class="bsm-report-page__chart bsm-report-page__chart--orange">
+                        <span>Yağ Oranı (%)</span>
+                        <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="2,12 18,14 34,18 50,16 66,20 82,22 98,24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+                      </div>
+                      <div class="bsm-report-page__chart bsm-report-page__chart--green">
+                        <span>Kas Kütlesi (kg)</span>
+                        <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="2,20 18,18 34,16 50,14 66,12 82,10 98,8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+                      </div>
+                    </div>
+                  </div>
+                  <footer class="bsm-report-page__footer">
+                    <span>Bahçeşehir Spor Merkezi — Profesyonel Üye Performans Raporu</span>
+                    <span class="bsm-report-page__footer-page">Sayfa 1 / 4</span>
+                  </footer>
+                </article>
+
+                <aside class="bsm-report-thumbs" id="bsmReportThumbs" aria-label="Sayfa kucuk goruntuleri">
+                  <button type="button" class="bsm-report-thumb is-active" data-report-thumb="1" aria-label="Sayfa 1"><span>1</span></button>
+                  <button type="button" class="bsm-report-thumb" data-report-thumb="2" aria-label="Sayfa 2"><span>2</span></button>
+                  <button type="button" class="bsm-report-thumb" data-report-thumb="3" aria-label="Sayfa 3"><span>3</span></button>
+                  <button type="button" class="bsm-report-thumb" data-report-thumb="4" aria-label="Sayfa 4"><span>4</span></button>
+                </aside>
+              </div>
+            </section>
           </div>
-          <div class="measurement-report-command-card__actions">
-            <button type="button" class="primary-button" data-measurement-ui-action="build-report">Ölçüm Raporu Oluştur</button>
-            <button type="button" class="secondary-button" data-measurement-ui-action="print-report">PDF Olarak İndir</button>
-            <button type="button" class="ghost-button" data-measurement-ui-action="email-report">E-posta Gönder</button>
-          </div>
-        </section>
+        </div>
       `,
     );
   }
@@ -4612,6 +4843,10 @@ function renderWorkflowAssistant() {
 }
 
 function renderMeasurementTabStatus() {
+  // v1.2.0: Measurement panel her render edildiginde 'report' tab'indaki
+  // premium Report Center'i da besle.
+  try { renderReportCenter(); } catch (e) { /* defansif */ }
+
   const member = findActiveMember();
   const profile = member?.profile || {};
   const latestMeasurement = getActiveMeasurementSnapshot(member);
@@ -6217,9 +6452,9 @@ function refreshActiveProgramFromMeasurement(formData) {
 }
 
 function loadLatestProgramForOutput() {
-  // v1.1.8: Output panel'e gecerken Report Center'i da besle (uye + son olcum).
-  // renderReportCenter() program yoksa bile uye datasi varsa doldurur.
-  try { renderReportCenter(); } catch (e) { /* defansif */ }
+  // v1.2.0: Output panel artik standart program ciktisini gosteriyor (v1.1.7
+  // davranisi geri restore edildi). Premium Report Center measurement panel'in
+  // 'report' alt sekmesine tasindi.
 
   if (state.activeProgram) {
     return state.activeProgram;
@@ -6229,11 +6464,7 @@ function loadLatestProgramForOutput() {
   const latestProgramRecord = member?.programs?.[0];
 
   if (!latestProgramRecord?.program) {
-    // v1.1.8+ Report Center erisimi: uye seciliyse program yok bile olsa
-    // output panel'e gecis serbest (Report Center'da olcum verilerini
-    // gostermek icin). Eski davranis (return null) router'i blokluyordu —
-    // kullanici Uye Ciktisi sekmesine tiklayamiyordu.
-    return member ? true : null;
+    return null;
   }
 
   renderProgram(cloneData(latestProgramRecord.program), { savedProgramRecordId: latestProgramRecord.id || null });
@@ -6334,9 +6565,11 @@ function updateReportSectionCounter() {
   counterEl.textContent = `${checked}/${toggles.length} seçili`;
 }
 
-// v1.1.8: Report Center UI etkilesimleri (toggle counter + thumbnail switch)
+// v1.2.0: Report Center UI etkilesimleri (toggle counter + thumbnail switch).
+// Premium Report Center artik measurement panel'in 'report' alt sekmesinin
+// icinde render ediliyor — bu yuzden handler'lar #measurementsPanel'e baglandi.
 function bindReportCenterHandlers() {
-  const panel = document.querySelector("#resultsSection");
+  const panel = document.querySelector("#measurementsPanel");
   if (!panel || panel.dataset.bsmReportBound === "true") return;
   panel.dataset.bsmReportBound = "true";
 

@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
-    <link rel="stylesheet" href="./styles.css?v=1.1.9" />
+    <link rel="stylesheet" href="./styles.css?v=1.2.0" />
   </head>
   <body class="auth-required">
     <div class="page-backdrop" aria-hidden="true"></div>
@@ -925,344 +925,125 @@
       <div class="library-grid" id="exerciseLibrary"></div>
     </section>
 
-    <section id="resultsSection" class="results screen-panel is-hidden bsm-report-screen" aria-live="polite" data-screen="output">
-      <!-- v1.1.8: Premium Report Center layout. Eski result-card'lar legacy
-           container'a tasinmis durumda — render handler'lari calismaya
-           devam eder, sadece UI gizlenir. -->
-
-      <!-- ── HERO BAR ─────────────────────────────────────────────────── -->
-      <header class="bsm-report-hero">
-        <div class="bsm-report-hero__member">
-          <div class="bsm-report-hero__avatar" id="bsmReportAvatar" aria-hidden="true">
-            <span class="bsm-report-hero__avatar-initials" id="bsmReportAvatarInitials">--</span>
-          </div>
-          <div class="bsm-report-hero__info">
-            <strong class="bsm-report-hero__name" id="bsmReportMemberName">Üye seçilmedi</strong>
-            <div class="bsm-report-hero__chips">
-              <span class="bsm-report-chip bsm-report-chip--goal" id="bsmReportGoalChip">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
-                <span>Hedef belirtilmedi</span>
-              </span>
-              <span class="bsm-report-chip bsm-report-chip--status">Aktif Üye</span>
-            </div>
-          </div>
+    <!-- v1.2.0: Premium Report Center buradan measurement-inner-tabs 'report'
+         sekmesine tasindi. Bu panel (Uye Ciktisi) standart program output
+         olarak eski haliyle calismaya devam eder. -->
+    <section id="resultsSection" class="results hidden screen-panel is-hidden" aria-live="polite" data-screen="output">
+      <div class="results__header">
+        <div>
+          <p class="section-kicker">Üyeye Uygulanacak Program</p>
+          <h2 id="resultsTitle">Hazır</h2>
         </div>
-
-        <div class="bsm-report-hero__meta">
-          <div class="bsm-report-hero__meta-row">
-            <span class="bsm-report-hero__meta-label">Son Ölçüm</span>
-            <strong class="bsm-report-hero__meta-value" id="bsmReportLastMeasurement">—</strong>
-          </div>
-          <div class="bsm-report-hero__meta-row">
-            <span class="bsm-report-hero__meta-label">Rapor Türü</span>
-            <strong class="bsm-report-hero__meta-value">Vücut Analiz Raporu</strong>
-          </div>
-          <div class="bsm-report-hero__meta-row">
-            <span class="bsm-report-hero__meta-label">Sayfa</span>
-            <strong class="bsm-report-hero__meta-value" id="bsmReportPageCount">4 sayfa</strong>
-          </div>
+        <div class="panel-actions">
+          <button type="button" class="ghost-button" id="saveProgramButton">Programı Üyeye Kaydet</button>
+          <button type="button" class="secondary-button" id="copyPlanButton">Metni Kopyala</button>
+          <button type="button" class="primary-button is-hidden" id="printPlanButton">PDF İndir / Yazdır</button>
         </div>
+      </div>
 
-        <div class="bsm-report-hero__actions" role="toolbar" aria-label="Rapor aksiyonları">
-          <!-- Mevcut button id'leri korundu: handler bag'lari intact -->
-          <button type="button" class="bsm-report-btn bsm-report-btn--primary" id="programPdfActionButton">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-            <span>PDF Oluştur</span>
-          </button>
-          <button type="button" class="bsm-report-btn bsm-report-btn--ghost" id="sendProgramMailButton">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-            <span>E-posta ile Gönder</span>
-          </button>
-          <button type="button" class="bsm-report-btn bsm-report-btn--ghost" id="printPlanButton">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-            <span>Yazdır</span>
-          </button>
+      <div class="program-delivery-panel" aria-label="Program çıktı işlemleri">
+        <button type="button" class="program-action-button program-action-button--pdf" id="programPdfActionButton">
+          <span>PDF</span>
+          <strong>PDF İndir / Yazdır</strong>
+          <small>2-3 sayfalık temiz çıktı</small>
+        </button>
+        <button type="button" class="program-action-button program-action-button--live" id="downloadLiveProgramButton">
+          <span>HTML</span>
+          <strong>Canlı Program İndir</strong>
+          <small>GIF destekli tek dosya</small>
+        </button>
+        <button type="button" class="program-action-button program-action-button--mail" id="sendProgramMailButton">
+          <span>@</span>
+          <strong>Mail Gönder</strong>
+          <small>PDF ekiyle üyeye gönder</small>
+        </button>
+      </div>
+      <p id="programDeliveryStatus" class="status-message compact-status program-delivery-status"></p>
+      <div id="programMailHistory" class="program-mail-history" aria-live="polite"></div>
+
+      <div class="program-cover" id="programCover">
+        <div>
+          <p id="coverBrand">Bahçeşehir Spor Merkezi</p>
+          <h3 id="coverMember">Üye Programı</h3>
+          <span id="coverMeta">Program oluşturulduğunda salon çıktısı burada hazırlanır.</span>
         </div>
-      </header>
+        <div class="cover-signature">
+          <span>Antrenör Onayı</span>
+          <strong id="coverTrainer">-</strong>
+        </div>
+      </div>
 
-      <p id="programDeliveryStatus" class="status-message compact-status program-delivery-status bsm-report-status"></p>
+      <div class="results__grid output-clean-grid">
+        <section class="result-card output-summary-card">
+          <h3>Üye Program Kartı</h3>
+          <div id="programOverview" class="metric-grid"></div>
+        </section>
 
-      <!-- ── 2-COL MAIN GRID ──────────────────────────────────────────── -->
-      <div class="bsm-report-layout">
-        <!-- LEFT: Report Content Configuration -->
-        <aside class="bsm-report-config" aria-label="Rapor içeriği yapılandırması">
-          <header class="bsm-report-config__head">
-            <h3>Rapor İçeriği</h3>
-            <span class="bsm-report-config__sub">Rapora dahil edilecek bölümleri seçin ve sıralayın.</span>
-            <span class="bsm-report-config__counter" id="bsmReportSectionCounter">6/6 seçili</span>
-          </header>
+        <section class="result-card result-card--wide output-training-card">
+          <h3>Tanita Bağlantılı Program Zekâsı</h3>
+          <div id="trainingReportPanel" class="training-report-grid"></div>
+        </section>
 
-          <ul class="bsm-report-sections" id="bsmReportSections" role="list">
-            <li class="bsm-report-section" data-report-section="composition">
-              <span class="bsm-report-section__handle" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"></circle><circle cx="15" cy="6" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="18" r="1"></circle><circle cx="15" cy="18" r="1"></circle></svg>
-              </span>
-              <span class="bsm-report-section__icon bsm-report-section__icon--orange" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="3"></circle><path d="M12 9v6"></path><path d="M9 14h6"></path><path d="M7 21h10"></path></svg>
-              </span>
-              <span class="bsm-report-section__body">
-                <strong>Vücut Kompozisyonu</strong>
-                <small>Kilo, yağ, kas, su, BMI ve temel kompozisyon verileri</small>
-              </span>
-              <label class="bsm-report-section__toggle">
-                <input type="checkbox" data-report-toggle="composition" checked />
-                <span class="bsm-report-section__check" aria-hidden="true"></span>
-              </label>
-            </li>
+        <section class="result-card">
+          <h3>Antrenör Notu</h3>
+          <div id="coachNote" class="coach-note"></div>
+        </section>
 
-            <li class="bsm-report-section" data-report-section="segmental">
-              <span class="bsm-report-section__handle" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"></circle><circle cx="15" cy="6" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="18" r="1"></circle><circle cx="15" cy="18" r="1"></circle></svg>
-              </span>
-              <span class="bsm-report-section__icon bsm-report-section__icon--blue" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"></circle><path d="M12 7v6"></path><path d="M9 13l3-2 3 2"></path><path d="M8 18l4-4 4 4"></path></svg>
-              </span>
-              <span class="bsm-report-section__body">
-                <strong>Segmental Analiz</strong>
-                <small>Kas dağılımı, yağ dağılımı ve segmental denge</small>
-              </span>
-              <label class="bsm-report-section__toggle">
-                <input type="checkbox" data-report-toggle="segmental" checked />
-                <span class="bsm-report-section__check" aria-hidden="true"></span>
-              </label>
-            </li>
+        <section class="result-card result-card--wide">
+          <h3>AI Analiz ve Koç Raporu</h3>
+          <div id="aiReportSummary" class="ai-report-grid"></div>
+        </section>
 
-            <li class="bsm-report-section" data-report-section="trend">
-              <span class="bsm-report-section__handle" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"></circle><circle cx="15" cy="6" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="18" r="1"></circle><circle cx="15" cy="18" r="1"></circle></svg>
-              </span>
-              <span class="bsm-report-section__icon bsm-report-section__icon--green" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"></polyline><polyline points="14 7 21 7 21 14"></polyline></svg>
-              </span>
-              <span class="bsm-report-section__body">
-                <strong>Trend Grafikleri</strong>
-                <small>Zaman içindeki değişim ve gelişim grafikleri</small>
-              </span>
-              <label class="bsm-report-section__toggle">
-                <input type="checkbox" data-report-toggle="trend" checked />
-                <span class="bsm-report-section__check" aria-hidden="true"></span>
-              </label>
-            </li>
+        <section class="result-card">
+          <h3>Sonraki Kontrol Önerisi</h3>
+          <div id="nextControlReport" class="coach-note"></div>
+        </section>
 
-            <li class="bsm-report-section" data-report-section="program-notes">
-              <span class="bsm-report-section__handle" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"></circle><circle cx="15" cy="6" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="18" r="1"></circle><circle cx="15" cy="18" r="1"></circle></svg>
-              </span>
-              <span class="bsm-report-section__icon bsm-report-section__icon--purple" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>
-              </span>
-              <span class="bsm-report-section__body">
-                <strong>Program Notları</strong>
-                <small>Mevcut program, hedefler ve takip notları</small>
-              </span>
-              <label class="bsm-report-section__toggle">
-                <input type="checkbox" data-report-toggle="program-notes" checked />
-                <span class="bsm-report-section__check" aria-hidden="true"></span>
-              </label>
-            </li>
+        <section class="result-card">
+          <h3>Dikkat Edilecek Uyarılar</h3>
+          <div id="outputWarnings" class="warning-list"></div>
+        </section>
 
-            <li class="bsm-report-section" data-report-section="nutrition-notes">
-              <span class="bsm-report-section__handle" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"></circle><circle cx="15" cy="6" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="18" r="1"></circle><circle cx="15" cy="18" r="1"></circle></svg>
-              </span>
-              <span class="bsm-report-section__icon bsm-report-section__icon--teal" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2v20"></path><path d="M5 2v6a3 3 0 0 0 6 0V2"></path><path d="M18 2v20"></path><path d="M15 2c0 4 3 4 3 8"></path></svg>
-              </span>
-              <span class="bsm-report-section__body">
-                <strong>Beslenme Notları</strong>
-                <small>Beslenme planı, makro hedefleri ve öneriler</small>
-              </span>
-              <label class="bsm-report-section__toggle">
-                <input type="checkbox" data-report-toggle="nutrition-notes" checked />
-                <span class="bsm-report-section__check" aria-hidden="true"></span>
-              </label>
-            </li>
+        <section class="result-card result-card--wide">
+          <h3>Kas Grubu Kapsamı</h3>
+          <div id="muscleCoverage" class="coverage-grid"></div>
+        </section>
 
-            <li class="bsm-report-section" data-report-section="history">
-              <span class="bsm-report-section__handle" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"></circle><circle cx="15" cy="6" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="18" r="1"></circle><circle cx="15" cy="18" r="1"></circle></svg>
-              </span>
-              <span class="bsm-report-section__icon bsm-report-section__icon--rose" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><polyline points="3 3 3 8 8 8"></polyline><path d="M12 7v5l3 2"></path></svg>
-              </span>
-              <span class="bsm-report-section__body">
-                <strong>Ölçüm Geçmişi Özeti</strong>
-                <small>Geçmiş ölçümlerin kısa özet karşılaştırması</small>
-              </span>
-              <label class="bsm-report-section__toggle">
-                <input type="checkbox" data-report-toggle="history" checked />
-                <span class="bsm-report-section__check" aria-hidden="true"></span>
-              </label>
-            </li>
-          </ul>
-
-          <footer class="bsm-report-config__footer">
-            <button type="button" class="bsm-report-config__add" id="bsmReportAddSection" disabled aria-disabled="true" title="Bu özellik yakında">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              <span>Yeni Bölüm Ekle</span>
-            </button>
-          </footer>
-        </aside>
-
-        <!-- RIGHT: PDF Preview -->
-        <section class="bsm-report-preview" aria-label="Rapor önizlemesi">
-          <header class="bsm-report-preview__head">
+        <section class="result-card result-card--wide">
+          <h3>Haftalık Üye Antrenman Planı</h3>
+          <div class="program-edit-toolbar" id="programEditToolbar">
             <div>
-              <h3>Rapor Önizleme</h3>
-              <span class="bsm-report-preview__sub">Raporun PDF önizlemesini görüntüleyin.</span>
+              <strong>Program düzenleme</strong>
+              <span id="programEditStatus">Düzenle modunda hareket, set, tekrar, dinlenme, tempo ve not alanlarını değiştirebilirsiniz.</span>
             </div>
-            <div class="bsm-report-preview__pager" id="bsmReportPager">
-              <span class="bsm-report-preview__pager-label">Sayfa <strong id="bsmReportCurrentPage">1</strong> / <strong id="bsmReportTotalPages">4</strong></span>
-              <button type="button" class="bsm-report-preview__pager-btn" id="bsmReportPagePrev" aria-label="Önceki sayfa">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
-              </button>
-              <button type="button" class="bsm-report-preview__pager-btn" id="bsmReportPageNext" aria-label="Sonraki sayfa">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
-              </button>
+            <div class="program-edit-toolbar__actions">
+              <button type="button" class="ghost-button" id="toggleProgramEditButton">Düzenle</button>
+              <button type="button" class="secondary-button is-hidden" id="saveProgramEditsButton">Değişiklikleri Kaydet</button>
+              <button type="button" class="ghost-button is-hidden" id="resetProgramEditsButton">Varsayılan Programa Dön</button>
             </div>
-          </header>
-
-          <div class="bsm-report-preview__body">
-            <article class="bsm-report-page" id="bsmReportPage" aria-label="PDF sayfa önizlemesi">
-              <header class="bsm-report-page__head">
-                <div>
-                  <span class="bsm-report-page__brand">Bahçeşehir Spor Merkezi</span>
-                  <h2>VÜCUT ANALİZ RAPORU</h2>
-                  <p id="bsmReportPageMember">Üye seçilmedi</p>
-                </div>
-                <div class="bsm-report-page__date" id="bsmReportPageDate">—</div>
-              </header>
-
-              <div class="bsm-report-page__section">
-                <span class="bsm-report-page__section-title">Vücut Kompozisyonu</span>
-                <div class="bsm-report-page__metrics" id="bsmReportPreviewMetrics">
-                  <div class="bsm-report-page__metric"><small>Kilo</small><strong>—</strong></div>
-                  <div class="bsm-report-page__metric"><small>Yağ Oranı</small><strong>—</strong></div>
-                  <div class="bsm-report-page__metric"><small>Kas Kütlesi</small><strong>—</strong></div>
-                  <div class="bsm-report-page__metric"><small>BMI</small><strong>—</strong></div>
-                  <div class="bsm-report-page__metric"><small>Visceral Yağ</small><strong>—</strong></div>
-                  <div class="bsm-report-page__metric"><small>BMR</small><strong>—</strong></div>
-                </div>
-              </div>
-
-              <div class="bsm-report-page__section">
-                <span class="bsm-report-page__section-title">Trend Grafikleri</span>
-                <div class="bsm-report-page__charts" id="bsmReportPreviewCharts" aria-hidden="true">
-                  <div class="bsm-report-page__chart bsm-report-page__chart--blue">
-                    <span>Kilo (kg)</span>
-                    <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="2,22 18,18 34,20 50,16 66,14 82,12 98,10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
-                  </div>
-                  <div class="bsm-report-page__chart bsm-report-page__chart--orange">
-                    <span>Yağ Oranı (%)</span>
-                    <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="2,12 18,14 34,18 50,16 66,20 82,22 98,24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
-                  </div>
-                  <div class="bsm-report-page__chart bsm-report-page__chart--green">
-                    <span>Kas Kütlesi (kg)</span>
-                    <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="2,20 18,18 34,16 50,14 66,12 82,10 98,8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
-                  </div>
-                </div>
-              </div>
-
-              <footer class="bsm-report-page__footer">
-                <span>Bahçeşehir Spor Merkezi — Profesyonel Üye Performans Raporu</span>
-                <span class="bsm-report-page__footer-page">Sayfa 1 / 4</span>
-              </footer>
-            </article>
-
-            <aside class="bsm-report-thumbs" id="bsmReportThumbs" aria-label="Sayfa küçük görüntüleri">
-              <button type="button" class="bsm-report-thumb is-active" data-report-thumb="1" aria-label="Sayfa 1"><span>1</span></button>
-              <button type="button" class="bsm-report-thumb" data-report-thumb="2" aria-label="Sayfa 2"><span>2</span></button>
-              <button type="button" class="bsm-report-thumb" data-report-thumb="3" aria-label="Sayfa 3"><span>3</span></button>
-              <button type="button" class="bsm-report-thumb" data-report-thumb="4" aria-label="Sayfa 4"><span>4</span></button>
-            </aside>
           </div>
+          <div id="weeklyPlan" class="weekly-plan"></div>
+        </section>
+
+        <section class="result-card result-card--wide">
+          <h3>Beslenme Bilgisi</h3>
+          <div id="outputNutritionPlan" class="nutrition-output"></div>
+        </section>
+
+        <section class="result-card">
+          <h3>4 Haftalık Takip</h3>
+          <div id="progressionPlan" class="timeline"></div>
+        </section>
+
+        <section class="result-card">
+          <h3>Uygulama Kuralları</h3>
+          <div id="guidanceBlock" class="guidance-list"></div>
         </section>
       </div>
-
-      <!-- ── LEGACY HIDDEN CONTAINER ─────────────────────────────────────
-           Mevcut handler/render fonksiyonlari (renderProgramSectionsUi,
-           renderProgramOverview, renderOutputIntelligence, vb.) bu
-           elementleri querySelector ile bagliyor. DOM'da kaliyor, gorsel
-           olarak gizli — eski export/PDF/mail flow'lari bozulmasin. -->
-      <div class="bsm-report-legacy" aria-hidden="true" id="bsmReportLegacyShell">
-        <h2 id="resultsTitle" hidden>Hazır</h2>
-        <button type="button" class="ghost-button" id="saveProgramButton" hidden>Programı Üyeye Kaydet</button>
-        <button type="button" class="secondary-button" id="copyPlanButton" hidden>Metni Kopyala</button>
-        <!-- legacy "Canlı Program İndir" — yeni hero'da yer almadi, gizli erisilir -->
-        <button type="button" id="downloadLiveProgramButton" hidden>Canlı Program İndir</button>
-        <div class="program-mail-history" id="programMailHistory" aria-live="polite"></div>
-
-        <div class="program-cover" id="programCover" hidden>
-          <div>
-            <p id="coverBrand">Bahçeşehir Spor Merkezi</p>
-            <h3 id="coverMember">Üye Programı</h3>
-            <span id="coverMeta">Program oluşturulduğunda salon çıktısı burada hazırlanır.</span>
-          </div>
-          <div class="cover-signature">
-            <span>Antrenör Onayı</span>
-            <strong id="coverTrainer">-</strong>
-          </div>
-        </div>
-
-        <div class="results__grid output-clean-grid">
-          <section class="result-card output-summary-card">
-            <h3>Üye Program Kartı</h3>
-            <div id="programOverview" class="metric-grid"></div>
-          </section>
-          <section class="result-card result-card--wide output-training-card">
-            <h3>Tanita Bağlantılı Program Zekâsı</h3>
-            <div id="trainingReportPanel" class="training-report-grid"></div>
-          </section>
-          <section class="result-card">
-            <h3>Antrenör Notu</h3>
-            <div id="coachNote" class="coach-note"></div>
-          </section>
-          <section class="result-card result-card--wide">
-            <h3>AI Analiz ve Koç Raporu</h3>
-            <div id="aiReportSummary" class="ai-report-grid"></div>
-          </section>
-          <section class="result-card">
-            <h3>Sonraki Kontrol Önerisi</h3>
-            <div id="nextControlReport" class="coach-note"></div>
-          </section>
-          <section class="result-card">
-            <h3>Dikkat Edilecek Uyarılar</h3>
-            <div id="outputWarnings" class="warning-list"></div>
-          </section>
-          <section class="result-card result-card--wide">
-            <h3>Kas Grubu Kapsamı</h3>
-            <div id="muscleCoverage" class="coverage-grid"></div>
-          </section>
-          <section class="result-card result-card--wide">
-            <h3>Haftalık Üye Antrenman Planı</h3>
-            <div class="program-edit-toolbar" id="programEditToolbar">
-              <div>
-                <strong>Program düzenleme</strong>
-                <span id="programEditStatus">Düzenle modunda hareket, set, tekrar, dinlenme, tempo ve not alanlarını değiştirebilirsiniz.</span>
-              </div>
-              <div class="program-edit-toolbar__actions">
-                <button type="button" class="ghost-button" id="toggleProgramEditButton">Düzenle</button>
-                <button type="button" class="secondary-button is-hidden" id="saveProgramEditsButton">Değişiklikleri Kaydet</button>
-                <button type="button" class="ghost-button is-hidden" id="resetProgramEditsButton">Varsayılan Programa Dön</button>
-              </div>
-            </div>
-            <div id="weeklyPlan" class="weekly-plan"></div>
-          </section>
-          <section class="result-card result-card--wide">
-            <h3>Beslenme Bilgisi</h3>
-            <div id="outputNutritionPlan" class="nutrition-output"></div>
-          </section>
-          <section class="result-card">
-            <h3>4 Haftalık Takip</h3>
-            <div id="progressionPlan" class="timeline"></div>
-          </section>
-          <section class="result-card">
-            <h3>Uygulama Kuralları</h3>
-            <div id="guidanceBlock" class="guidance-list"></div>
-          </section>
-        </div>
-      </div>
     </section>
+
+    <!-- LEGACY-SHELL REMOVED — output panel restored to v1.1.7 layout.
+         Premium Report Center artik measurement panel'in 'report' iç sekmesinde. -->
 
     <section id="measurementReportSection" class="measurement-report screen-panel is-hidden" aria-live="polite" data-screen="measurement-report">
       <div class="measurement-report-toolbar">
@@ -1429,22 +1210,22 @@
     <script src="./data/options.js"></script>
     <script src="./data/labels.js"></script>
     <script src="./data/presets.js"></script>
-    <script src="./data/repetition-presets.js?v=1.1.9"></script>
+    <script src="./data/repetition-presets.js?v=1.2.0"></script>
     <script src="./data/exercises.js"></script>
     <script src="./helpers/core-utils.js"></script>
     <script src="./helpers/label-utils.js"></script>
-    <script src="./data-migrations.js?v=1.1.9"></script>
+    <script src="./data-migrations.js?v=1.2.0"></script>
     <script src="./services/storage-service.js"></script>
-    <script src="./services/supabase-sync-service.js?v=1.1.9"></script>
+    <script src="./services/supabase-sync-service.js?v=1.2.0"></script>
     <script src="./services/member-service.js"></script>
     <script src="./services/tanita-csv-service.js"></script>
-    <script src="./nutrition/nutritionGoals.js?v=1.1.9"></script>
-    <script src="./nutrition/supplementDatabase.js?v=1.1.9"></script>
-    <script src="./nutrition/nutritionPlanEngine.js?v=1.1.9"></script>
-    <script src="./services/pdf-download-service.js?v=1.1.9"></script>
-    <script src="./nutrition/nutritionPdfRenderer.js?v=1.1.9"></script>
-    <script src="./nutrition/nutritionEmailService.js?v=1.1.9"></script>
-    <script src="./services/nutrition-service.js?v=1.1.9"></script>
+    <script src="./nutrition/nutritionGoals.js?v=1.2.0"></script>
+    <script src="./nutrition/supplementDatabase.js?v=1.2.0"></script>
+    <script src="./nutrition/nutritionPlanEngine.js?v=1.2.0"></script>
+    <script src="./services/pdf-download-service.js?v=1.2.0"></script>
+    <script src="./nutrition/nutritionPdfRenderer.js?v=1.2.0"></script>
+    <script src="./nutrition/nutritionEmailService.js?v=1.2.0"></script>
+    <script src="./services/nutrition-service.js?v=1.2.0"></script>
     <script src="./services/exercise-media-service.js"></script>
     <script src="./services/dashboard-service.js"></script>
     <script src="./services/validation-service.js"></script>
@@ -1458,17 +1239,17 @@
     <script src="./services/session-exercise-service.js"></script>
     <script src="./services/session-assembly-service.js"></script>
     <script src="./services/session-support-service.js"></script>
-    <script src="./ui/dashboard-ui.js?v=1.1.9"></script>
+    <script src="./ui/dashboard-ui.js?v=1.2.0"></script>
     <script src="./ui/alerts-ui.js"></script>
-    <script src="./ui/member-ui.js?v=1.1.9"></script>
+    <script src="./ui/member-ui.js?v=1.2.0"></script>
     <script src="./ui/library-ui.js"></script>
     <script src="./ui/output-ui.js"></script>
-    <script src="./ui/nutrition-ui.js?v=1.1.9"></script>
+    <script src="./ui/nutrition-ui.js?v=1.2.0"></script>
     <script src="./handlers/form-handlers.js"></script>
-    <script src="./handlers/navigation-handlers.js?v=1.1.9"></script>
+    <script src="./handlers/navigation-handlers.js?v=1.2.0"></script>
     <script src="./handlers/member-handlers.js"></script>
     <script src="./handlers/output-handlers.js"></script>
-    <script src="./handlers/nutrition-handlers.js?v=1.1.9"></script>
+    <script src="./handlers/nutrition-handlers.js?v=1.2.0"></script>
     <script src="./analysis-engine.js"></script>
     <script src="./program-engine-v2.js"></script>
     <script src="./automation-engine.js"></script>
@@ -1495,14 +1276,14 @@
 
     <!-- ── Feature modules (app.js'den önce) ────────────────── -->
     <script src="./features/measurement-report.js"></script>
-    <script src="./features/builder-wizard.js?v=1.1.9"></script>
+    <script src="./features/builder-wizard.js?v=1.2.0"></script>
     <script src="./features/body-analysis.js"></script>
 
     <!-- ── Ana uygulama ─────────────────────────────────────── -->
-    <script src="./app.js?v=1.1.9"></script>
+    <script src="./app.js?v=1.2.0"></script>
 
     <!-- ── Auth (app.js'den sonra — session kontrolü için) ──── -->
-    <script src="./auth/auth.js?v=1.1.9"></script>
+    <script src="./auth/auth.js?v=1.2.0"></script>
     <script src="./auth/rbac.js"></script>
     <script>
       if (window.BSMAuth) {

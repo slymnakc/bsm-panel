@@ -17500,6 +17500,26 @@ body.bsm-photo-modal-open { overflow: hidden; }
   background: transparent;
 }
 
+/* v1.2.0: Report Center measurement panel'in 'report' alt sekmesinde de
+   yer aliyor. In-tab modifier ile padding/sizing tab icine uygun olur. */
+.bsm-report-center {
+  font-family: var(--bsm-font);
+}
+
+.bsm-report-center--in-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.bsm-report-center--in-tab .bsm-report-hero {
+  margin-bottom: 0;
+}
+
+.bsm-report-center--in-tab .bsm-report-layout {
+  margin-top: 4px;
+}
+
 /* Legacy DOM: render handler'lari bu elementleri DOM'da bekler,
    ama gorsel olarak gizli — yeni Report Center UI'i temiz kalsin. */
 .bsm-report-legacy {
