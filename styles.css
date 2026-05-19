@@ -19265,16 +19265,19 @@ body.bsm-photo-modal-open { overflow: hidden; }
 .bsm-nutrition-btn.is-hidden { display: none; }
 
 /* ── 3-COLUMN LAYOUT ───────────────────────────────────────────── */
+/* v1.3.2: 2-kolon premium editor layout (eski 3-kolon kaldirildi).
+   Sol 420px panel (accordion + PDF Analizi cards) + orta 1fr buyuk preview. */
 .bsm-nutrition-layout {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr) 320px;
-  gap: 18px;
+  grid-template-columns: 420px minmax(900px, 1fr);
+  gap: 24px;
   align-items: start;
 }
 
 @media (max-width: 1280px) {
+  /* v1.3.2: 2-kolon -> tablet sol panel ustte, preview altta */
   .bsm-nutrition-layout {
-    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
   .bsm-nutrition-sidepanel {
     grid-column: 1 / -1;
@@ -21950,4 +21953,268 @@ body.bsm-photo-modal-open { overflow: hidden; }
 @media (max-width: 720px) {
   .bsm-pdf-v13__title { font-size: 1.25rem; }
   .bsm-pdf-v13__sub-title { font-size: 1.05rem; }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   v1.3.2 — Layout 2-kolon refactor (sag sidepanel kaldirildi)
+   Sol accordion'a "PDF Analizi" details + orta buyuk preview + toolbar.
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* Sol accordion icinde "PDF Analizi" details body */
+.bsm-nutrition-analysis-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.bsm-nutrition-analysis-block {
+  background: #fafbfd;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bsm-nutrition-analysis-block h5 {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+}
+
+/* Analiz icindeki donut/timeline/meta-list mevcut stillerini koru */
+.bsm-nutrition-analysis-block .bsm-nutrition-donut svg { width: 96px; height: 96px; }
+
+/* ── PDF Preview wrap (orta kolon) ───────────────────────────────── */
+.bsm-pdf-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Sticky toolbar */
+.bsm-pdf-toolbar {
+  position: sticky;
+  top: 8px;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 12px rgba(8, 12, 18, 0.04);
+}
+
+.bsm-pdf-toolbar__pages {
+  display: flex;
+  gap: 4px;
+  background: #f3f4f6;
+  padding: 3px;
+  border-radius: 10px;
+}
+
+.bsm-pdf-toolbar__page {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--bsm-font);
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.bsm-pdf-toolbar__page.is-active {
+  background: #fff;
+  color: var(--bsm-orange, #f26c1f);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.bsm-pdf-toolbar__zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: center;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  padding: 3px 6px;
+}
+
+.bsm-pdf-toolbar__zoom-btn {
+  background: transparent;
+  border: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--bsm-text-on-light, #111827);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.bsm-pdf-toolbar__zoom-btn:hover { background: rgba(17, 24, 39, 0.06); }
+.bsm-pdf-toolbar__zoom-btn--reset { font-size: 0.85rem; }
+
+.bsm-pdf-toolbar__zoom-label {
+  min-width: 48px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--bsm-text-on-light, #111827);
+  letter-spacing: 0.02em;
+}
+
+.bsm-pdf-toolbar__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.bsm-pdf-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--bsm-text-on-light, #111827);
+  cursor: pointer;
+  font-family: var(--bsm-font);
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+  white-space: nowrap;
+}
+
+.bsm-pdf-toolbar__btn:hover {
+  background: #fafbfd;
+  border-color: rgba(15, 23, 42, 0.18);
+}
+
+.bsm-pdf-toolbar__btn--primary {
+  background: linear-gradient(135deg, var(--bsm-orange, #f26c1f) 0%, var(--bsm-track-red, #e25022) 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(242, 108, 31, 0.2);
+}
+
+.bsm-pdf-toolbar__btn--primary:hover {
+  box-shadow: 0 6px 14px rgba(242, 108, 31, 0.28);
+  transform: translateY(-1px);
+}
+
+/* PDF canvas — preview merkez ortalanmis A4 oranli buyuk container */
+.bsm-pdf-canvas {
+  display: flex;
+  justify-content: center;
+  padding: 18px 0 32px;
+  background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-radius: 16px;
+  min-height: 600px;
+  transform-origin: top center;
+  transition: transform 0.18s ease;
+}
+
+.bsm-pdf-canvas .bsm-nutrition-pdf-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 980px;
+  padding: 0 20px;
+}
+
+/* v1.3.2: Preview'da iki sayfa ardarda gosterilebilir (eski stacked grid kaldirildi) */
+.bsm-pdf-canvas .bsm-nutrition-pdf-pages > .bsm-pdf-v13 {
+  grid-area: auto;
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.04);
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  max-width: 980px;
+  width: 100%;
+}
+
+/* Aktif sayfa accent border */
+.bsm-pdf-canvas .bsm-nutrition-pdf-pages > .bsm-pdf-v13[data-active="true"] {
+  border-color: rgba(242, 108, 31, 0.35);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12), 0 0 0 3px rgba(242, 108, 31, 0.12);
+}
+
+/* Eski thumbs gizli (toolbar yenisini sunuyor) */
+.bsm-nutrition-pdf-thumbs { display: none !important; }
+.bsm-nutrition-pdf-wrap { display: none !important; }
+
+/* Zoom data-zoom attribute (JS set eder, CSS var ile scale uygular) */
+.bsm-pdf-canvas[data-zoom] .bsm-nutrition-pdf-pages {
+  transform: scale(var(--pdf-zoom, 1));
+  transform-origin: top center;
+  transition: transform 0.18s ease;
+}
+
+/* Responsive */
+@media (max-width: 1400px) {
+  .bsm-nutrition-layout {
+    grid-template-columns: 380px minmax(720px, 1fr);
+    gap: 18px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .bsm-nutrition-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  .bsm-pdf-canvas { overflow-x: auto; }
+  .bsm-pdf-canvas .bsm-nutrition-pdf-pages {
+    min-width: 760px;
+  }
+  .bsm-pdf-toolbar {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .bsm-pdf-toolbar__zoom { justify-self: start; }
+  .bsm-pdf-toolbar__actions { flex-wrap: wrap; }
+}
+
+@media (max-width: 720px) {
+  .bsm-pdf-canvas { padding: 12px 8px; }
+  .bsm-pdf-canvas .bsm-nutrition-pdf-pages {
+    padding: 0;
+    min-width: 600px;
+  }
+  .bsm-pdf-toolbar__btn span { display: none; }
+}
+
+/* Print modunda toolbar gizli, canvas duz beyaz */
+@media print {
+  body.is-printing-nutrition .bsm-pdf-toolbar,
+  body.is-printing-nutrition .bsm-pdf-canvas {
+    background: #fff !important;
+  }
+  body.is-printing-nutrition .bsm-pdf-toolbar { display: none !important; }
+  body.is-printing-nutrition .bsm-pdf-canvas {
+    padding: 0 !important;
+    transform: none !important;
+  }
+  body.is-printing-nutrition .bsm-pdf-canvas .bsm-nutrition-pdf-pages {
+    transform: none !important;
+    max-width: none !important;
+    padding: 0 !important;
+    gap: 0 !important;
+  }
 }

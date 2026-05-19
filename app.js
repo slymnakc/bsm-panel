@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.3.1";
+const BSM_BUILD_VERSION = "1.3.2";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -9369,15 +9369,17 @@ function applyNutritionActiveViewClass() {
   });
 }
 
-// v1.2.5: PDF aktif sayfa - thumbnail click handler
+// v1.2.5/v1.3.2: PDF aktif sayfa - thumbnail/toolbar click handler
 // Not: toggleAttribute(name, force) value tasimaz, sadece var/yok yapar.
 // CSS selector `[data-active="true"]` value bekledigi icin setAttribute kullaniyoruz.
 function setNutritionPdfActivePage(num) {
-  const n = String(Math.max(1, Math.min(4, Number(num) || 1)));
+  const n = String(Math.max(1, Math.min(2, Number(num) || 1)));
   state.nutritionPdfPage = Number(n);
   document.querySelectorAll("[data-pdf-page]").forEach((p) => {
     if (p.dataset.pdfPage === n) {
       p.setAttribute("data-active", "true");
+      // Aktif sayfaya scroll
+      p.scrollIntoView({ behavior: "smooth", block: "start" });
     } else {
       p.removeAttribute("data-active");
     }
@@ -9385,6 +9387,21 @@ function setNutritionPdfActivePage(num) {
   document.querySelectorAll("[data-pdf-thumb]").forEach((t) => {
     t.classList.toggle("is-active", t.dataset.pdfThumb === n);
   });
+}
+
+// v1.3.2: PDF preview zoom kontrolu (toolbar +/-/reset)
+function handleNutritionPdfZoom(action) {
+  const canvas = document.querySelector("#bsmPdfCanvas");
+  const label = document.querySelector("#bsmPdfZoomLabel");
+  if (!canvas) return;
+  const current = Number(canvas.dataset.zoom || "100");
+  let next = current;
+  if (action === "in") next = Math.min(150, current + 10);
+  else if (action === "out") next = Math.max(60, current - 10);
+  else if (action === "reset") next = 100;
+  canvas.dataset.zoom = String(next);
+  canvas.style.setProperty("--pdf-zoom", String(next / 100));
+  if (label) label.textContent = `${next}%`;
 }
 
 // ── EVENT DELEGATION ────────────────────────────────────────────────
@@ -9400,10 +9417,27 @@ function bindNutritionPremiumHandlers() {
       applyNutritionActiveViewClass();
       return;
     }
-    // v1.2.5: PDF thumbnail click
+    // v1.2.5: PDF thumbnail / v1.3.2: PDF toolbar page button click
     const pdfThumb = e.target.closest("[data-pdf-thumb]");
     if (pdfThumb) {
       setNutritionPdfActivePage(pdfThumb.dataset.pdfThumb);
+      return;
+    }
+    // v1.3.2: PDF toolbar zoom kontrolu
+    const zoomBtn = e.target.closest("[data-pdf-zoom]");
+    if (zoomBtn) {
+      handleNutritionPdfZoom(zoomBtn.dataset.pdfZoom);
+      return;
+    }
+    // v1.3.2: PDF toolbar aksiyonlari (print/download/email)
+    const pdfActBtn = e.target.closest("[data-pdf-action]");
+    if (pdfActBtn) {
+      const act = pdfActBtn.dataset.pdfAction;
+      if (act === "print" || act === "download") {
+        document.querySelector("#printNutritionButton")?.click();
+      } else if (act === "email") {
+        document.querySelector("#sendNutritionMailButton")?.click();
+      }
       return;
     }
     // v1.2.5: Supplement library kategori filtre chip
