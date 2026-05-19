@@ -20970,3 +20970,753 @@ body.bsm-photo-modal-open { overflow: hidden; }
   .bsm-nutrition-pdf-page { padding: 16px 18px; }
   .bsm-nutrition-pdf-page__hero { grid-template-columns: 1fr; }
 }
+
+/* ═════════════════════════════════════════════════════════════════════
+   v1.3.0 — PREMIUM 2-SAYFA BESLENME PDF (.bsm-pdf-v13)
+   ═════════════════════════════════════════════════════════════════════ */
+
+.bsm-pdf-v13 {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 18px;
+  box-shadow: 0 16px 40px rgba(8, 12, 18, 0.06), 0 2px 6px rgba(8, 12, 18, 0.03);
+  padding: 28px 32px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 580px;
+  color: #0f172a;
+  font-family: var(--bsm-font);
+}
+
+.bsm-pdf-v13[data-active="true"] {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Tum bsm-pdf-v13'lar stacked grid icine — eski .bsm-nutrition-pdf-pages CSS'i */
+.bsm-nutrition-pdf-pages > .bsm-pdf-v13 {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.bsm-nutrition-pdf-pages > .bsm-pdf-v13[data-active="true"] {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Sayfa 1 cover header */
+.bsm-pdf-v13__cover {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 24px;
+  align-items: center;
+  border-bottom: 2px solid #f97316;
+  padding-bottom: 16px;
+}
+
+.bsm-pdf-v13__brand {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #f97316;
+}
+
+.bsm-pdf-v13__title {
+  margin: 4px 0 6px;
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.bsm-pdf-v13__subtitle {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.bsm-pdf-v13__tags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 0.78rem;
+}
+
+.bsm-pdf-v13__tags li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bsm-pdf-v13__tags li span {
+  color: #94a3b8;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.bsm-pdf-v13__tags li strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.bsm-pdf-v13__cover-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.bsm-pdf-v13__kcal-hero {
+  background: linear-gradient(135deg, #f26c1f 0%, #e25022 100%);
+  color: #fff;
+  border-radius: 16px;
+  padding: 14px 20px;
+  text-align: right;
+  box-shadow: 0 10px 24px rgba(242, 108, 31, 0.28);
+}
+
+.bsm-pdf-v13__kcal-hero span {
+  display: block;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  font-weight: 600;
+}
+
+.bsm-pdf-v13__kcal-hero strong {
+  display: block;
+  font-size: 1.95rem;
+  line-height: 1;
+  font-weight: 800;
+  margin: 4px 0 0;
+}
+
+.bsm-pdf-v13__kcal-hero em {
+  display: inline-block;
+  font-style: normal;
+  font-size: 0.74rem;
+  opacity: 0.9;
+  font-weight: 600;
+}
+
+.bsm-pdf-v13__date {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* KPI strip */
+.bsm-pdf-v13__kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bsm-pdf-v13__kpi {
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bsm-pdf-v13__kpi small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.bsm-pdf-v13__kpi strong {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* Donut + water row */
+.bsm-pdf-v13__chart-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.bsm-pdf-v13__donut-block,
+.bsm-pdf-v13__water-block {
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bsm-pdf-v13__donut-block h3,
+.bsm-pdf-v13__water-block h3,
+.bsm-pdf-v13__meals h3,
+.bsm-pdf-v13__suppl h3,
+.bsm-pdf-v13__kcal-dist h3,
+.bsm-pdf-v13__feedback h3,
+.bsm-pdf-v13__note h3 {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.bsm-pdf-v13__donut {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.bsm-pdf-v13__donut-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  font-size: 0.8rem;
+  color: #0f172a;
+}
+
+.bsm-pdf-v13__donut-legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.bsm-pdf-v13__donut-legend li span {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.bsm-pdf-v13__donut-legend li em {
+  font-style: normal;
+  margin-left: auto;
+  font-weight: 700;
+  color: #334155;
+}
+
+/* Water ring */
+.bsm-pdf-water-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.bsm-pdf-water-ring__label {
+  font-size: 0.74rem;
+  color: #0c4a6e;
+  font-weight: 600;
+}
+
+.bsm-pdf-v13__if-chip {
+  display: inline-flex;
+  align-self: center;
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+
+/* Meals timeline (Sayfa 1) */
+.bsm-pdf-v13__meals {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bsm-pdf-v13__meal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bsm-pdf-v13__meal-item {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 80px 120px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.05);
+  border-radius: 10px;
+}
+
+.bsm-pdf-v13__meal-item.is-workout {
+  background: #fff7ed;
+  border-color: rgba(242, 108, 31, 0.2);
+}
+
+.bsm-pdf-v13__meal-time {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #f26c1f;
+  letter-spacing: 0.02em;
+}
+
+.bsm-pdf-v13__meal-body strong {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.bsm-pdf-v13__meal-body small {
+  display: block;
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.bsm-pdf-v13__meal-tag {
+  display: inline-block;
+  background: #f26c1f;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-left: 4px;
+  vertical-align: 2px;
+}
+
+.bsm-pdf-v13__meal-cal {
+  text-align: right;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.bsm-pdf-v13__meal-cal em {
+  font-style: normal;
+  font-size: 0.66rem;
+  color: #94a3b8;
+  margin-left: 2px;
+  font-weight: 600;
+}
+
+.bsm-pdf-v13__meal-macros {
+  font-size: 0.7rem;
+  color: #475569;
+  text-align: right;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* Footer */
+.bsm-pdf-v13__footer {
+  margin-top: auto;
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+  padding-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+}
+
+.bsm-pdf-v13__page-num {
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.04em;
+}
+
+/* Sayfa 2 sub header (with score gauge) */
+.bsm-pdf-v13__sub-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  gap: 16px;
+  align-items: center;
+  border-bottom: 2px solid #f97316;
+  padding-bottom: 14px;
+}
+
+.bsm-pdf-v13__sub-title {
+  margin: 4px 0 4px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+.bsm-pdf-v13__sub-header p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+/* Score gauge */
+.bsm-pdf-score-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.bsm-pdf-score-gauge__label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* Sayfa 2 row: supplement + kcal dist */
+.bsm-pdf-v13__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 14px;
+}
+
+.bsm-pdf-v13__suppl,
+.bsm-pdf-v13__kcal-dist {
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bsm-pdf-v13__suppl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bsm-pdf-v13__suppl-list > li {
+  display: grid;
+  grid-template-columns: 52px 28px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.05);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.bsm-pdf-v13__suppl-time {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #f26c1f;
+}
+
+.bsm-pdf-v13__suppl-icon {
+  font-size: 1.1rem;
+  text-align: center;
+}
+
+.bsm-pdf-v13__suppl-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.bsm-pdf-v13__suppl-info strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.bsm-pdf-v13__suppl-info em {
+  font-style: normal;
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.bsm-pdf-v13__suppl-empty {
+  background: transparent !important;
+  border: 1px dashed rgba(15, 23, 42, 0.16) !important;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  display: block !important;
+  padding: 14px !important;
+}
+
+/* Kalori bar chart */
+.bsm-pdf-bar-chart {
+  width: 100%;
+}
+
+.bsm-pdf-bar-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Feedback list (rule-based AI) */
+.bsm-pdf-v13__feedback {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bsm-pdf-v13__feedback-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.bsm-pdf-v13__feedback-item {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  align-items: flex-start;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.05);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.bsm-pdf-v13__feedback-item--ok {
+  background: #f0fdf4;
+  border-color: rgba(22, 163, 74, 0.18);
+}
+.bsm-pdf-v13__feedback-item--warn {
+  background: #fff7ed;
+  border-color: rgba(245, 158, 11, 0.22);
+}
+.bsm-pdf-v13__feedback-item--info {
+  background: #f1f5f9;
+  border-color: rgba(100, 116, 139, 0.18);
+}
+
+.bsm-pdf-v13__feedback-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.92rem;
+}
+
+/* Antrenör notu (page 2) */
+.bsm-pdf-v13__note {
+  background: linear-gradient(135deg, #fef3ec 0%, #fff 100%);
+  border: 1px solid rgba(242, 108, 31, 0.2);
+  border-radius: 14px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bsm-pdf-v13__note p {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #0f172a;
+  line-height: 1.5;
+}
+
+/* QR + imza alani */
+.bsm-pdf-v13__signature {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(15, 23, 42, 0.12);
+}
+
+.bsm-pdf-v13__qr {
+  width: 56px;
+  height: 56px;
+}
+
+.bsm-pdf-v13__qr svg { width: 100%; height: 100%; }
+
+.bsm-pdf-v13__sig {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.bsm-pdf-v13__sig-line {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.bsm-pdf-v13__sig-line span {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.bsm-pdf-v13__sig-line em {
+  font-style: normal;
+  font-size: 0.85rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+/* Thumbnail v1.3.0: mix icerik */
+.bsm-nutrition-pdf-thumb__mix {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 4px;
+}
+
+.bsm-nutrition-pdf-thumb__pie--sm {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.bsm-nutrition-pdf-thumb__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.bsm-nutrition-pdf-thumb__bars span {
+  height: 4px;
+  background: rgba(15, 23, 42, 0.12);
+  border-radius: 2px;
+  display: block;
+}
+
+.bsm-nutrition-pdf-thumb__bars span:nth-child(2) { width: 78%; }
+.bsm-nutrition-pdf-thumb__bars span:nth-child(3) { width: 56%; }
+
+.bsm-nutrition-pdf-thumb__gauge {
+  width: 28px;
+  height: 14px;
+  border-top-left-radius: 999px;
+  border-top-right-radius: 999px;
+  background: linear-gradient(90deg, #b91c1c 0%, #f59e0b 50%, #16a34a 100%);
+  flex-shrink: 0;
+}
+
+.bsm-nutrition-pdf-thumb__rows span.is-on { background: rgba(242, 108, 31, 0.5); }
+
+.bsm-nutrition-pdf-thumb.is-active .bsm-nutrition-pdf-thumb__bars span {
+  background: rgba(242, 108, 31, 0.45);
+}
+
+/* ── PRINT STYLESHEET (PDF export = preview birebir) ────────────────────
+   body.is-printing-nutrition: window.print() oncesi eklenir.
+   Sadece .bsm-pdf-v13 sayfalarini goster, geri kalanini gizle. */
+@media print {
+  body.is-printing-nutrition * { visibility: hidden !important; }
+  body.is-printing-nutrition #bsmNutritionPdfPages,
+  body.is-printing-nutrition #bsmNutritionPdfPages * {
+    visibility: visible !important;
+  }
+  body.is-printing-nutrition #bsmNutritionPdfPages {
+    position: fixed;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    width: 100%;
+    display: block !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+  }
+  body.is-printing-nutrition #bsmNutritionPdfPages .bsm-pdf-v13 {
+    grid-area: auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    width: 100%;
+    max-width: 210mm;
+    margin: 0 auto;
+    page-break-after: always;
+    break-after: page;
+    min-height: auto;
+    padding: 14mm 16mm;
+  }
+  body.is-printing-nutrition #bsmNutritionPdfPages .bsm-pdf-v13:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+}
+
+/* Responsive */
+@media (max-width: 980px) {
+  .bsm-pdf-v13 { padding: 18px 20px; }
+  .bsm-pdf-v13__cover { grid-template-columns: minmax(0, 1fr); }
+  .bsm-pdf-v13__cover-right { align-items: flex-start; }
+  .bsm-pdf-v13__kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bsm-pdf-v13__chart-row { grid-template-columns: minmax(0, 1fr); }
+  .bsm-pdf-v13__row { grid-template-columns: minmax(0, 1fr); }
+  .bsm-pdf-v13__feedback-list { grid-template-columns: minmax(0, 1fr); }
+  .bsm-pdf-v13__meal-item { grid-template-columns: 50px minmax(0, 1fr) auto; }
+  .bsm-pdf-v13__meal-macros { display: none; }
+}
+
+@media (max-width: 720px) {
+  .bsm-pdf-v13__title { font-size: 1.25rem; }
+  .bsm-pdf-v13__sub-title { font-size: 1.05rem; }
+}

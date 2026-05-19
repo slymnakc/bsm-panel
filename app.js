@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.2.5";
+const BSM_BUILD_VERSION = "1.3.0";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -2987,6 +2987,33 @@ function bindApplicationHandlers() {
       renderMemberWorkspace();
       renderNutritionWorkspace();
       showStatus("Beslenme planı üye dosyasına kaydedildi.", "success");
+      e.stopImmediatePropagation();
+    },
+    true,
+  );
+
+  // v1.3.0: PDF/Yazdir butonu -> preview HTML'i direkt yazdir.
+  // Eski jspdf yolu yerine window.print() ile preview = export birebir aynisi.
+  // Print CSS @media print kurallari sadece .bsm-pdf-v13 article'larini gosterir.
+  printNutritionButton?.addEventListener(
+    "click",
+    (e) => {
+      const plan = state.activeNutritionPlan || tryAutoGenerateNutritionPlan(findActiveMember());
+      if (!plan) {
+        showStatus("PDF için önce plan oluşturun.", "error");
+        e.stopImmediatePropagation();
+        return;
+      }
+      // Aktif goruntude PDF view degilse gec
+      if (state.nutritionActiveView !== "pdf") {
+        state.nutritionActiveView = "pdf";
+        renderNutritionWorkspace();
+      }
+      document.body.classList.add("is-printing-nutrition");
+      window.setTimeout(() => {
+        window.print();
+        window.setTimeout(() => document.body.classList.remove("is-printing-nutrition"), 500);
+      }, 200);
       e.stopImmediatePropagation();
     },
     true,
@@ -8138,6 +8165,10 @@ const BSM_SUPPLEMENT_LIBRARY = [
   { id: "glucosamine", name: "Glucosamine",       category: "Eklem Desteği",    goalTags: ["muscle-gain", "maintenance"],              timing: "with-meals",      dosage: "1500 mg",   warnings: [],                   icon: "🦴", description: "Eklem kıkırdağı + hareketlilik." },
   { id: "collagen",    name: "Kolajen Peptit",    category: "Eklem Desteği",    goalTags: ["muscle-gain", "fat-loss", "maintenance"],   timing: "morning",         dosage: "10 g",      warnings: [],                   icon: "🧬", description: "Cilt + eklem + tendon yapısı." },
   { id: "electrolytes", name: "Elektrolit",       category: "Hidrasyon",        goalTags: ["muscle-gain", "fat-loss", "maintenance"],   timing: "intra-workout",   dosage: "1 ölçek",   warnings: [],                   icon: "💧", description: "Antrenman sırasında elektrolit dengesi." },
+  // v1.3.0 yeni library elemanlari
+  { id: "glutamine",   name: "Glutamine",         category: "Amino Asit",       goalTags: ["muscle-gain", "recomposition", "maintenance"], timing: "post-workout", dosage: "5 g",       warnings: [],                   icon: "🟢", description: "Kas onarımı + bağışıklık desteği." },
+  { id: "citrulline",  name: "L-Citrulline Malat", category: "Pre Workout",     goalTags: ["muscle-gain", "recomposition"],            timing: "pre-workout",     dosage: "6-8 g",     warnings: [],                   icon: "🌶", description: "Pump + nitrik oksit + dayanıklılık." },
+  { id: "probiotic",   name: "Probiotic",         category: "Sağlık",           goalTags: ["fat-loss", "maintenance", "recomposition"], timing: "morning",       dosage: "10-20 mlrd CFU", warnings: [],              icon: "🦠", description: "Bağırsak florası + bağışıklık + sindirim." },
 ];
 
 // Library getter (deterministik kopya doner)
@@ -8523,134 +8554,230 @@ function renderNutritionMacroView(plan) {
   `;
 }
 
-// v1.2.5: 4 sayfa A4 PDF preview + thumbnail navigation.
-// Sayfa 1: Genel Özet (üye + hedef + günlük makro + KPI)
-// Sayfa 2: Öğün Planı (timeline tablosu)
-// Sayfa 3: Supplement & Makro Pie Chart
-// Sayfa 4: Notlar + Trend
+// v1.3.0: Rule-based Beslenme Feedback Engine
+// Gercek protein/su/IF/hedef koşullarini analiz ederek doğal yorum üretir.
+// Geri donus: [{ id, icon, severity: "ok"|"warn"|"info", message }]
+function buildNutritionFeedback(plan, formState, activeMeasurement) {
+  if (!plan) return [];
+  const feedback = [];
+  const m = plan.macros || {};
+  const weight = Number(activeMeasurement?.weight || plan?.sourceSummary?.weight || 75);
+  const proteinPerKg = m.protein ? Number(m.protein) / weight : 0;
+  const calories = plan.calories || 0;
+
+  // Hedef bazli yorum
+  const goalMap = {
+    "muscle-gain": { msg: "Kas kazanımı hedefi — antrenman sonrası karbonhidrat arttırıldı, kalori fazlası uygulandı.", severity: "ok", icon: "🎯" },
+    "fat-loss":    { msg: "Yağ yakımı hedefi — kalori açığı uygulandı, protein yüksek tutuldu.", severity: "ok", icon: "🔥" },
+    "maintenance": { msg: "Koruma hedefi — bakım kalorisi, dengeli makro dağılımı.", severity: "ok", icon: "⚖" },
+    "recomposition": { msg: "Recomposition — hafif açık + yüksek protein ile çift yönlü hedef.", severity: "ok", icon: "🔄" },
+  };
+  const goalNote = goalMap[formState?.goal];
+  if (goalNote) feedback.push({ id: "goal", ...goalNote });
+
+  // Protein kontrolu
+  if (proteinPerKg && proteinPerKg < 1.6) {
+    feedback.push({ id: "protein-low", icon: "⚠", severity: "warn", message: `Protein hedefi ${proteinPerKg.toFixed(1)} g/kg — kas onarımı için 1.8-2.2 g/kg önerilir.` });
+  } else if (proteinPerKg >= 2.0) {
+    feedback.push({ id: "protein-high", icon: "💪", severity: "ok", message: `Protein hedefi ${proteinPerKg.toFixed(1)} g/kg — kas senteji için yeterli seviyede.` });
+  } else if (proteinPerKg >= 1.6) {
+    feedback.push({ id: "protein-mid", icon: "✓", severity: "ok", message: `Protein hedefi ${proteinPerKg.toFixed(1)} g/kg — sağlıklı aralıkta.` });
+  }
+
+  // Kalori kontrolu
+  if (calories && calories < 1400) {
+    feedback.push({ id: "cal-low", icon: "⚠", severity: "warn", message: "Kalori hedefi çok düşük; metabolik yavaşlama riski. Açık aşamalı artırılmalı." });
+  } else if (calories > 3800) {
+    feedback.push({ id: "cal-high", icon: "ℹ", severity: "info", message: "Yüksek kalori hedefi — bulking aşaması için uygun, vücut yağ takibi önemli." });
+  }
+
+  // Su (kilo*0.035 L hedef) — 2.5L altında uyarı
+  const waterTarget = weight * 0.035;
+  if (waterTarget < 2.5) {
+    feedback.push({ id: "water-low", icon: "💧", severity: "warn", message: "Günlük hidrasyon yetersiz; en az 2.5 L su tüketilmeli." });
+  } else {
+    feedback.push({ id: "water-ok", icon: "💧", severity: "ok", message: `Günlük su hedefi ${waterTarget.toFixed(1)} L — vücut ağırlığına göre optimize edildi.` });
+  }
+
+  // IF yorumu
+  if (formState?.fastingEnabled) {
+    feedback.push({ id: "if-on", icon: "⏱", severity: "info", message: `Intermittent Fasting (${formState.fastingWindow || "16:8"}) — beslenme penceresi optimize edildi.` });
+  }
+
+  // Antrenman saati ile ogun eslesmesi
+  if (formState?.workoutTime) {
+    feedback.push({ id: "workout-meal", icon: "🏋", severity: "ok", message: `Antrenman saati ${formState.workoutTime} — pre/post workout öğünleri otomatik düzenlendi.` });
+  }
+
+  // Supplement yorumu
+  if (formState?.supplementUse && Array.isArray(formState.selectedSupplements) && formState.selectedSupplements.length) {
+    feedback.push({ id: "suppl", icon: "💊", severity: "ok", message: `${formState.selectedSupplements.length} supplement zaman çizgisine entegre edildi.` });
+  }
+
+  // Olcum baglilik
+  if (activeMeasurement) {
+    const visc = Number(activeMeasurement.visceralFat || 0);
+    if (visc >= 12) {
+      feedback.push({ id: "visc-high", icon: "⚠", severity: "warn", message: "Visceral yağ yüksek; düşük yoğunluklu kardiyo + 8 haftalık açık önerilir." });
+    }
+    const fat = Number(activeMeasurement.fat || 0);
+    if (fat >= 28) {
+      feedback.push({ id: "fat-high", icon: "ℹ", severity: "info", message: "Yağ oranı %28+ — protein yüksek, kalori açığı kontrollü tutuldu." });
+    }
+  } else {
+    feedback.push({ id: "no-measurement", icon: "ℹ", severity: "info", message: "Ölçüm verisi yok; plan tahmini hesaplama ile oluşturuldu, ölçüm sonrası güncellenir." });
+  }
+
+  return feedback;
+}
+
+// v1.3.0: Beslenme Skoru hesaplayici (0-100)
+// Veri kalitesi + protein/kalori uygunlugu + supplement entegrasyonu + su + IF
+function calculateNutritionScore(plan, formState, activeMeasurement) {
+  if (!plan) return { score: 0, breakdown: {} };
+  let score = 50; // Baz skor
+  const breakdown = { base: 50 };
+  const m = plan.macros || {};
+  const weight = Number(activeMeasurement?.weight || plan?.sourceSummary?.weight || 75);
+  const proteinPerKg = m.protein ? Number(m.protein) / weight : 0;
+
+  // Protein yeterli (+15)
+  if (proteinPerKg >= 1.8 && proteinPerKg <= 2.5) { score += 15; breakdown.protein = 15; }
+  else if (proteinPerKg >= 1.4) { score += 8; breakdown.protein = 8; }
+  else { breakdown.protein = 0; }
+
+  // Kalori uygun aralikta (+10)
+  if (plan.calories >= 1500 && plan.calories <= 3500) { score += 10; breakdown.calories = 10; }
+  else { breakdown.calories = 0; }
+
+  // Ogun sayisi uygun 3-6 (+5)
+  if ((plan.meals?.length || 0) >= 3 && (plan.meals?.length || 0) <= 6) { score += 5; breakdown.mealCount = 5; }
+
+  // Olcum verisi var (+10)
+  if (activeMeasurement && activeMeasurement.weight) { score += 10; breakdown.measurement = 10; }
+  else { breakdown.measurement = 0; }
+
+  // Supplement entegrasyonu (+5)
+  if (formState?.supplementUse && (formState.selectedSupplements?.length || 0) >= 3) { score += 5; breakdown.supplements = 5; }
+
+  // Workout integration (+5)
+  if (formState?.workoutTime) { score += 5; breakdown.workout = 5; }
+
+  return { score: Math.min(100, Math.max(0, score)), breakdown };
+}
+
+// v1.3.0: Kalori bar chart (ogun-bazli SVG)
+function buildKcalBarChart(meals) {
+  const items = (Array.isArray(meals) ? meals : []).filter((m) => Number(m?.calories) > 0);
+  if (!items.length) return `<p class="bsm-nutrition-pdf-page__empty">Öğün verisi yok.</p>`;
+  const maxCal = Math.max(...items.map((m) => Number(m.calories) || 0)) || 1;
+  const barWidth = Math.max(20, Math.floor(280 / items.length) - 8);
+  return `
+    <div class="bsm-pdf-bar-chart">
+      <svg viewBox="0 0 320 110" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${items
+          .map((meal, i) => {
+            const cal = Number(meal.calories) || 0;
+            const h = Math.max(4, (cal / maxCal) * 70);
+            const x = i * (barWidth + 8) + 10;
+            const y = 85 - h;
+            const isPre = meal.isPreWorkout;
+            const isPost = meal.isPostWorkout;
+            const color = isPre || isPost ? "#f26c1f" : "#2563eb";
+            return `<g>
+              <rect x="${x}" y="${y}" width="${barWidth}" height="${h}" rx="4" fill="${color}" opacity="0.85"/>
+              <text x="${x + barWidth / 2}" y="${y - 4}" text-anchor="middle" font-size="8" font-weight="700" fill="#111827">${cal}</text>
+              <text x="${x + barWidth / 2}" y="98" text-anchor="middle" font-size="7" fill="#6b7280">${escapeHtml(meal.scheduledTime || meal.time || "—")}</text>
+              <text x="${x + barWidth / 2}" y="107" text-anchor="middle" font-size="6" fill="#9ca3af">${escapeHtml((meal.name || "").slice(0, 8))}</text>
+            </g>`;
+          })
+          .join("")}
+        <line x1="6" y1="85" x2="320" y2="85" stroke="rgba(17,24,39,0.12)" stroke-width="0.5"/>
+      </svg>
+    </div>
+  `;
+}
+
+// v1.3.0: Su hedef progress ring (vucut ag x 0.035 L)
+function buildWaterProgressRing(weight) {
+  const target = weight ? (weight * 0.035).toFixed(1) : "2.5";
+  const tNum = Number(target) || 2.5;
+  // Filled portion: target / 4L max
+  const pct = Math.min(1, tNum / 4);
+  const C = 251.3;
+  const dash = pct * C;
+  return `
+    <div class="bsm-pdf-water-ring" aria-label="Su hedefi ${target} L">
+      <svg viewBox="0 0 100 100" width="92" height="92" aria-hidden="true">
+        <circle cx="50" cy="50" r="40" fill="none" stroke="#e0f2fe" stroke-width="11"/>
+        <circle cx="50" cy="50" r="40" fill="none" stroke="#0ea5e9" stroke-width="11" stroke-dasharray="${dash.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="0" transform="rotate(-90 50 50)" stroke-linecap="round"/>
+        <text x="50" y="48" text-anchor="middle" font-size="16" font-weight="800" fill="#0c4a6e">${target}</text>
+        <text x="50" y="62" text-anchor="middle" font-size="7" fill="#0369a1" font-weight="600">LITRE</text>
+      </svg>
+      <span class="bsm-pdf-water-ring__label">Günlük su hedefi</span>
+    </div>
+  `;
+}
+
+// v1.3.0: Beslenme skoru gauge (180deg arc)
+function buildNutritionScoreGauge(score) {
+  // Yarım daire: r=42, length=π*r=131.94
+  const arcLen = 131.94;
+  const pct = Math.min(1, Math.max(0, score / 100));
+  const dash = pct * arcLen;
+  // Renk skor degerine gore
+  const color = score >= 80 ? "#16a34a" : score >= 60 ? "#f59e0b" : "#b91c1c";
+  const label = score >= 80 ? "Mükemmel" : score >= 60 ? "İyi" : score >= 40 ? "Orta" : "Geliştirilebilir";
+  return `
+    <div class="bsm-pdf-score-gauge" aria-label="Beslenme skoru ${score}/100">
+      <svg viewBox="0 0 100 60" width="120" height="72" aria-hidden="true">
+        <path d="M 8 52 A 42 42 0 0 1 92 52" fill="none" stroke="#f3f4f6" stroke-width="9" stroke-linecap="round"/>
+        <path d="M 8 52 A 42 42 0 0 1 92 52" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="round"
+              stroke-dasharray="${dash.toFixed(2)} ${arcLen.toFixed(2)}"/>
+        <text x="50" y="42" text-anchor="middle" font-size="20" font-weight="800" fill="#111827">${score}</text>
+        <text x="50" y="54" text-anchor="middle" font-size="7" fill="#6b7280" font-weight="600">/100</text>
+      </svg>
+      <span class="bsm-pdf-score-gauge__label" style="color:${color}">${label}</span>
+    </div>
+  `;
+}
+
+// v1.3.0: 2 sayfa A4 premium PDF preview (eski 4 sayfadan 2 sayfaya birlestirildi).
+// Sayfa 1: Hero + makro + donut + öğün timeline + su hedefi + altta makro strip
+// Sayfa 2: Supplement timeline + kalori bar chart + makro pie + skor gauge +
+//         AI rule-based feedback + antrenör notu + tavsiyeler + QR/imza alani
+// PDF export = bu preview (window.print + print CSS).
 function renderNutritionPdfPreview(member, plan) {
   const host = document.querySelector("#bsmNutritionPdfPages");
   if (!host) return;
   if (!plan) {
     host.innerHTML = `<p class="bsm-nutrition-empty">Plan oluşturulunca PDF önizleme burada görünür.</p>`;
-    // Thumbnails da temizle
     renderNutritionPdfThumbnails(null, null);
     return;
   }
   const profile = member?.profile || {};
   const activeMeasurement = (typeof getActiveMeasurementSnapshot === "function") ? getActiveMeasurementSnapshot(member) : null;
-  const activePage = String(state.nutritionPdfPage || 1);
+  const activePage = String(Math.min(2, state.nutritionPdfPage || 1));
+  const f = state.nutritionFormState;
 
   const goalLabelMap = { "fat-loss": "Yağ yakımı", "muscle-gain": "Kas kazanımı", "maintenance": "Koruma", "recomposition": "Recomposition" };
-  const goalLabel = goalLabelMap[state.nutritionFormState.goal] || plan.nutritionGoalLabel || "Hedef belirtilmedi";
+  const goalLabel = goalLabelMap[f.goal] || plan.nutritionGoalLabel || "Hedef belirtilmedi";
 
-  // SAYFA 1: GENEL ÖZET
-  const page1 = `
-    <article class="bsm-nutrition-pdf-page" data-pdf-page="1"${activePage === "1" ? ' data-active="true"' : ""}>
-      <header class="bsm-nutrition-pdf-page__head">
-        <div>
-          <span class="bsm-nutrition-pdf-page__brand">Bahçeşehir Spor Merkezi</span>
-          <h2>BESLENME PLANI</h2>
-          <p>${escapeHtml(profile.memberName || "Üye")}</p>
-        </div>
-        <div class="bsm-nutrition-pdf-page__date">${escapeHtml(plan.createdAt || "—")}</div>
-      </header>
-      <section class="bsm-nutrition-pdf-page__hero">
-        <div class="bsm-nutrition-pdf-page__hero-card bsm-nutrition-pdf-page__hero-card--accent">
-          <small>Günlük Kalori</small>
-          <strong>${escapeHtml(String(plan.calories || 0))}</strong>
-          <span>kcal</span>
-        </div>
-        <div class="bsm-nutrition-pdf-page__hero-card">
-          <small>Hedef</small>
-          <strong>${escapeHtml(goalLabel)}</strong>
-          <span>—</span>
-        </div>
-        <div class="bsm-nutrition-pdf-page__hero-card">
-          <small>Öğün Sayısı</small>
-          <strong>${escapeHtml(String(plan.mealCount || plan.meals?.length || 0))}</strong>
-          <span>öğün</span>
-        </div>
-        <div class="bsm-nutrition-pdf-page__hero-card">
-          <small>Su Hedefi</small>
-          <strong>${activeMeasurement?.weight ? (activeMeasurement.weight * 0.035).toFixed(1) : "2.5"}</strong>
-          <span>L</span>
-        </div>
-      </section>
-      <section class="bsm-nutrition-pdf-page__summary">
-        <div class="bsm-nutrition-pdf-page__summary-card bsm-nutrition-pdf-page__summary-card--protein"><small>Protein</small><strong>${escapeHtml(String(plan.macros?.protein || 0))} g</strong></div>
-        <div class="bsm-nutrition-pdf-page__summary-card bsm-nutrition-pdf-page__summary-card--carbs"><small>Karbonhidrat</small><strong>${escapeHtml(String(plan.macros?.carbs || 0))} g</strong></div>
-        <div class="bsm-nutrition-pdf-page__summary-card bsm-nutrition-pdf-page__summary-card--fat"><small>Yağ</small><strong>${escapeHtml(String(plan.macros?.fat || 0))} g</strong></div>
-      </section>
-      ${
-        activeMeasurement
-          ? `<section class="bsm-nutrition-pdf-page__meta">
-              <span>Ölçüm tarihi: <strong>${escapeHtml(activeMeasurement.date || "—")}</strong></span>
-              <span>Kilo: <strong>${escapeHtml(String(activeMeasurement.weight || "—"))} kg</strong></span>
-              <span>Yağ: <strong>${escapeHtml(String(activeMeasurement.fat || "—"))}%</strong></span>
-              ${activeMeasurement.bmr ? `<span>BMR: <strong>${escapeHtml(String(activeMeasurement.bmr))} kcal</strong></span>` : ""}
-            </section>`
-          : `<p class="bsm-nutrition-pdf-page__note">Ölçüm verisi yok, plan tahmini hesapla oluşturuldu.</p>`
-      }
-      <footer class="bsm-nutrition-pdf-page__footer">
-        <span>Bahçeşehir Spor Merkezi — Beslenme Raporu</span>
-        <span>Sayfa 1 / 4</span>
-      </footer>
-    </article>
-  `;
+  // 2-sayfa premium PDF — eski 4-sayfa yapidan birlestirildi.
+  host.innerHTML = renderPdfPage1(member, plan, profile, goalLabel, activeMeasurement, activePage) +
+                   renderPdfPage2(member, plan, profile, activeMeasurement, activePage);
+  renderNutritionPdfThumbnails(plan, member);
+  return;
 
-  // SAYFA 2: ÖĞÜN PLANI
-  const meals = Array.isArray(plan.meals) ? plan.meals : [];
-  const page2 = `
-    <article class="bsm-nutrition-pdf-page" data-pdf-page="2"${activePage === "2" ? ' data-active="true"' : ""}>
-      <header class="bsm-nutrition-pdf-page__head">
-        <div>
-          <span class="bsm-nutrition-pdf-page__brand">Bahçeşehir Spor Merkezi</span>
-          <h2>ÖĞÜN PLANI</h2>
-          <p>${escapeHtml(profile.memberName || "Üye")}</p>
-        </div>
-        <div class="bsm-nutrition-pdf-page__date">${escapeHtml(plan.createdAt || "—")}</div>
-      </header>
-      <table class="bsm-nutrition-pdf-table">
-        <thead>
-          <tr><th>Saat</th><th>Öğün</th><th>Besinler</th><th>Kalori</th><th>P / K / Y</th></tr>
-        </thead>
-        <tbody>
-          ${meals
-            .map((meal) => {
-              const time = meal.scheduledTime || meal.time || "—";
-              const foods = Array.isArray(meal.foods) ? meal.foods.slice(0, 4).map((f) => typeof f === "string" ? f : f?.name || "").filter(Boolean).join(", ") : (typeof meal.foods === "string" ? meal.foods : "");
-              const macros = meal.macros || {};
-              const tag = meal.isPreWorkout ? " 🚀" : meal.isPostWorkout ? " 💪" : "";
-              return `<tr>
-                <td><strong>${escapeHtml(String(time))}</strong></td>
-                <td>${escapeHtml(meal.name || "")}${tag}</td>
-                <td><small>${escapeHtml(foods)}</small></td>
-                <td><strong>${escapeHtml(String(meal.calories || 0))} kcal</strong></td>
-                <td><small>${escapeHtml(String(macros.protein || 0))}g / ${escapeHtml(String(macros.carbs || 0))}g / ${escapeHtml(String(macros.fat || 0))}g</small></td>
-              </tr>`;
-            })
-            .join("")}
-        </tbody>
-      </table>
-      <footer class="bsm-nutrition-pdf-page__footer">
-        <span>Bahçeşehir Spor Merkezi — Öğün Planı</span>
-        <span>Sayfa 2 / 4</span>
-      </footer>
-    </article>
-  `;
+}
 
-  // SAYFA 3: SUPPLEMENT & MAKRO PIE
+// v1.3.0: Premium 2-sayfa PDF preview — Page 1 (hero + makro + öğün timeline)
+function renderPdfPage1(member, plan, profile, goalLabel, activeMeasurement, activePage) {
   const f = state.nutritionFormState;
-  const supplementsHtml = (f.supplementUse && f.selectedSupplements.length)
-    ? f.selectedSupplements
-        .map((id) => findSupplementById(id))
-        .filter(Boolean)
-        .map((s) => `<li><strong>${escapeHtml(getSupplementScheduleTime(s, f))}</strong> <span aria-hidden="true">${escapeHtml(s.icon || "💊")}</span> ${escapeHtml(s.name)} <em>${escapeHtml(s.dosage || "")}</em></li>`)
-        .join("")
-    : `<li class="bsm-nutrition-pdf-page__empty">Supplement planı kapalı.</li>`;
-  // Mini pie SVG için stroke-dasharray
+  const meals = Array.isArray(plan.meals) ? plan.meals : [];
   const m = plan.macros || {};
+  const weight = Number(activeMeasurement?.weight || plan?.sourceSummary?.weight || 0);
+  // Donut için makro yüzdeleri
   const proteinKcal = (m.protein || 0) * 4;
   const carbsKcal = (m.carbs || 0) * 4;
   const fatKcal = (m.fat || 0) * 9;
@@ -8659,134 +8786,252 @@ function renderNutritionPdfPreview(member, plan) {
   const dP = (proteinKcal / total) * C;
   const dC = (carbsKcal / total) * C;
   const dF = (fatKcal / total) * C;
-  const page3 = `
-    <article class="bsm-nutrition-pdf-page" data-pdf-page="3"${activePage === "3" ? ' data-active="true"' : ""}>
-      <header class="bsm-nutrition-pdf-page__head">
-        <div>
-          <span class="bsm-nutrition-pdf-page__brand">Bahçeşehir Spor Merkezi</span>
-          <h2>SUPPLEMENT &amp; MAKRO</h2>
-          <p>${escapeHtml(profile.memberName || "Üye")}</p>
-        </div>
-        <div class="bsm-nutrition-pdf-page__date">${escapeHtml(plan.createdAt || "—")}</div>
-      </header>
-      <section class="bsm-nutrition-pdf-page__supplement">
-        <h3>Günlük Supplement Zaman Çizgisi</h3>
-        <ul class="bsm-nutrition-pdf-page__suppl-list">${supplementsHtml}</ul>
-      </section>
-      <section class="bsm-nutrition-pdf-page__macro-chart">
-        <h3>Makro Dağılımı</h3>
-        <div class="bsm-nutrition-pdf-donut">
-          <svg viewBox="0 0 100 100" width="120" height="120" aria-hidden="true">
-            <circle cx="50" cy="50" r="40" fill="none" stroke="#f3f4f6" stroke-width="14"/>
-            <circle cx="50" cy="50" r="40" fill="none" stroke="#16a34a" stroke-width="14" stroke-dasharray="${dP.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="0" transform="rotate(-90 50 50)"/>
-            <circle cx="50" cy="50" r="40" fill="none" stroke="#2563eb" stroke-width="14" stroke-dasharray="${dC.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-dP).toFixed(2)}" transform="rotate(-90 50 50)"/>
-            <circle cx="50" cy="50" r="40" fill="none" stroke="#f59e0b" stroke-width="14" stroke-dasharray="${dF.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-(dP + dC)).toFixed(2)}" transform="rotate(-90 50 50)"/>
-            <text x="50" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">${plan.calories || 0}</text>
-            <text x="50" y="64" text-anchor="middle" font-size="6" fill="#6b7280">kcal</text>
-          </svg>
-          <ul class="bsm-nutrition-pdf-donut__legend">
-            <li><span style="background:#16a34a"></span>Protein <strong>${m.protein || 0}g</strong> · ${Math.round((proteinKcal / total) * 100)}%</li>
-            <li><span style="background:#2563eb"></span>Karb <strong>${m.carbs || 0}g</strong> · ${Math.round((carbsKcal / total) * 100)}%</li>
-            <li><span style="background:#f59e0b"></span>Yağ <strong>${m.fat || 0}g</strong> · ${Math.round((fatKcal / total) * 100)}%</li>
+
+  return `
+    <article class="bsm-pdf-v13" data-pdf-page="1"${activePage === "1" ? ' data-active="true"' : ""}>
+      <!-- Premium cover header -->
+      <header class="bsm-pdf-v13__cover">
+        <div class="bsm-pdf-v13__cover-left">
+          <span class="bsm-pdf-v13__brand">Bahçeşehir Spor Merkezi</span>
+          <h1 class="bsm-pdf-v13__title">BESLENME PERFORMANS RAPORU</h1>
+          <p class="bsm-pdf-v13__subtitle">${escapeHtml(profile.memberName || "Üye")} · ${escapeHtml(goalLabel)}</p>
+          <ul class="bsm-pdf-v13__tags">
+            ${profile.memberCode ? `<li><span>Üye No</span><strong>${escapeHtml(profile.memberCode)}</strong></li>` : ""}
+            ${activeMeasurement?.date ? `<li><span>Son Ölçüm</span><strong>${escapeHtml(activeMeasurement.date)}</strong></li>` : ""}
+            <li><span>Plan Türü</span><strong>${escapeHtml(plan.dayType === "training" ? "Antrenman günü" : plan.dayType === "rest" ? "Dinlenme günü" : "Dengeli gün")}</strong></li>
           </ul>
         </div>
-      </section>
-      <footer class="bsm-nutrition-pdf-page__footer">
-        <span>Bahçeşehir Spor Merkezi — Supplement & Makro</span>
-        <span>Sayfa 3 / 4</span>
-      </footer>
-    </article>
-  `;
-
-  // SAYFA 4: NOTLAR + TREND
-  const trainerNote = f.trainerNote || plan.trainerNote || "";
-  const avoidList = f.avoidList || "";
-  const allergies = f.allergies || "";
-  const measurements = Array.isArray(member?.measurements) ? member.measurements.slice(0, 6).reverse() : [];
-  const weightPoints = buildPdfSparklinePoints(measurements.map((mm) => mm.weight));
-  const fatPoints = buildPdfSparklinePoints(measurements.map((mm) => mm.fat));
-  const page4 = `
-    <article class="bsm-nutrition-pdf-page" data-pdf-page="4"${activePage === "4" ? ' data-active="true"' : ""}>
-      <header class="bsm-nutrition-pdf-page__head">
-        <div>
-          <span class="bsm-nutrition-pdf-page__brand">Bahçeşehir Spor Merkezi</span>
-          <h2>NOTLAR &amp; TREND</h2>
-          <p>${escapeHtml(profile.memberName || "Üye")}</p>
+        <div class="bsm-pdf-v13__cover-right">
+          <div class="bsm-pdf-v13__kcal-hero">
+            <span>Günlük Kalori</span>
+            <strong>${escapeHtml(String(plan.calories || 0))}</strong>
+            <em>kcal</em>
+          </div>
+          <div class="bsm-pdf-v13__date">${escapeHtml((plan.createdAt || "").split(" ").slice(0, 3).join(" "))}</div>
         </div>
-        <div class="bsm-nutrition-pdf-page__date">${escapeHtml(plan.createdAt || "—")}</div>
       </header>
-      ${
-        trainerNote
-          ? `<section class="bsm-nutrition-pdf-page__note-block"><h3>Antrenör Notu</h3><p>${escapeHtml(trainerNote)}</p></section>`
-          : `<section class="bsm-nutrition-pdf-page__note-block"><h3>Antrenör Notu</h3><p class="bsm-nutrition-pdf-page__empty">Not eklenmemiş.</p></section>`
-      }
-      ${avoidList ? `<section class="bsm-nutrition-pdf-page__note-row"><strong>Yasaklı / Sevilmeyen:</strong> ${escapeHtml(avoidList)}</section>` : ""}
-      ${allergies ? `<section class="bsm-nutrition-pdf-page__note-row"><strong>Alerji / Hassasiyet:</strong> ${escapeHtml(allergies)}</section>` : ""}
-      <section class="bsm-nutrition-pdf-page__trend">
-        <h3>Ölçüm Trendi</h3>
-        ${
-          measurements.length < 2
-            ? `<p class="bsm-nutrition-pdf-page__empty">Trend için en az 2 ölçüm gerekli.</p>`
-            : `<div class="bsm-nutrition-pdf-trend-grid">
-                <div class="bsm-nutrition-pdf-trend bsm-nutrition-pdf-trend--blue">
-                  <span>Kilo (kg)</span>
-                  <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="${escapeHtml(weightPoints || "")}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-                <div class="bsm-nutrition-pdf-trend bsm-nutrition-pdf-trend--orange">
-                  <span>Yağ Oranı (%)</span>
-                  <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="${escapeHtml(fatPoints || "")}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-              </div>`
-        }
+
+      <!-- Üst metric strip: 4 KPI -->
+      <section class="bsm-pdf-v13__kpi-strip">
+        <div class="bsm-pdf-v13__kpi"><small>Öğün Sayısı</small><strong>${escapeHtml(String(plan.mealCount || meals.length || 0))}</strong></div>
+        <div class="bsm-pdf-v13__kpi"><small>Protein</small><strong>${escapeHtml(String(m.protein || 0))}g</strong></div>
+        <div class="bsm-pdf-v13__kpi"><small>Karbonhidrat</small><strong>${escapeHtml(String(m.carbs || 0))}g</strong></div>
+        <div class="bsm-pdf-v13__kpi"><small>Yağ</small><strong>${escapeHtml(String(m.fat || 0))}g</strong></div>
       </section>
-      <footer class="bsm-nutrition-pdf-page__footer">
-        <span>Bahçeşehir Spor Merkezi — Notlar & Trend</span>
-        <span>Sayfa 4 / 4</span>
+
+      <!-- Donut + water ring iki kolon -->
+      <section class="bsm-pdf-v13__chart-row">
+        <div class="bsm-pdf-v13__donut-block">
+          <h3>Makro Dağılımı</h3>
+          <div class="bsm-pdf-v13__donut">
+            <svg viewBox="0 0 100 100" width="110" height="110" aria-hidden="true">
+              <circle cx="50" cy="50" r="40" fill="none" stroke="#f3f4f6" stroke-width="14"/>
+              <circle cx="50" cy="50" r="40" fill="none" stroke="#16a34a" stroke-width="14" stroke-dasharray="${dP.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="0" transform="rotate(-90 50 50)"/>
+              <circle cx="50" cy="50" r="40" fill="none" stroke="#2563eb" stroke-width="14" stroke-dasharray="${dC.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-dP).toFixed(2)}" transform="rotate(-90 50 50)"/>
+              <circle cx="50" cy="50" r="40" fill="none" stroke="#f59e0b" stroke-width="14" stroke-dasharray="${dF.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-(dP + dC)).toFixed(2)}" transform="rotate(-90 50 50)"/>
+              <text x="50" y="50" text-anchor="middle" font-size="12" font-weight="800" fill="#0f172a">${plan.calories || 0}</text>
+              <text x="50" y="62" text-anchor="middle" font-size="6" fill="#6b7280">kcal</text>
+            </svg>
+            <ul class="bsm-pdf-v13__donut-legend">
+              <li><span style="background:#16a34a"></span>Protein <em>${Math.round((proteinKcal / total) * 100)}%</em></li>
+              <li><span style="background:#2563eb"></span>Karb <em>${Math.round((carbsKcal / total) * 100)}%</em></li>
+              <li><span style="background:#f59e0b"></span>Yağ <em>${Math.round((fatKcal / total) * 100)}%</em></li>
+            </ul>
+          </div>
+        </div>
+        <div class="bsm-pdf-v13__water-block">
+          <h3>Hidrasyon</h3>
+          ${buildWaterProgressRing(weight)}
+          ${f.fastingEnabled ? `<div class="bsm-pdf-v13__if-chip">IF ${escapeHtml(f.fastingWindow || "16:8")}</div>` : ""}
+        </div>
+      </section>
+
+      <!-- Öğün timeline (kompakt liste) -->
+      <section class="bsm-pdf-v13__meals">
+        <h3>Günlük Öğün Akışı</h3>
+        <ul class="bsm-pdf-v13__meal-list">
+          ${meals
+            .map((meal) => {
+              const time = meal.scheduledTime || meal.time || "—";
+              const foods = Array.isArray(meal.foods)
+                ? meal.foods.slice(0, 4).map((it) => typeof it === "string" ? it : it?.name || "").filter(Boolean).join(" · ")
+                : (typeof meal.foods === "string" ? meal.foods : "");
+              const macros = meal.macros || {};
+              const tag = meal.isPreWorkout ? "Pre" : meal.isPostWorkout ? "Post" : "";
+              return `<li class="bsm-pdf-v13__meal-item${tag ? " is-workout" : ""}">
+                <div class="bsm-pdf-v13__meal-time">${escapeHtml(String(time))}</div>
+                <div class="bsm-pdf-v13__meal-body">
+                  <strong>${escapeHtml(meal.name || "Öğün")}${tag ? ` <span class="bsm-pdf-v13__meal-tag">${tag}</span>` : ""}</strong>
+                  ${foods ? `<small>${escapeHtml(foods)}</small>` : ""}
+                </div>
+                <div class="bsm-pdf-v13__meal-cal">${escapeHtml(String(meal.calories || 0))} <em>kcal</em></div>
+                <div class="bsm-pdf-v13__meal-macros">P${escapeHtml(String(macros.protein || 0))} K${escapeHtml(String(macros.carbs || 0))} Y${escapeHtml(String(macros.fat || 0))}</div>
+              </li>`;
+            })
+            .join("")}
+        </ul>
+      </section>
+
+      <footer class="bsm-pdf-v13__footer">
+        <span>Bahçeşehir Spor Merkezi · Beslenme Performans Raporu</span>
+        <span class="bsm-pdf-v13__page-num">1 / 2</span>
       </footer>
     </article>
   `;
-
-  host.innerHTML = page1 + page2 + page3 + page4;
-  renderNutritionPdfThumbnails(plan, member);
 }
 
-// PDF thumbnail mini icerikleri (gercek sayfa snapshot benzeri)
+// v1.3.0: Premium 2-sayfa PDF preview — Page 2 (supplement + analiz + skor + AI feedback + QR/imza)
+function renderPdfPage2(member, plan, profile, activeMeasurement, activePage) {
+  const f = state.nutritionFormState;
+  const meals = Array.isArray(plan.meals) ? plan.meals : [];
+  const scoreObj = calculateNutritionScore(plan, f, activeMeasurement);
+  const feedback = buildNutritionFeedback(plan, f, activeMeasurement);
+
+  // Supplement timeline
+  const supplements = f.supplementUse && Array.isArray(f.selectedSupplements)
+    ? f.selectedSupplements.map((id) => findSupplementById(id)).filter(Boolean)
+    : [];
+  const supplementHtml = supplements.length
+    ? supplements
+        .map((s) => `<li>
+          <span class="bsm-pdf-v13__suppl-time">${escapeHtml(getSupplementScheduleTime(s, f))}</span>
+          <span class="bsm-pdf-v13__suppl-icon">${escapeHtml(s.icon || "💊")}</span>
+          <div class="bsm-pdf-v13__suppl-info">
+            <strong>${escapeHtml(s.name)}</strong>
+            <em>${escapeHtml(s.dosage || "")} · ${escapeHtml(supplementTimingLabel(s.timing))}</em>
+          </div>
+        </li>`)
+        .join("")
+    : `<li class="bsm-pdf-v13__suppl-empty">Supplement planı kapalı. Aktif edip akıllı öneri uygulayabilirsiniz.</li>`;
+
+  return `
+    <article class="bsm-pdf-v13" data-pdf-page="2"${activePage === "2" ? ' data-active="true"' : ""}>
+      <header class="bsm-pdf-v13__sub-header">
+        <div>
+          <span class="bsm-pdf-v13__brand">Bahçeşehir Spor Merkezi</span>
+          <h2 class="bsm-pdf-v13__sub-title">ANALİZ · SUPPLEMENT · TAVSİYELER</h2>
+          <p>${escapeHtml(profile.memberName || "Üye")}</p>
+        </div>
+        ${buildNutritionScoreGauge(scoreObj.score)}
+      </header>
+
+      <!-- Iki kolon: supplement + kalori bar chart -->
+      <section class="bsm-pdf-v13__row">
+        <div class="bsm-pdf-v13__suppl">
+          <h3>Supplement Zaman Çizgisi</h3>
+          <ul class="bsm-pdf-v13__suppl-list">${supplementHtml}</ul>
+        </div>
+        <div class="bsm-pdf-v13__kcal-dist">
+          <h3>Öğün Kalori Dağılımı</h3>
+          ${buildKcalBarChart(meals)}
+        </div>
+      </section>
+
+      <!-- Rule-based AI feedback -->
+      <section class="bsm-pdf-v13__feedback">
+        <h3>Akıllı Analiz &amp; Tavsiyeler</h3>
+        <ul class="bsm-pdf-v13__feedback-list">
+          ${feedback
+            .slice(0, 6)
+            .map((fb) => `<li class="bsm-pdf-v13__feedback-item bsm-pdf-v13__feedback-item--${escapeHtml(fb.severity || "info")}">
+              <span class="bsm-pdf-v13__feedback-icon" aria-hidden="true">${escapeHtml(fb.icon || "ℹ")}</span>
+              <span>${escapeHtml(fb.message)}</span>
+            </li>`)
+            .join("")}
+        </ul>
+      </section>
+
+      <!-- Antrenör notu -->
+      ${
+        f.trainerNote || plan.trainerNote
+          ? `<section class="bsm-pdf-v13__note">
+              <h3>Antrenör Notu</h3>
+              <p>${escapeHtml(f.trainerNote || plan.trainerNote)}</p>
+            </section>`
+          : ""
+      }
+
+      <!-- QR + imza alani -->
+      <section class="bsm-pdf-v13__signature">
+        <div class="bsm-pdf-v13__qr" aria-hidden="true">
+          <!-- Basit fake QR: 7x7 grid -->
+          <svg viewBox="0 0 49 49" width="56" height="56">
+            ${[
+              "1111111010001011111111","1000001011010001000001","1011101010110001011101",
+              "1011101001110001011101","1011101010001001011101","1000001011010001000001",
+              "1111111010101011111111","0000000010000000000000","1110011110001011001011",
+              "0001100101100110110010","1101110001011001001111","0010001110010110100100",
+              "1110011001001010011110","0000000000110001110100","1111111010001010001011",
+              "1000001000100000110010","1011101010111000111000","1011101001010001011100",
+              "1011101010001001000111","1000001011010010111011","1111111000110001111000",
+            ]
+              .map((row, y) =>
+                [...row]
+                  .map((c, x) =>
+                    c === "1" ? `<rect x="${x * 2}" y="${y * 2}" width="2" height="2" fill="#0f172a"/>` : "",
+                  )
+                  .join(""),
+              )
+              .join("")}
+          </svg>
+        </div>
+        <div class="bsm-pdf-v13__sig">
+          <div class="bsm-pdf-v13__sig-line">
+            <span>Antrenör</span>
+            <em>${escapeHtml(profile.trainerName || "—")}</em>
+          </div>
+          <div class="bsm-pdf-v13__sig-line">
+            <span>Tarih</span>
+            <em>${escapeHtml((plan.createdAt || "").split(" ").slice(0, 3).join(" "))}</em>
+          </div>
+        </div>
+      </section>
+
+      <footer class="bsm-pdf-v13__footer">
+        <span>Bahçeşehir Spor Merkezi · Performans Beslenme Sistemi</span>
+        <span class="bsm-pdf-v13__page-num">2 / 2</span>
+      </footer>
+    </article>
+  `;
+}
+
+// v1.3.0: PDF thumbnail mini icerikleri — 2 sayfa (eski 4 thumb -> 2 thumb)
+// Thumb 1: hero + makro mini (donut + 4 KPI satir)
+// Thumb 2: supplement + skor mini (cizgiler + mini gauge)
 function renderNutritionPdfThumbnails(plan, member) {
   const setHtml = (sel, html) => { const el = document.querySelector(sel); if (el) el.innerHTML = html; };
   if (!plan) {
-    [1, 2, 3, 4].forEach((n) => setHtml(`[data-bsm-nutrition-thumb="${n}"]`, ""));
+    [1, 2].forEach((n) => setHtml(`[data-bsm-nutrition-thumb="${n}"]`, ""));
     return;
   }
-  // Thumb 1: 4 KPI bar mini
-  setHtml('[data-bsm-nutrition-thumb="1"]', `
-    <div class="bsm-nutrition-pdf-thumb__kpi">
-      <span></span><span></span><span></span><span></span>
-    </div>
-  `);
-  // Thumb 2: 3-4 cizgi (öğün listesi)
-  const mealCount = Math.min(4, (plan.meals || []).length);
-  setHtml('[data-bsm-nutrition-thumb="2"]', `
-    <div class="bsm-nutrition-pdf-thumb__rows">
-      ${Array.from({ length: mealCount }).map(() => `<span></span>`).join("")}
-    </div>
-  `);
-  // Thumb 3: mini pie
+  // Thumb 1: mini pie + 3 satir KPI
   const m = plan.macros || {};
   const total = (m.protein || 1) * 4 + (m.carbs || 1) * 4 + (m.fat || 1) * 9 || 1;
   const pP = ((m.protein || 0) * 4 / total) * 100;
   const pC = ((m.carbs || 0) * 4 / total) * 100;
-  setHtml('[data-bsm-nutrition-thumb="3"]', `
-    <div class="bsm-nutrition-pdf-thumb__pie" style="background: conic-gradient(#16a34a 0 ${pP.toFixed(1)}%, #2563eb ${pP.toFixed(1)}% ${(pP + pC).toFixed(1)}%, #f59e0b ${(pP + pC).toFixed(1)}% 100%);"></div>
-  `);
-  // Thumb 4: 3 not çizgi
-  setHtml('[data-bsm-nutrition-thumb="4"]', `
-    <div class="bsm-nutrition-pdf-thumb__lines">
-      <span></span><span></span><span></span>
+  setHtml('[data-bsm-nutrition-thumb="1"]', `
+    <div class="bsm-nutrition-pdf-thumb__mix">
+      <div class="bsm-nutrition-pdf-thumb__pie bsm-nutrition-pdf-thumb__pie--sm" style="background: conic-gradient(#16a34a 0 ${pP.toFixed(1)}%, #2563eb ${pP.toFixed(1)}% ${(pP + pC).toFixed(1)}%, #f59e0b ${(pP + pC).toFixed(1)}% 100%);"></div>
+      <div class="bsm-nutrition-pdf-thumb__bars">
+        <span></span><span></span><span></span>
+      </div>
     </div>
   `);
-  // Aktif thumb is-active class'i
+  // Thumb 2: supplement satir cizgi + mini gauge
+  const f = state.nutritionFormState;
+  const supplActive = f?.supplementUse && (f?.selectedSupplements?.length || 0) > 0;
+  setHtml('[data-bsm-nutrition-thumb="2"]', `
+    <div class="bsm-nutrition-pdf-thumb__mix">
+      <div class="bsm-nutrition-pdf-thumb__rows">
+        <span></span><span class="${supplActive ? "is-on" : ""}"></span><span class="${supplActive ? "is-on" : ""}"></span>
+      </div>
+      <div class="bsm-nutrition-pdf-thumb__gauge"></div>
+    </div>
+  `);
+  // Aktif thumb is-active class'i (sadece 1-2)
+  const active = String(Math.min(2, state.nutritionPdfPage || 1));
   document.querySelectorAll("[data-pdf-thumb]").forEach((t) => {
-    t.classList.toggle("is-active", String(t.dataset.pdfThumb) === String(state.nutritionPdfPage || 1));
+    t.classList.toggle("is-active", String(t.dataset.pdfThumb) === active);
   });
 }
 
