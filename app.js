@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.3.0";
+const BSM_BUILD_VERSION = "1.3.1";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -8631,6 +8631,50 @@ function buildNutritionFeedback(plan, formState, activeMeasurement) {
   return feedback;
 }
 
+// v1.3.1: Genel tavsiye listesi — hedef bazli kisa, eyleme yonelik 5 madde
+function buildNutritionRecommendations(plan, formState, activeMeasurement) {
+  const goal = formState?.goal || "maintenance";
+  const recs = [];
+  // Hedef bazli ilk 2 tavsiye
+  if (goal === "muscle-gain") {
+    recs.push({ icon: "💪", text: "Antrenman sonrası 30-60 dk içinde 30g protein + 50g karbonhidrat alın." });
+    recs.push({ icon: "🛌", text: "Günde 7-8 saat uyku — testosteron ve büyüme hormonu için kritik." });
+  } else if (goal === "fat-loss") {
+    recs.push({ icon: "🚶", text: "Günlük 8-10 bin adım hedefleyin; kardiyo açığı destekler." });
+    recs.push({ icon: "🥗", text: "Yüksek hacimli lifli besinleri öğünlere ekleyin (sebze, salata)." });
+  } else if (goal === "recomposition") {
+    recs.push({ icon: "🔄", text: "Antrenman günü kalori artır, dinlenme günü açığa düş." });
+    recs.push({ icon: "💪", text: "Direnç antrenmanı haftada en az 3 kez, ilerleyici yükle." });
+  } else {
+    recs.push({ icon: "⚖", text: "Haftalık tartı ortalaması ±0.3 kg aralığında tutun." });
+    recs.push({ icon: "🥗", text: "Tabağın yarısını sebze ile doldurun; mikrobesinleri çeşitlendirin." });
+  }
+  // Su ve uyku
+  recs.push({ icon: "💧", text: "Sabah ilk iş 500ml su; öğünler arası küçük yudumlarla hedefe ulaşın." });
+  recs.push({ icon: "🥚", text: "Her öğünde 25-40g protein hedefleyin; kahvaltıyı atlamayın." });
+  // Olcum varsa
+  if (activeMeasurement?.visceralFat && Number(activeMeasurement.visceralFat) >= 10) {
+    recs.push({ icon: "🔥", text: "Visceral yağ takibi için haftada 2 kez 30 dk düşük-orta yoğunlukta kardiyo." });
+  } else {
+    recs.push({ icon: "📊", text: "2 haftada bir ölçüm tekrarı plan ilerlemesini takip eder." });
+  }
+  return recs;
+}
+
+// v1.3.1: Plan geçerlilik tarihi (oluşturma + 30 gün)
+function buildPlanValidUntilLabel(plan) {
+  const iso = plan?.createdAtIso;
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setDate(d.getDate() + 30);
+  try {
+    return d.toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric" });
+  } catch (e) {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
 // v1.3.0: Beslenme Skoru hesaplayici (0-100)
 // Veri kalitesi + protein/kalori uygunlugu + supplement entegrasyonu + su + IF
 function calculateNutritionScore(plan, formState, activeMeasurement) {
@@ -8846,30 +8890,40 @@ function renderPdfPage1(member, plan, profile, goalLabel, activeMeasurement, act
         </div>
       </section>
 
-      <!-- Öğün timeline (kompakt liste) -->
+      <!-- v1.3.1: Compact öğün timeline — max 5 ogun, fazlasi "+X ek ogun" özet -->
       <section class="bsm-pdf-v13__meals">
         <h3>Günlük Öğün Akışı</h3>
         <ul class="bsm-pdf-v13__meal-list">
           ${meals
+            .slice(0, 5)
             .map((meal) => {
               const time = meal.scheduledTime || meal.time || "—";
-              const foods = Array.isArray(meal.foods)
-                ? meal.foods.slice(0, 4).map((it) => typeof it === "string" ? it : it?.name || "").filter(Boolean).join(" · ")
-                : (typeof meal.foods === "string" ? meal.foods : "");
+              const allFoods = Array.isArray(meal.foods)
+                ? meal.foods.map((it) => typeof it === "string" ? it : it?.name || "").filter(Boolean)
+                : (typeof meal.foods === "string" ? meal.foods.split(/[,·•]/).map((s) => s.trim()).filter(Boolean) : []);
+              const displayFoods = allFoods.slice(0, 3).join(" • ");
+              const extra = allFoods.length > 3 ? ` +${allFoods.length - 3} ek besin` : "";
               const macros = meal.macros || {};
               const tag = meal.isPreWorkout ? "Pre" : meal.isPostWorkout ? "Post" : "";
               return `<li class="bsm-pdf-v13__meal-item${tag ? " is-workout" : ""}">
                 <div class="bsm-pdf-v13__meal-time">${escapeHtml(String(time))}</div>
                 <div class="bsm-pdf-v13__meal-body">
-                  <strong>${escapeHtml(meal.name || "Öğün")}${tag ? ` <span class="bsm-pdf-v13__meal-tag">${tag}</span>` : ""}</strong>
-                  ${foods ? `<small>${escapeHtml(foods)}</small>` : ""}
+                  <div class="bsm-pdf-v13__meal-head">
+                    <strong>${escapeHtml(meal.name || "Öğün")}${tag ? ` <span class="bsm-pdf-v13__meal-tag">${tag}</span>` : ""}</strong>
+                    <span class="bsm-pdf-v13__meal-cal-inline">${escapeHtml(String(meal.calories || 0))} kcal</span>
+                  </div>
+                  ${displayFoods ? `<small class="bsm-pdf-v13__meal-foods">${escapeHtml(displayFoods)}${escapeHtml(extra)}</small>` : ""}
+                  <div class="bsm-pdf-v13__meal-macros-line">
+                    <span>P ${escapeHtml(String(macros.protein || 0))}g</span>
+                    <span>K ${escapeHtml(String(macros.carbs || 0))}g</span>
+                    <span>Y ${escapeHtml(String(macros.fat || 0))}g</span>
+                  </div>
                 </div>
-                <div class="bsm-pdf-v13__meal-cal">${escapeHtml(String(meal.calories || 0))} <em>kcal</em></div>
-                <div class="bsm-pdf-v13__meal-macros">P${escapeHtml(String(macros.protein || 0))} K${escapeHtml(String(macros.carbs || 0))} Y${escapeHtml(String(macros.fat || 0))}</div>
               </li>`;
             })
             .join("")}
         </ul>
+        ${meals.length > 5 ? `<div class="bsm-pdf-v13__meal-overflow">+${meals.length - 5} ek öğün — detaylı plan üyeye iletilir</div>` : ""}
       </section>
 
       <footer class="bsm-pdf-v13__footer">
@@ -8880,19 +8934,24 @@ function renderPdfPage1(member, plan, profile, goalLabel, activeMeasurement, act
   `;
 }
 
-// v1.3.0: Premium 2-sayfa PDF preview — Page 2 (supplement + analiz + skor + AI feedback + QR/imza)
+// v1.3.1: Premium 2-sayfa PDF preview — Page 2.
+// Compact: supplement max 6, antrenor notu line-clamp 4, makro hedef progress, genel tavsiyeler.
 function renderPdfPage2(member, plan, profile, activeMeasurement, activePage) {
   const f = state.nutritionFormState;
   const meals = Array.isArray(plan.meals) ? plan.meals : [];
+  const m = plan.macros || {};
   const scoreObj = calculateNutritionScore(plan, f, activeMeasurement);
   const feedback = buildNutritionFeedback(plan, f, activeMeasurement);
+  const recommendations = buildNutritionRecommendations(plan, f, activeMeasurement);
 
-  // Supplement timeline
+  // Supplement timeline max 6 + overflow özet
   const supplements = f.supplementUse && Array.isArray(f.selectedSupplements)
     ? f.selectedSupplements.map((id) => findSupplementById(id)).filter(Boolean)
     : [];
-  const supplementHtml = supplements.length
-    ? supplements
+  const supplementVisible = supplements.slice(0, 6);
+  const supplementOverflow = supplements.length - supplementVisible.length;
+  const supplementHtml = supplementVisible.length
+    ? supplementVisible
         .map((s) => `<li>
           <span class="bsm-pdf-v13__suppl-time">${escapeHtml(getSupplementScheduleTime(s, f))}</span>
           <span class="bsm-pdf-v13__suppl-icon">${escapeHtml(s.icon || "💊")}</span>
@@ -8901,8 +8960,19 @@ function renderPdfPage2(member, plan, profile, activeMeasurement, activePage) {
             <em>${escapeHtml(s.dosage || "")} · ${escapeHtml(supplementTimingLabel(s.timing))}</em>
           </div>
         </li>`)
-        .join("")
-    : `<li class="bsm-pdf-v13__suppl-empty">Supplement planı kapalı. Aktif edip akıllı öneri uygulayabilirsiniz.</li>`;
+        .join("") + (supplementOverflow > 0 ? `<li class="bsm-pdf-v13__suppl-overflow">+${supplementOverflow} ek destek</li>` : "")
+    : `<li class="bsm-pdf-v13__suppl-empty">Supplement planı kapalı.</li>`;
+
+  // Makro hedef uyumu progress bar (hedeflerden gercek tukketim oranı; placeholder olarak %100 göster)
+  const weight = Number(activeMeasurement?.weight || plan?.sourceSummary?.weight || 75);
+  const proteinTarget = Math.round(weight * 1.8); // 1.8 g/kg ideal
+  const carbsTarget = Math.round(weight * 4);     // 4 g/kg ideal
+  const fatTarget = Math.round(weight * 0.9);     // 0.9 g/kg ideal
+  const pctP = Math.min(100, Math.round(((m.protein || 0) / Math.max(1, proteinTarget)) * 100));
+  const pctC = Math.min(100, Math.round(((m.carbs || 0) / Math.max(1, carbsTarget)) * 100));
+  const pctF = Math.min(100, Math.round(((m.fat || 0) / Math.max(1, fatTarget)) * 100));
+
+  const validUntil = plan.createdAt ? buildPlanValidUntilLabel(plan) : "";
 
   return `
     <article class="bsm-pdf-v13" data-pdf-page="2"${activePage === "2" ? ' data-active="true"' : ""}>
@@ -8915,7 +8985,7 @@ function renderPdfPage2(member, plan, profile, activeMeasurement, activePage) {
         ${buildNutritionScoreGauge(scoreObj.score)}
       </header>
 
-      <!-- Iki kolon: supplement + kalori bar chart -->
+      <!-- v1.3.1: Iki kolon (supplement + kalori bar) -->
       <section class="bsm-pdf-v13__row">
         <div class="bsm-pdf-v13__suppl">
           <h3>Supplement Zaman Çizgisi</h3>
@@ -8927,31 +8997,61 @@ function renderPdfPage2(member, plan, profile, activeMeasurement, activePage) {
         </div>
       </section>
 
-      <!-- Rule-based AI feedback -->
-      <section class="bsm-pdf-v13__feedback">
-        <h3>Akıllı Analiz &amp; Tavsiyeler</h3>
-        <ul class="bsm-pdf-v13__feedback-list">
-          ${feedback
-            .slice(0, 6)
-            .map((fb) => `<li class="bsm-pdf-v13__feedback-item bsm-pdf-v13__feedback-item--${escapeHtml(fb.severity || "info")}">
-              <span class="bsm-pdf-v13__feedback-icon" aria-hidden="true">${escapeHtml(fb.icon || "ℹ")}</span>
-              <span>${escapeHtml(fb.message)}</span>
-            </li>`)
-            .join("")}
-        </ul>
+      <!-- v1.3.1: Makro hedef uyumu progress barlari -->
+      <section class="bsm-pdf-v13__macro-target">
+        <h3>Makro Hedef Uyumu</h3>
+        <div class="bsm-pdf-v13__macro-bars">
+          <div class="bsm-pdf-v13__macro-bar bsm-pdf-v13__macro-bar--protein">
+            <div class="bsm-pdf-v13__macro-bar-label"><span>Protein</span><em>${m.protein || 0}g / ${proteinTarget}g</em></div>
+            <div class="bsm-pdf-v13__macro-bar-track"><div class="bsm-pdf-v13__macro-bar-fill" style="width:${pctP}%"></div></div>
+          </div>
+          <div class="bsm-pdf-v13__macro-bar bsm-pdf-v13__macro-bar--carbs">
+            <div class="bsm-pdf-v13__macro-bar-label"><span>Karbonhidrat</span><em>${m.carbs || 0}g / ${carbsTarget}g</em></div>
+            <div class="bsm-pdf-v13__macro-bar-track"><div class="bsm-pdf-v13__macro-bar-fill" style="width:${pctC}%"></div></div>
+          </div>
+          <div class="bsm-pdf-v13__macro-bar bsm-pdf-v13__macro-bar--fat">
+            <div class="bsm-pdf-v13__macro-bar-label"><span>Yağ</span><em>${m.fat || 0}g / ${fatTarget}g</em></div>
+            <div class="bsm-pdf-v13__macro-bar-track"><div class="bsm-pdf-v13__macro-bar-fill" style="width:${pctF}%"></div></div>
+          </div>
+        </div>
       </section>
 
-      <!-- Antrenör notu -->
+      <!-- v1.3.1: Iki kolon: AI feedback (sol) + Genel tavsiyeler (sag) -->
+      <section class="bsm-pdf-v13__analysis-row">
+        <div class="bsm-pdf-v13__feedback">
+          <h3>Akıllı Analiz</h3>
+          <ul class="bsm-pdf-v13__feedback-list">
+            ${feedback
+              .slice(0, 4)
+              .map((fb) => `<li class="bsm-pdf-v13__feedback-item bsm-pdf-v13__feedback-item--${escapeHtml(fb.severity || "info")}">
+                <span class="bsm-pdf-v13__feedback-icon" aria-hidden="true">${escapeHtml(fb.icon || "ℹ")}</span>
+                <span>${escapeHtml(fb.message)}</span>
+              </li>`)
+              .join("")}
+          </ul>
+        </div>
+        <div class="bsm-pdf-v13__recommendations">
+          <h3>Genel Tavsiyeler</h3>
+          <ul class="bsm-pdf-v13__rec-list">
+            ${recommendations
+              .slice(0, 5)
+              .map((r) => `<li><span aria-hidden="true">${escapeHtml(r.icon)}</span>${escapeHtml(r.text)}</li>`)
+              .join("")}
+          </ul>
+        </div>
+      </section>
+
+      <!-- v1.3.1: Antrenör notu — line-clamp 4 satir -->
       ${
         f.trainerNote || plan.trainerNote
           ? `<section class="bsm-pdf-v13__note">
               <h3>Antrenör Notu</h3>
-              <p>${escapeHtml(f.trainerNote || plan.trainerNote)}</p>
+              <p class="bsm-pdf-v13__note-text">${escapeHtml(f.trainerNote || plan.trainerNote)}</p>
             </section>`
           : ""
       }
 
-      <!-- QR + imza alani -->
+      <!-- v1.3.1: Footer: plan geçerlilik + hazırlayan + QR -->
       <section class="bsm-pdf-v13__signature">
         <div class="bsm-pdf-v13__qr" aria-hidden="true">
           <!-- Basit fake QR: 7x7 grid -->
@@ -8977,13 +9077,14 @@ function renderPdfPage2(member, plan, profile, activeMeasurement, activePage) {
         </div>
         <div class="bsm-pdf-v13__sig">
           <div class="bsm-pdf-v13__sig-line">
-            <span>Antrenör</span>
+            <span>Hazırlayan</span>
             <em>${escapeHtml(profile.trainerName || "—")}</em>
           </div>
           <div class="bsm-pdf-v13__sig-line">
-            <span>Tarih</span>
+            <span>Plan Tarihi</span>
             <em>${escapeHtml((plan.createdAt || "").split(" ").slice(0, 3).join(" "))}</em>
           </div>
+          ${validUntil ? `<div class="bsm-pdf-v13__sig-line"><span>Geçerlilik</span><em>${escapeHtml(validUntil)}</em></div>` : ""}
         </div>
       </section>
 

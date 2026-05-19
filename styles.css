@@ -21272,11 +21272,12 @@ body.bsm-photo-modal-open { overflow: hidden; }
   gap: 6px;
 }
 
+/* v1.3.1: Compact 2-kolon meal item (time + body), kcal inline body icinde */
 .bsm-pdf-v13__meal-item {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) 80px 120px;
+  grid-template-columns: 52px minmax(0, 1fr);
   gap: 12px;
-  align-items: center;
+  align-items: flex-start;
   padding: 8px 12px;
   background: #f8fafc;
   border: 1px solid rgba(15, 23, 42, 0.05);
@@ -21295,20 +21296,59 @@ body.bsm-photo-modal-open { overflow: hidden; }
   letter-spacing: 0.02em;
 }
 
-.bsm-pdf-v13__meal-body strong {
-  display: block;
+/* v1.3.1: meal-body kompakt - inline besin satiri + macro tek satir */
+.bsm-pdf-v13__meal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.bsm-pdf-v13__meal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.bsm-pdf-v13__meal-head strong {
   font-size: 0.85rem;
   font-weight: 700;
   color: #0f172a;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
-.bsm-pdf-v13__meal-body small {
-  display: block;
+.bsm-pdf-v13__meal-cal-inline {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #f26c1f;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.bsm-pdf-v13__meal-foods {
   font-size: 0.72rem;
+  color: #475569;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bsm-pdf-v13__meal-macros-line {
+  display: flex;
+  gap: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
   color: #64748b;
-  margin-top: 2px;
-  line-height: 1.3;
+  letter-spacing: 0.02em;
+}
+
+.bsm-pdf-v13__meal-macros-line span {
+  display: inline-flex;
+  align-items: center;
 }
 
 .bsm-pdf-v13__meal-tag {
@@ -21324,27 +21364,17 @@ body.bsm-photo-modal-open { overflow: hidden; }
   vertical-align: 2px;
 }
 
-.bsm-pdf-v13__meal-cal {
-  text-align: right;
-  font-size: 0.92rem;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.bsm-pdf-v13__meal-cal em {
-  font-style: normal;
-  font-size: 0.66rem;
-  color: #94a3b8;
-  margin-left: 2px;
-  font-weight: 600;
-}
-
-.bsm-pdf-v13__meal-macros {
+/* v1.3.1: Ogun overflow satiri ("+X ek ogun") */
+.bsm-pdf-v13__meal-overflow {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: 8px;
   font-size: 0.7rem;
-  color: #475569;
-  text-align: right;
+  color: #64748b;
+  text-align: center;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 /* Footer */
@@ -21657,22 +21687,209 @@ body.bsm-photo-modal-open { overflow: hidden; }
   background: rgba(242, 108, 31, 0.45);
 }
 
-/* ── PRINT STYLESHEET (PDF export = preview birebir) ────────────────────
-   body.is-printing-nutrition: window.print() oncesi eklenir.
-   Sadece .bsm-pdf-v13 sayfalarini goster, geri kalanini gizle. */
+/* ═════════════════════════════════════════════════════════════════════
+   v1.3.1 — PDF preview/export ortak sistem + A4 sabit yuksek
+   Preview ve print ayni .bsm-pdf-v13 component'ini kullanir.
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* Ekran preview: esnek genislik, A4 oranı sadece print modunda zorunlu.
+   Ekranda min-height yok ki yarim sayfa boş kalmasin. */
+.bsm-pdf-v13 {
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 22px 26px 18px;
+  overflow: hidden;
+}
+
+/* Page-break kontrol — sadece print modunda etkin (asagidaki @media print) */
+
+/* v1.3.1: Yeni Sayfa 2 bloklari */
+
+/* Makro hedef uyumu progress bar */
+.bsm-pdf-v13__macro-target {
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bsm-pdf-v13__macro-target h3 {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.bsm-pdf-v13__macro-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bsm-pdf-v13__macro-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.bsm-pdf-v13__macro-bar-label em {
+  font-style: normal;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.bsm-pdf-v13__macro-bar-track {
+  height: 6px;
+  background: rgba(15, 23, 42, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bsm-pdf-v13__macro-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.bsm-pdf-v13__macro-bar--protein .bsm-pdf-v13__macro-bar-fill { background: linear-gradient(90deg, #16a34a, #4ade80); }
+.bsm-pdf-v13__macro-bar--carbs .bsm-pdf-v13__macro-bar-fill { background: linear-gradient(90deg, #2563eb, #60a5fa); }
+.bsm-pdf-v13__macro-bar--fat .bsm-pdf-v13__macro-bar-fill { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+
+/* AI Feedback + Genel tavsiyeler iki kolon */
+.bsm-pdf-v13__analysis-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.bsm-pdf-v13__recommendations {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bsm-pdf-v13__recommendations h3 {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.bsm-pdf-v13__rec-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bsm-pdf-v13__rec-list li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.76rem;
+  color: #0f172a;
+  line-height: 1.35;
+  padding: 5px 8px;
+  background: #f8fafc;
+  border-radius: 6px;
+}
+
+.bsm-pdf-v13__rec-list li span {
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+/* Supplement overflow satiri */
+.bsm-pdf-v13__suppl-overflow {
+  background: transparent !important;
+  border: 1px dashed rgba(15, 23, 42, 0.16) !important;
+  text-align: center !important;
+  font-size: 0.72rem !important;
+  color: #94a3b8 !important;
+  font-weight: 600 !important;
+  padding: 6px !important;
+  display: block !important;
+  grid-template-columns: none !important;
+}
+
+/* v1.3.1: Antrenor notu line-clamp 4 satir */
+.bsm-pdf-v13__note-text {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #0f172a;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* v1.3.1: Page 2 spacing — tum bloklarin arasi tutarli */
+.bsm-pdf-v13[data-pdf-page="2"] {
+  gap: 12px;
+}
+
+/* v1.3.1: Bar chart yukseklik sinirlama (overflow yok) */
+.bsm-pdf-v13__kcal-dist { max-height: 160px; }
+.bsm-pdf-bar-chart svg { max-height: 110px; }
+
+/* Donut & water tutarli yukseklik */
+.bsm-pdf-v13__donut-block,
+.bsm-pdf-v13__water-block {
+  max-height: 170px;
+}
+
+/* ── v1.3.1 PRINT REWRITE ───────────────────────────────────────────────
+   Tam A4 (210x297mm) sabit boyut, son sayfa page-break: avoid, sidebar/
+   header/form/buttons hidden. */
 @media print {
+  /* Tum panel + nav + control gizle */
+  body.is-printing-nutrition .studio-nav,
+  body.is-printing-nutrition .bsm-shell,
+  body.is-printing-nutrition .auth-gate,
+  body.is-printing-nutrition .bsm-nutrition-hero,
+  body.is-printing-nutrition .bsm-nutrition-config,
+  body.is-printing-nutrition .bsm-nutrition-sidepanel,
+  body.is-printing-nutrition .bsm-nutrition-preview__head,
+  body.is-printing-nutrition .bsm-nutrition-preview__tabs,
+  body.is-printing-nutrition .bsm-nutrition-pdf-thumbs,
+  body.is-printing-nutrition .bsm-nutrition-totals,
+  body.is-printing-nutrition .nutrition-panel--premium > :not(.bsm-nutrition-layout) {
+    display: none !important;
+  }
   body.is-printing-nutrition * { visibility: hidden !important; }
   body.is-printing-nutrition #bsmNutritionPdfPages,
   body.is-printing-nutrition #bsmNutritionPdfPages * {
     visibility: visible !important;
   }
   body.is-printing-nutrition #bsmNutritionPdfPages {
-    position: fixed;
-    inset: 0;
-    margin: 0;
-    padding: 0;
-    background: #fff;
-    width: 100%;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    width: 100% !important;
     display: block !important;
     grid-template-columns: none !important;
     grid-template-rows: none !important;
@@ -21685,35 +21902,49 @@ body.bsm-photo-modal-open { overflow: hidden; }
     box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
-    width: 100%;
-    max-width: 210mm;
-    margin: 0 auto;
-    page-break-after: always;
-    break-after: page;
-    min-height: auto;
-    padding: 14mm 16mm;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    height: 297mm !important;
+    min-height: auto !important;
+    margin: 0 auto !important;
+    padding: 12mm !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
-  body.is-printing-nutrition #bsmNutritionPdfPages .bsm-pdf-v13:last-child {
-    page-break-after: auto;
-    break-after: auto;
+  body.is-printing-nutrition #bsmNutritionPdfPages .bsm-pdf-v13[data-pdf-page="1"] {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  body.is-printing-nutrition #bsmNutritionPdfPages .bsm-pdf-v13[data-pdf-page="2"] {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    page-break-before: auto !important;
+  }
+  /* Onemli: data-active sinirlamasini print modunda gevset, her 2 sayfa goster */
+  body.is-printing-nutrition .bsm-nutrition-pdf-pages > .bsm-pdf-v13:not([data-active="true"]) {
+    visibility: visible !important;
+    opacity: 1 !important;
   }
   @page {
     size: A4;
-    margin: 8mm;
+    margin: 0;
   }
 }
 
 /* Responsive */
 @media (max-width: 980px) {
-  .bsm-pdf-v13 { padding: 18px 20px; }
+  .bsm-pdf-v13 {
+    padding: 18px 20px;
+    min-height: auto;
+  }
   .bsm-pdf-v13__cover { grid-template-columns: minmax(0, 1fr); }
   .bsm-pdf-v13__cover-right { align-items: flex-start; }
   .bsm-pdf-v13__kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bsm-pdf-v13__chart-row { grid-template-columns: minmax(0, 1fr); }
   .bsm-pdf-v13__row { grid-template-columns: minmax(0, 1fr); }
   .bsm-pdf-v13__feedback-list { grid-template-columns: minmax(0, 1fr); }
-  .bsm-pdf-v13__meal-item { grid-template-columns: 50px minmax(0, 1fr) auto; }
-  .bsm-pdf-v13__meal-macros { display: none; }
+  .bsm-pdf-v13__analysis-row { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 720px) {
