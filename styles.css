@@ -20143,3 +20143,830 @@ body.bsm-photo-modal-open { overflow: hidden; }
   color: var(--bsm-text-on-light, #111827);
   font-weight: 700;
 }
+
+/* ═════════════════════════════════════════════════════════════════════
+   v1.2.5 — SUPPLEMENT LIBRARY + SMART ENGINE + PDF 4-SAYFA
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* Sol/sag panel sticky (viewport buyukse) */
+@media (min-width: 1280px) {
+  .bsm-nutrition-config {
+    position: sticky;
+    top: 18px;
+    max-height: calc(100vh - 36px);
+    overflow-y: auto;
+  }
+  .bsm-nutrition-sidepanel {
+    position: sticky;
+    top: 18px;
+    max-height: calc(100vh - 36px);
+    overflow-y: auto;
+  }
+}
+
+/* Hero KPI guclendirme: meta-row sayisi 4 olabilir */
+.bsm-nutrition-hero__meta {
+  align-items: center;
+}
+
+/* Search input */
+.bsm-suppl-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.bsm-suppl-search__icon {
+  position: absolute;
+  left: 10px;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  pointer-events: none;
+}
+
+.bsm-suppl-search input {
+  width: 100%;
+  background: #fff;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  border-radius: 10px;
+  padding: 8px 12px 8px 32px;
+  font-size: 0.85rem;
+  font-family: var(--bsm-font);
+  color: var(--bsm-text-on-light, #111827);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.bsm-suppl-search input:focus {
+  border-color: var(--bsm-orange, #f26c1f);
+  box-shadow: 0 0 0 3px rgba(242, 108, 31, 0.12);
+  outline: none;
+}
+
+/* Kategori filter chips */
+.bsm-suppl-filter-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.bsm-suppl-filter-chips button {
+  background: #fff;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  font-family: var(--bsm-font);
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.bsm-suppl-filter-chips button:hover {
+  border-color: rgba(242, 108, 31, 0.3);
+  color: var(--bsm-text-on-light, #111827);
+}
+
+.bsm-suppl-filter-chips button.is-active {
+  background: var(--bsm-orange, #f26c1f);
+  color: #fff;
+  border-color: var(--bsm-orange, #f26c1f);
+}
+
+/* Akilli oneri butonu */
+.bsm-suppl-smart-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, var(--bsm-orange, #f26c1f) 0%, var(--bsm-track-red, #e25022) 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(242, 108, 31, 0.22);
+  transition: transform 0.05s, box-shadow 0.15s;
+}
+
+.bsm-suppl-smart-btn:hover {
+  box-shadow: 0 6px 16px rgba(242, 108, 31, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Library kart container - scroll edilebilir */
+.bsm-suppl-library {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+
+.bsm-suppl-library::-webkit-scrollbar { width: 6px; }
+.bsm-suppl-library::-webkit-scrollbar-thumb { background: rgba(17, 24, 39, 0.15); border-radius: 3px; }
+
+/* Library supplement kart */
+.bsm-suppl-card {
+  background: #fff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.bsm-suppl-card:hover {
+  border-color: rgba(242, 108, 31, 0.25);
+  box-shadow: 0 4px 12px rgba(8, 12, 18, 0.05);
+}
+
+.bsm-suppl-card.is-selected {
+  border-color: var(--bsm-orange, #f26c1f);
+  background: var(--bsm-orange-soft, #fef3ec);
+}
+
+.bsm-suppl-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bsm-suppl-card__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--bsm-orange-soft, #fef3ec);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.bsm-suppl-card.is-selected .bsm-suppl-card__icon {
+  background: #fff;
+}
+
+.bsm-suppl-card__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.bsm-suppl-card__info strong {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--bsm-text-on-light, #111827);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bsm-suppl-card__cat {
+  font-size: 0.7rem;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  font-weight: 500;
+}
+
+.bsm-suppl-card__action {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--bsm-orange-soft, #fef3ec);
+  color: var(--bsm-orange, #f26c1f);
+  border: none;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.05s;
+  flex-shrink: 0;
+}
+
+.bsm-suppl-card__action:hover {
+  background: rgba(242, 108, 31, 0.18);
+  transform: scale(1.05);
+}
+
+.bsm-suppl-card.is-selected .bsm-suppl-card__action {
+  background: var(--bsm-orange, #f26c1f);
+  color: #fff;
+}
+
+.bsm-suppl-card__desc {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  line-height: 1.35;
+}
+
+.bsm-suppl-card__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  font-weight: 500;
+}
+
+.bsm-suppl-card__time {
+  color: var(--bsm-orange, #f26c1f);
+  font-weight: 600;
+}
+
+/* Aktif eklenen supplements chip listesi */
+.bsm-suppl-selected-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid rgba(17, 24, 39, 0.06);
+  padding-top: 8px;
+}
+
+.bsm-suppl-selected-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bsm-suppl-selected {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bsm-suppl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bsm-orange-soft, #fef3ec);
+  border: 1px solid rgba(242, 108, 31, 0.2);
+  border-radius: 999px;
+  padding: 4px 6px 4px 10px;
+  font-size: 0.76rem;
+}
+
+.bsm-suppl-chip strong {
+  color: var(--bsm-orange, #f26c1f);
+  font-weight: 600;
+}
+
+.bsm-suppl-chip__remove {
+  background: transparent;
+  border: none;
+  color: var(--bsm-orange, #f26c1f);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0 4px;
+  font-weight: 700;
+}
+
+/* Sag panel supplement timeline icindeki remove buton */
+.bsm-nutrition-suppl-item {
+  position: relative;
+}
+
+.bsm-nutrition-suppl-remove {
+  background: transparent;
+  border: none;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  cursor: pointer;
+  font-size: 1.05rem;
+  line-height: 1;
+  padding: 0 4px;
+  font-weight: 700;
+  transition: color 0.15s;
+}
+
+.bsm-nutrition-suppl-remove:hover { color: #b91c1c; }
+
+/* ── PDF 4 sayfa stacked + thumbnail nav ─────────────────────────── */
+.bsm-nutrition-pdf-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 14px;
+  align-items: start;
+}
+
+.bsm-nutrition-pdf-pages {
+  position: relative;
+  display: grid;
+}
+
+.bsm-nutrition-pdf-pages > .bsm-nutrition-pdf-page {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.bsm-nutrition-pdf-pages > .bsm-nutrition-pdf-page[data-active="true"] {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* PDF sayfa article (sayfa 1-4 ortak) */
+.bsm-nutrition-pdf-page {
+  background: #fff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 12px;
+  padding: 22px 26px;
+  box-shadow: 0 12px 30px rgba(8, 12, 18, 0.05), 0 2px 6px rgba(8, 12, 18, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 460px;
+  position: relative;
+}
+
+.bsm-nutrition-pdf-page::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--bsm-orange, #f26c1f) 0%, var(--bsm-track-red, #e25022) 100%);
+  border-radius: 12px 0 0 12px;
+}
+
+/* Sayfa 1: hero card grid */
+.bsm-nutrition-pdf-page__hero {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bsm-nutrition-pdf-page__hero-card {
+  background: #fafbfd;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bsm-nutrition-pdf-page__hero-card small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+}
+
+.bsm-nutrition-pdf-page__hero-card strong {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--bsm-text-on-light, #111827);
+  line-height: 1.1;
+}
+
+.bsm-nutrition-pdf-page__hero-card span {
+  font-size: 0.72rem;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+}
+
+.bsm-nutrition-pdf-page__hero-card--accent {
+  background: linear-gradient(135deg, var(--bsm-orange, #f26c1f) 0%, var(--bsm-track-red, #e25022) 100%);
+  color: #fff;
+  border-color: transparent;
+}
+
+.bsm-nutrition-pdf-page__hero-card--accent small,
+.bsm-nutrition-pdf-page__hero-card--accent strong,
+.bsm-nutrition-pdf-page__hero-card--accent span {
+  color: #fff;
+}
+
+.bsm-nutrition-pdf-page__hero-card--accent small,
+.bsm-nutrition-pdf-page__hero-card--accent span { opacity: 0.85; }
+
+/* Sayfa 1: makro summary (3 card) */
+.bsm-nutrition-pdf-page__summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bsm-nutrition-pdf-page__summary-card {
+  background: #fafbfd;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bsm-nutrition-pdf-page__summary-card small {
+  font-size: 0.7rem;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bsm-nutrition-pdf-page__summary-card strong {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--bsm-text-on-light, #111827);
+}
+
+.bsm-nutrition-pdf-page__summary-card--protein { border-color: rgba(22, 163, 74, 0.25); }
+.bsm-nutrition-pdf-page__summary-card--protein strong { color: #15803d; }
+.bsm-nutrition-pdf-page__summary-card--carbs { border-color: rgba(37, 99, 235, 0.25); }
+.bsm-nutrition-pdf-page__summary-card--carbs strong { color: #2563eb; }
+.bsm-nutrition-pdf-page__summary-card--fat { border-color: rgba(245, 158, 11, 0.25); }
+.bsm-nutrition-pdf-page__summary-card--fat strong { color: #b45309; }
+
+/* Sayfa 1: meta info */
+.bsm-nutrition-pdf-page__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 0.78rem;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  padding: 10px 12px;
+  background: #fafbfd;
+  border-radius: 8px;
+}
+
+.bsm-nutrition-pdf-page__meta strong {
+  color: var(--bsm-text-on-light, #111827);
+  font-weight: 700;
+}
+
+/* Sayfa 2: ogun tablosu */
+.bsm-nutrition-pdf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.bsm-nutrition-pdf-table th,
+.bsm-nutrition-pdf-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.06);
+}
+
+.bsm-nutrition-pdf-table th {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  background: #fafbfd;
+}
+
+.bsm-nutrition-pdf-table td {
+  color: var(--bsm-text-on-light, #111827);
+}
+
+.bsm-nutrition-pdf-table td small {
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  font-weight: 500;
+  font-size: 0.76rem;
+}
+
+.bsm-nutrition-pdf-table tr:last-child td { border-bottom: none; }
+
+/* Sayfa 3: supplement zaman cizgisi */
+.bsm-nutrition-pdf-page__supplement h3,
+.bsm-nutrition-pdf-page__macro-chart h3,
+.bsm-nutrition-pdf-page__trend h3,
+.bsm-nutrition-pdf-page__note-block h3 {
+  margin: 0 0 8px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+}
+
+.bsm-nutrition-pdf-page__suppl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bsm-nutrition-pdf-page__suppl-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #fafbfd;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: var(--bsm-text-on-light, #111827);
+}
+
+.bsm-nutrition-pdf-page__suppl-list li strong {
+  font-weight: 700;
+  color: var(--bsm-orange, #f26c1f);
+  font-size: 0.78rem;
+}
+
+.bsm-nutrition-pdf-page__suppl-list li em {
+  font-style: normal;
+  margin-left: auto;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  font-size: 0.76rem;
+}
+
+.bsm-nutrition-pdf-page__empty {
+  background: #fafbfd;
+  border: 1px dashed rgba(17, 24, 39, 0.18);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+}
+
+/* Sayfa 3: donut chart */
+.bsm-nutrition-pdf-donut {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background: #fafbfd;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.bsm-nutrition-pdf-donut__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  font-size: 0.82rem;
+  color: var(--bsm-text-on-light, #111827);
+}
+
+.bsm-nutrition-pdf-donut__legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bsm-nutrition-pdf-donut__legend li span {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.bsm-nutrition-pdf-donut__legend strong {
+  font-weight: 700;
+}
+
+/* Sayfa 4: not bloku */
+.bsm-nutrition-pdf-page__note-block p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--bsm-text-on-light, #111827);
+  line-height: 1.5;
+  background: var(--bsm-orange-soft, #fef3ec);
+  border: 1px solid rgba(242, 108, 31, 0.18);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.bsm-nutrition-pdf-page__note-block p.bsm-nutrition-pdf-page__empty {
+  background: #fafbfd;
+  border: 1px dashed rgba(17, 24, 39, 0.18);
+  color: var(--bsm-text-on-light-soft, #6b7280);
+}
+
+.bsm-nutrition-pdf-page__note-row {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--bsm-text-on-light, #111827);
+  padding: 6px 10px;
+  background: #fafbfd;
+  border-radius: 6px;
+}
+
+.bsm-nutrition-pdf-page__note-row strong {
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  margin-right: 6px;
+}
+
+/* Sayfa 4: trend */
+.bsm-nutrition-pdf-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bsm-nutrition-pdf-trend {
+  background: #fafbfd;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bsm-nutrition-pdf-trend span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+}
+
+.bsm-nutrition-pdf-trend svg {
+  display: block;
+  width: 100%;
+  height: 36px;
+}
+
+.bsm-nutrition-pdf-trend--blue { color: var(--bsm-blue, #2563eb); }
+.bsm-nutrition-pdf-trend--orange { color: var(--bsm-orange, #f26c1f); }
+
+/* PDF page footer */
+.bsm-nutrition-pdf-page__footer {
+  margin-top: auto;
+  border-top: 1px solid rgba(17, 24, 39, 0.06);
+  padding-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+}
+
+.bsm-nutrition-pdf-page__footer span:last-child {
+  font-weight: 700;
+  color: var(--bsm-text-on-light, #111827);
+}
+
+/* PDF Thumbnail navigation */
+.bsm-nutrition-pdf-thumbs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bsm-nutrition-pdf-thumb {
+  width: 88px;
+  height: 110px;
+  border-radius: 10px;
+  background: #fafbfd;
+  border: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  padding: 6px 8px 4px;
+  cursor: pointer;
+  font-family: var(--bsm-font);
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+
+.bsm-nutrition-pdf-thumb__mini {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.bsm-nutrition-pdf-thumb > span {
+  align-self: flex-end;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  background: #fff;
+  padding: 2px 6px;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.bsm-nutrition-pdf-thumb:hover {
+  border-color: rgba(242, 108, 31, 0.3);
+  background: #fff;
+}
+
+.bsm-nutrition-pdf-thumb.is-active {
+  border-color: var(--bsm-orange, #f26c1f);
+  background: var(--bsm-orange-soft, #fef3ec);
+  box-shadow: 0 0 0 3px rgba(242, 108, 31, 0.12);
+}
+
+.bsm-nutrition-pdf-thumb.is-active > span {
+  color: var(--bsm-orange, #f26c1f);
+}
+
+/* PDF thumb mini content */
+.bsm-nutrition-pdf-thumb__kpi {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 4px;
+  width: 100%;
+  padding: 6px;
+}
+
+.bsm-nutrition-pdf-thumb__kpi span {
+  background: rgba(242, 108, 31, 0.2);
+  border-radius: 3px;
+  height: 14px;
+}
+
+.bsm-nutrition-pdf-thumb__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 6px;
+}
+
+.bsm-nutrition-pdf-thumb__rows span {
+  height: 4px;
+  background: rgba(17, 24, 39, 0.18);
+  border-radius: 2px;
+}
+
+.bsm-nutrition-pdf-thumb__rows span:nth-child(2) { width: 85%; }
+.bsm-nutrition-pdf-thumb__rows span:nth-child(3) { width: 70%; }
+.bsm-nutrition-pdf-thumb__rows span:nth-child(4) { width: 60%; }
+
+.bsm-nutrition-pdf-thumb__pie {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+}
+
+.bsm-nutrition-pdf-thumb__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 6px;
+}
+
+.bsm-nutrition-pdf-thumb__lines span {
+  height: 4px;
+  background: rgba(17, 24, 39, 0.16);
+  border-radius: 2px;
+}
+
+.bsm-nutrition-pdf-thumb__lines span:nth-child(2) { width: 78%; }
+.bsm-nutrition-pdf-thumb__lines span:nth-child(3) { width: 55%; }
+
+.bsm-nutrition-pdf-thumb.is-active .bsm-nutrition-pdf-thumb__kpi span,
+.bsm-nutrition-pdf-thumb.is-active .bsm-nutrition-pdf-thumb__rows span,
+.bsm-nutrition-pdf-thumb.is-active .bsm-nutrition-pdf-thumb__lines span {
+  background: rgba(242, 108, 31, 0.45);
+}
+
+/* Responsive: PDF wrap mobil tek kolon + thumbs yatay scroll */
+@media (max-width: 980px) {
+  .bsm-nutrition-pdf-wrap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .bsm-nutrition-pdf-thumbs {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .bsm-nutrition-pdf-thumb {
+    flex-shrink: 0;
+  }
+  .bsm-nutrition-pdf-page__hero { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bsm-nutrition-pdf-page__summary { grid-template-columns: 1fr; }
+  .bsm-nutrition-pdf-trend-grid { grid-template-columns: 1fr; }
+  .bsm-nutrition-pdf-donut { flex-direction: column; align-items: flex-start; }
+}
+
+@media (max-width: 720px) {
+  .bsm-nutrition-pdf-page { padding: 16px 18px; }
+  .bsm-nutrition-pdf-page__hero { grid-template-columns: 1fr; }
+}

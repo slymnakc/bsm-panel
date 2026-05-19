@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
-    <link rel="stylesheet" href="./styles.css?v=1.2.4" />
+    <link rel="stylesheet" href="./styles.css?v=1.2.5" />
   </head>
   <body class="auth-required">
     <div class="page-backdrop" aria-hidden="true"></div>
@@ -940,12 +940,12 @@
               </div>
             </details>
 
-            <details class="bsm-nutrition-acc" data-acc="supplement">
+            <details class="bsm-nutrition-acc bsm-nutrition-acc--supplement" data-acc="supplement">
               <summary>
                 <span class="bsm-nutrition-acc__icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/></svg>
                 </span>
-                <div><strong>6. Supplement Planı</strong><small>Destek takviyeleri ve zamanlamalar</small></div>
+                <div><strong>6. Supplement Planı</strong><small>Akıllı öneri + manuel ekleme</small></div>
               </summary>
               <div class="bsm-nutrition-acc__body">
                 <label class="bsm-nutrition-toggle">
@@ -953,12 +953,38 @@
                   <span class="bsm-nutrition-toggle__slider"></span>
                   <span class="bsm-nutrition-toggle__label">Supplement önerisi ekle</span>
                 </label>
-                <div class="bsm-nutrition-checkbox-group" id="supplementCategoryList" data-nutrition-input="supplementCategories">
-                  <label><input type="checkbox" value="basic" checked /><span>Temel destek</span></label>
-                  <label><input type="checkbox" value="performance" /><span>Performans</span></label>
-                  <label><input type="checkbox" value="recovery" /><span>Uyku / toparlanma</span></label>
-                  <label><input type="checkbox" value="joint" /><span>Eklem desteği</span></label>
+
+                <!-- v1.2.5: Searchable supplement selector -->
+                <div class="bsm-suppl-search">
+                  <svg class="bsm-suppl-search__icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input type="text" id="supplementSearch" data-nutrition-input="supplementSearch" placeholder="Supplement ara…" />
                 </div>
+
+                <!-- Kategori filtre chip'leri -->
+                <div class="bsm-suppl-filter-chips" id="supplementFilterChips" role="toolbar" aria-label="Kategori filtreleri">
+                  <button type="button" data-suppl-filter="all" class="is-active">Tümü</button>
+                  <button type="button" data-suppl-filter="muscle">Kas</button>
+                  <button type="button" data-suppl-filter="performance">Performans</button>
+                  <button type="button" data-suppl-filter="recovery">Toparlanma</button>
+                  <button type="button" data-suppl-filter="health">Sağlık</button>
+                  <button type="button" data-suppl-filter="fat-burn">Yağ Yakımı</button>
+                </div>
+
+                <!-- Akıllı öneri butonu -->
+                <button type="button" class="bsm-suppl-smart-btn" data-nutrition-action="smart-suggest">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15 8 22 9 17 14 18 21 12 18 6 21 7 14 2 9 9 8 12 2"/></svg>
+                  <span>Akıllı öneri uygula</span>
+                </button>
+
+                <!-- Library kartlari -->
+                <div class="bsm-suppl-library" id="supplementLibrary" role="list"></div>
+
+                <!-- Aktif secilen supplements chip listesi -->
+                <div class="bsm-suppl-selected-wrap" id="supplementSelectedWrap" hidden>
+                  <span class="bsm-suppl-selected-label">Eklenenler</span>
+                  <ul class="bsm-suppl-selected" id="supplementSelected"></ul>
+                </div>
+
                 <div class="bsm-nutrition-field-row">
                   <label class="bsm-nutrition-field">
                     <span>Kafein hassasiyeti</span>
@@ -1045,9 +1071,30 @@
                 <p class="bsm-nutrition-empty">Plan oluşturulduğunda makro dağılımı detayı burada görünür.</p>
               </div>
             </div>
+            <!-- v1.2.5: PDF Önizleme — 4 sayfa A4 mockup + thumbnail navigation -->
             <div class="bsm-nutrition-view bsm-nutrition-view--pdf" data-nutrition-view-pane="pdf" hidden>
-              <div class="bsm-nutrition-pdf-preview" id="bsmNutritionPdfPreview">
-                <p class="bsm-nutrition-empty">PDF önizleme — plan oluştur butonuna bastıktan sonra burada görünür.</p>
+              <div class="bsm-nutrition-pdf-wrap">
+                <div class="bsm-nutrition-pdf-pages" id="bsmNutritionPdfPages">
+                  <!-- 4 sayfa article renderNutritionPdfPreview() ile doldurulur -->
+                </div>
+                <aside class="bsm-nutrition-pdf-thumbs" id="bsmNutritionPdfThumbs" aria-label="PDF sayfa kucuk goruntuleri">
+                  <button type="button" class="bsm-nutrition-pdf-thumb is-active" data-pdf-thumb="1" aria-label="Sayfa 1: Genel Ozet">
+                    <div class="bsm-nutrition-pdf-thumb__mini" data-bsm-nutrition-thumb="1"></div>
+                    <span>1</span>
+                  </button>
+                  <button type="button" class="bsm-nutrition-pdf-thumb" data-pdf-thumb="2" aria-label="Sayfa 2: Ogun Plani">
+                    <div class="bsm-nutrition-pdf-thumb__mini" data-bsm-nutrition-thumb="2"></div>
+                    <span>2</span>
+                  </button>
+                  <button type="button" class="bsm-nutrition-pdf-thumb" data-pdf-thumb="3" aria-label="Sayfa 3: Supplement & Makro">
+                    <div class="bsm-nutrition-pdf-thumb__mini" data-bsm-nutrition-thumb="3"></div>
+                    <span>3</span>
+                  </button>
+                  <button type="button" class="bsm-nutrition-pdf-thumb" data-pdf-thumb="4" aria-label="Sayfa 4: Notlar">
+                    <div class="bsm-nutrition-pdf-thumb__mini" data-bsm-nutrition-thumb="4"></div>
+                    <span>4</span>
+                  </button>
+                </aside>
               </div>
             </div>
           </div>
@@ -1527,22 +1574,22 @@
     <script src="./data/options.js"></script>
     <script src="./data/labels.js"></script>
     <script src="./data/presets.js"></script>
-    <script src="./data/repetition-presets.js?v=1.2.4"></script>
+    <script src="./data/repetition-presets.js?v=1.2.5"></script>
     <script src="./data/exercises.js"></script>
     <script src="./helpers/core-utils.js"></script>
     <script src="./helpers/label-utils.js"></script>
-    <script src="./data-migrations.js?v=1.2.4"></script>
+    <script src="./data-migrations.js?v=1.2.5"></script>
     <script src="./services/storage-service.js"></script>
-    <script src="./services/supabase-sync-service.js?v=1.2.4"></script>
+    <script src="./services/supabase-sync-service.js?v=1.2.5"></script>
     <script src="./services/member-service.js"></script>
     <script src="./services/tanita-csv-service.js"></script>
-    <script src="./nutrition/nutritionGoals.js?v=1.2.4"></script>
-    <script src="./nutrition/supplementDatabase.js?v=1.2.4"></script>
-    <script src="./nutrition/nutritionPlanEngine.js?v=1.2.4"></script>
-    <script src="./services/pdf-download-service.js?v=1.2.4"></script>
-    <script src="./nutrition/nutritionPdfRenderer.js?v=1.2.4"></script>
-    <script src="./nutrition/nutritionEmailService.js?v=1.2.4"></script>
-    <script src="./services/nutrition-service.js?v=1.2.4"></script>
+    <script src="./nutrition/nutritionGoals.js?v=1.2.5"></script>
+    <script src="./nutrition/supplementDatabase.js?v=1.2.5"></script>
+    <script src="./nutrition/nutritionPlanEngine.js?v=1.2.5"></script>
+    <script src="./services/pdf-download-service.js?v=1.2.5"></script>
+    <script src="./nutrition/nutritionPdfRenderer.js?v=1.2.5"></script>
+    <script src="./nutrition/nutritionEmailService.js?v=1.2.5"></script>
+    <script src="./services/nutrition-service.js?v=1.2.5"></script>
     <script src="./services/exercise-media-service.js"></script>
     <script src="./services/dashboard-service.js"></script>
     <script src="./services/validation-service.js"></script>
@@ -1556,17 +1603,17 @@
     <script src="./services/session-exercise-service.js"></script>
     <script src="./services/session-assembly-service.js"></script>
     <script src="./services/session-support-service.js"></script>
-    <script src="./ui/dashboard-ui.js?v=1.2.4"></script>
+    <script src="./ui/dashboard-ui.js?v=1.2.5"></script>
     <script src="./ui/alerts-ui.js"></script>
-    <script src="./ui/member-ui.js?v=1.2.4"></script>
+    <script src="./ui/member-ui.js?v=1.2.5"></script>
     <script src="./ui/library-ui.js"></script>
     <script src="./ui/output-ui.js"></script>
-    <script src="./ui/nutrition-ui.js?v=1.2.4"></script>
+    <script src="./ui/nutrition-ui.js?v=1.2.5"></script>
     <script src="./handlers/form-handlers.js"></script>
-    <script src="./handlers/navigation-handlers.js?v=1.2.4"></script>
+    <script src="./handlers/navigation-handlers.js?v=1.2.5"></script>
     <script src="./handlers/member-handlers.js"></script>
     <script src="./handlers/output-handlers.js"></script>
-    <script src="./handlers/nutrition-handlers.js?v=1.2.4"></script>
+    <script src="./handlers/nutrition-handlers.js?v=1.2.5"></script>
     <script src="./analysis-engine.js"></script>
     <script src="./program-engine-v2.js"></script>
     <script src="./automation-engine.js"></script>
@@ -1593,14 +1640,14 @@
 
     <!-- ── Feature modules (app.js'den önce) ────────────────── -->
     <script src="./features/measurement-report.js"></script>
-    <script src="./features/builder-wizard.js?v=1.2.4"></script>
+    <script src="./features/builder-wizard.js?v=1.2.5"></script>
     <script src="./features/body-analysis.js"></script>
 
     <!-- ── Ana uygulama ─────────────────────────────────────── -->
-    <script src="./app.js?v=1.2.4"></script>
+    <script src="./app.js?v=1.2.5"></script>
 
     <!-- ── Auth (app.js'den sonra — session kontrolü için) ──── -->
-    <script src="./auth/auth.js?v=1.2.4"></script>
+    <script src="./auth/auth.js?v=1.2.5"></script>
     <script src="./auth/rbac.js"></script>
     <script>
       if (window.BSMAuth) {
