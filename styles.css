@@ -18503,3 +18503,520 @@ body.bsm-photo-modal-open { overflow: hidden; }
   .bsm-report-hero__avatar { width: 48px; height: 48px; font-size: 0.92rem; }
   .bsm-report-hero__name { font-size: 1rem; }
 }
+
+/* ═════════════════════════════════════════════════════════════════════
+   v1.2.3 — RAPOR & PDF PREVIEW BUILDER
+   4 sayfa multi-page preview, gercek member/measurement verisi ile beslenir.
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* Pages container: tum sayfalar absolute stacked, sadece is-active gorunur */
+.bsm-report-pages {
+  position: relative;
+  display: grid;
+}
+
+.bsm-report-pages > .bsm-report-page {
+  grid-area: 1 / 1;
+  /* Default: gizli; is-active gorunur (sayfalar arasinda smooth gecis) */
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.bsm-report-pages > .bsm-report-page.is-active {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* hidden attribute (toggle ile gizlenen sayfalar) ekstra koruma */
+.bsm-report-pages > .bsm-report-page[hidden] {
+  display: none !important;
+}
+
+/* Sayfa 4 ekstra spacing (3 alt blok var) */
+.bsm-report-page[data-report-page="4"] {
+  gap: 14px;
+}
+
+/* Empty state — sayfa icindeki bolumler bos oldugunda */
+.bsm-report-empty {
+  background: #fafbfd;
+  border: 1px dashed rgba(17, 24, 39, 0.18);
+  border-radius: 10px;
+  padding: 18px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--bsm-text-on-light-soft);
+  font-weight: 500;
+}
+
+/* ── Sayfa 1: 8 metric grid (4×2) ───────────────────────────────── */
+.bsm-report-page[data-report-page="1"] .bsm-report-page__metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  .bsm-report-page[data-report-page="1"] .bsm-report-page__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Sayfa 2: Segmental Layout ───────────────────────────────────── */
+.bsm-report-segmental__layout {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.bsm-report-segmental__silhouette {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bsm-report-segmental__silhouette svg {
+  width: 100%;
+  max-width: 90px;
+  height: auto;
+}
+
+.bsm-report-segmental__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.bsm-report-segmental__card {
+  background: #fafbfd;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bsm-report-segmental__card > strong {
+  font-size: 0.78rem;
+  color: var(--bsm-text-on-light);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.bsm-report-segmental__card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.78rem;
+}
+
+.bsm-report-segmental__card-row small {
+  color: var(--bsm-text-on-light-soft);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.bsm-report-segmental__card-row span {
+  color: var(--bsm-text-on-light);
+  font-weight: 700;
+}
+
+.bsm-report-segmental-resistance {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .bsm-report-segmental__layout { grid-template-columns: minmax(0, 1fr); }
+  .bsm-report-segmental__silhouette { display: none; }
+  .bsm-report-segmental-resistance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── Sayfa 3: 4 chart grid + history tablo ───────────────────────── */
+.bsm-report-page[data-report-page="3"] .bsm-report-page__charts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.bsm-report-page__chart--purple { color: #7c3aed; }
+
+.bsm-report-history-table-wrap {
+  overflow-x: auto;
+}
+
+.bsm-report-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.bsm-report-history-table th,
+.bsm-report-history-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.06);
+}
+
+.bsm-report-history-table th {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft);
+  background: #fafbfd;
+}
+
+.bsm-report-history-table td {
+  font-weight: 600;
+  color: var(--bsm-text-on-light);
+}
+
+.bsm-report-history-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Sayfa 4: Coaching / Program / Nutrition ─────────────────────── */
+.bsm-report-coaching__grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 10px;
+}
+
+.bsm-report-coaching__score {
+  background: linear-gradient(135deg, var(--bsm-orange) 0%, var(--bsm-track-red, #e25022) 100%);
+  color: #fff;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bsm-report-coaching__score small {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.bsm-report-coaching__score strong {
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.bsm-report-coaching__score strong span {
+  font-size: 0.92rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.bsm-report-coaching__metric {
+  background: #fafbfd;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bsm-report-coaching__metric small {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft);
+}
+
+.bsm-report-coaching__metric strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--bsm-text-on-light);
+}
+
+.bsm-report-coaching__metric--low strong { color: #15803d; }
+.bsm-report-coaching__metric--medium strong { color: #b45309; }
+.bsm-report-coaching__metric--high strong { color: #b91c1c; }
+
+.bsm-report-coaching__next {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: var(--bsm-orange-soft);
+  border: 1px solid rgba(242, 108, 31, 0.18);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bsm-report-coaching__next small {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bsm-orange);
+}
+
+.bsm-report-coaching__next p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--bsm-text-on-light);
+  line-height: 1.5;
+}
+
+.bsm-report-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bsm-report-note-row {
+  background: #fafbfd;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.bsm-report-note-row > strong {
+  font-size: 0.88rem;
+  color: var(--bsm-text-on-light);
+  font-weight: 700;
+}
+
+.bsm-report-note-row > span {
+  font-size: 0.78rem;
+  color: var(--bsm-text-on-light-soft);
+  font-weight: 600;
+}
+
+.bsm-report-note-row--text {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.bsm-report-note-row--text small {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft);
+}
+
+.bsm-report-note-row--text p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--bsm-text-on-light);
+  line-height: 1.5;
+}
+
+.bsm-report-nutrition-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bsm-report-nutrition-grid > div {
+  background: #fafbfd;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bsm-report-nutrition-grid small {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft);
+}
+
+.bsm-report-nutrition-grid strong {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--bsm-text-on-light);
+}
+
+.bsm-report-nutrition-note {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: var(--bsm-text-on-light-soft);
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .bsm-report-coaching__grid { grid-template-columns: 1fr 1fr; }
+  .bsm-report-coaching__score { grid-column: 1 / -1; }
+  .bsm-report-nutrition-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── Thumbnail mini icerikleri ───────────────────────────────────── */
+.bsm-report-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  padding: 6px 6px 4px;
+}
+
+/* Eski boş ::before grid pattern'i kaldir (mini icerik kullaniyoruz) */
+.bsm-report-thumb::before { display: none; }
+
+.bsm-report-thumb__mini {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.bsm-report-thumb > span {
+  position: relative;
+  z-index: 1;
+  align-self: flex-end;
+}
+
+/* Thumb 1: 6 mini cell grid */
+.bsm-report-thumb--composition .bsm-report-thumb__mini {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 3px;
+  width: 100%;
+  padding: 4px;
+}
+
+.bsm-report-thumb__cell {
+  background: rgba(17, 24, 39, 0.05);
+  border-radius: 3px;
+  font-size: 0.6rem;
+  color: var(--bsm-text-on-light-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.bsm-report-thumb.is-active .bsm-report-thumb__cell {
+  background: rgba(242, 108, 31, 0.18);
+  color: var(--bsm-orange);
+}
+
+/* Thumb 2: silhouette + 5 dot */
+.bsm-report-thumb__silhouette {
+  width: 18px;
+  height: 36px;
+  background:
+    radial-gradient(circle at 50% 12%, rgba(17,24,39,0.18) 0 4px, transparent 5px),
+    linear-gradient(180deg, transparent 0%, rgba(17,24,39,0.12) 18%, rgba(17,24,39,0.12) 100%);
+  border-radius: 50% 50% 30% 30%;
+  margin-right: 6px;
+}
+
+.bsm-report-thumb__dots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 3px;
+}
+
+.bsm-report-thumb__dot {
+  width: 6px;
+  height: 6px;
+  background: rgba(17, 24, 39, 0.18);
+  border-radius: 50%;
+}
+
+.bsm-report-thumb__dot.is-on {
+  background: var(--bsm-orange);
+}
+
+/* Thumb 3: mini sparkline */
+.bsm-report-thumb--trend .bsm-report-thumb__mini {
+  color: var(--bsm-orange);
+}
+
+.bsm-report-thumb--trend svg {
+  width: 100%;
+  height: 28px;
+}
+
+/* Thumb 4: 3 cizgi */
+.bsm-report-thumb__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+
+.bsm-report-thumb__lines span {
+  height: 4px;
+  background: rgba(17, 24, 39, 0.12);
+  border-radius: 2px;
+}
+
+.bsm-report-thumb__lines span:nth-child(2) { width: 80%; }
+.bsm-report-thumb__lines span:nth-child(3) { width: 60%; }
+
+.bsm-report-thumb.is-active .bsm-report-thumb__lines span {
+  background: rgba(242, 108, 31, 0.4);
+}
+
+.bsm-report-thumb__empty {
+  font-size: 1rem;
+  color: rgba(17, 24, 39, 0.2);
+}
+
+/* ── PDF Export sync: kapali toggle'lar legacy report sayfalarini gizler ─ */
+#measurementReportSection.bsm-report-skip--composition .measurement-report-page--executive,
+#measurementReportSection.bsm-report-skip--composition .compact-report-section--composition {
+  display: none !important;
+}
+
+#measurementReportSection.bsm-report-skip--segmental .measurement-report-page--segmental,
+#measurementReportSection.bsm-report-skip--segmental .premium-impedance-panel,
+#measurementReportSection.bsm-report-skip--segmental .compact-segment-pair {
+  display: none !important;
+}
+
+#measurementReportSection.bsm-report-skip--trend .measurement-report-page--trend,
+#measurementReportSection.bsm-report-skip--trend .compact-trend-action-grid {
+  display: none !important;
+}
+
+#measurementReportSection.bsm-report-skip--history .compact-final-checklist {
+  display: none !important;
+}
+
+#measurementReportSection.bsm-report-skip--program-notes .ultra-next-goal,
+#measurementReportSection.bsm-report-skip--program-notes .ultra-next-goals {
+  display: none !important;
+}
+
+#measurementReportSection.bsm-report-skip--nutrition-notes .compact-report-section[data-block="nutrition"] {
+  display: none !important;
+}
+
+/* PDF/print yazdirma: ayni skip-class kurallarini print modunda da uygula */
+@media print {
+  #measurementReportSection.bsm-report-skip--composition .measurement-report-page--executive,
+  #measurementReportSection.bsm-report-skip--segmental .measurement-report-page--segmental,
+  #measurementReportSection.bsm-report-skip--trend .measurement-report-page--trend {
+    display: none !important;
+  }
+}

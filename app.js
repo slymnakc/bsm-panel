@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.2.2";
+const BSM_BUILD_VERSION = "1.2.3";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -196,6 +196,17 @@ const state = {
   supabaseRealtimeActive: false,
   supabaseRealtimeSubscription: null,
   supabaseRealtimeTimer: null,
+  // v1.2.3: Rapor & PDF onizleme toggle state. PDF export ile preview ayni
+  // bolumleri tasimasi icin renderReportCenter -> applyReportPreviewVisibility
+  // bunu doldurur. Default all-on.
+  selectedReportSections: {
+    composition: true,
+    segmental: true,
+    trend: true,
+    history: true,
+    "program-notes": true,
+    "nutrition-notes": true,
+  },
 };
 
 const {
@@ -1386,7 +1397,13 @@ function prepareMeasurementTabbedWorkspace(workspace) {
 
   details.forEach((detail) => appendIfFound(panes.segmental, detail));
   appendIfFound(panes.ai, v3Card);
-  appendIfFound(panes.report, bodyAnalysisReport);
+  // v1.2.3: Legacy bodyAnalysisReport (Otomatik Analiz / Genel Vücut Değerlendirmesi)
+  // artık Rapor & PDF sekmesine taşınmıyor. Premium Report Center kendi 4-sayfa
+  // önizleme builder'ı ile gerçek veriyi gösteriyor. Eski blok DOM'da kalır
+  // ama screen-reader-only legacy slotta yaşar (PDF render handler hala kullanır).
+  if (bodyAnalysisReport && bodyAnalysisReport.parentElement) {
+    bodyAnalysisReport.classList.add("bsm-report-legacy");
+  }
 
   if (panes.segmental) {
     panes.segmental.insertAdjacentHTML(
@@ -1633,54 +1650,152 @@ function prepareMeasurementTabbedWorkspace(workspace) {
               </header>
 
               <div class="bsm-report-preview__body">
-                <article class="bsm-report-page" id="bsmReportPage" aria-label="PDF sayfa onizlemesi">
-                  <header class="bsm-report-page__head">
-                    <div>
-                      <span class="bsm-report-page__brand">Bahçeşehir Spor Merkezi</span>
-                      <h2>VÜCUT ANALİZ RAPORU</h2>
-                      <p id="bsmReportPageMember">Üye seçilmedi</p>
-                    </div>
-                    <div class="bsm-report-page__date" id="bsmReportPageDate">—</div>
-                  </header>
-                  <div class="bsm-report-page__section">
-                    <span class="bsm-report-page__section-title">Vücut Kompozisyonu</span>
-                    <div class="bsm-report-page__metrics" id="bsmReportPreviewMetrics">
-                      <div class="bsm-report-page__metric"><small>Kilo</small><strong>—</strong></div>
-                      <div class="bsm-report-page__metric"><small>Yağ Oranı</small><strong>—</strong></div>
-                      <div class="bsm-report-page__metric"><small>Kas Kütlesi</small><strong>—</strong></div>
-                      <div class="bsm-report-page__metric"><small>BMI</small><strong>—</strong></div>
-                      <div class="bsm-report-page__metric"><small>Visceral Yağ</small><strong>—</strong></div>
-                      <div class="bsm-report-page__metric"><small>BMR</small><strong>—</strong></div>
-                    </div>
-                  </div>
-                  <div class="bsm-report-page__section">
-                    <span class="bsm-report-page__section-title">Trend Grafikleri</span>
-                    <div class="bsm-report-page__charts" id="bsmReportPreviewCharts" aria-hidden="true">
-                      <div class="bsm-report-page__chart bsm-report-page__chart--blue">
-                        <span>Kilo (kg)</span>
-                        <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="2,22 18,18 34,20 50,16 66,14 82,12 98,10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+                <div class="bsm-report-pages" id="bsmReportPages">
+                  <!-- v1.2.3: 4 ayri sayfa, gercek veri ile renderReportCenter() besler -->
+
+                  <!-- SAYFA 1: VUCUT KOMPOZISYONU -->
+                  <article class="bsm-report-page is-active" data-report-page="1" data-report-page-section="composition" aria-label="Sayfa 1: Vucut Kompozisyonu">
+                    <header class="bsm-report-page__head">
+                      <div>
+                        <span class="bsm-report-page__brand">Bahçeşehir Spor Merkezi</span>
+                        <h2>VÜCUT ANALİZ RAPORU</h2>
+                        <p data-bsm-report-bind="member-name">Üye seçilmedi</p>
                       </div>
-                      <div class="bsm-report-page__chart bsm-report-page__chart--orange">
-                        <span>Yağ Oranı (%)</span>
-                        <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="2,12 18,14 34,18 50,16 66,20 82,22 98,24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
-                      </div>
-                      <div class="bsm-report-page__chart bsm-report-page__chart--green">
-                        <span>Kas Kütlesi (kg)</span>
-                        <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="2,20 18,18 34,16 50,14 66,12 82,10 98,8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+                      <div class="bsm-report-page__date" data-bsm-report-bind="measurement-date">—</div>
+                    </header>
+                    <div class="bsm-report-page__section" data-page-block="composition-metrics">
+                      <span class="bsm-report-page__section-title">Vücut Kompozisyonu</span>
+                      <div class="bsm-report-page__metrics" data-bsm-report-bind="composition-metrics">
+                        <div class="bsm-report-page__metric"><small>Kilo</small><strong>—</strong></div>
+                        <div class="bsm-report-page__metric"><small>Yağ Oranı</small><strong>—</strong></div>
+                        <div class="bsm-report-page__metric"><small>Kas Kütlesi</small><strong>—</strong></div>
+                        <div class="bsm-report-page__metric"><small>BMI</small><strong>—</strong></div>
+                        <div class="bsm-report-page__metric"><small>Visceral Yağ</small><strong>—</strong></div>
+                        <div class="bsm-report-page__metric"><small>BMR</small><strong>—</strong></div>
+                        <div class="bsm-report-page__metric"><small>Su Oranı</small><strong>—</strong></div>
+                        <div class="bsm-report-page__metric"><small>Metabolizma Yaşı</small><strong>—</strong></div>
                       </div>
                     </div>
-                  </div>
-                  <footer class="bsm-report-page__footer">
-                    <span>Bahçeşehir Spor Merkezi — Profesyonel Üye Performans Raporu</span>
-                    <span class="bsm-report-page__footer-page">Sayfa 1 / 4</span>
-                  </footer>
-                </article>
+                    <div class="bsm-report-page__section" data-page-block="composition-trend">
+                      <span class="bsm-report-page__section-title">Trend Grafikleri</span>
+                      <div class="bsm-report-page__charts" data-bsm-report-bind="composition-trend">
+                        <!-- Doldurulan trend mini grafikler -->
+                      </div>
+                    </div>
+                    <footer class="bsm-report-page__footer">
+                      <span>Bahçeşehir Spor Merkezi — Profesyonel Üye Performans Raporu</span>
+                      <span class="bsm-report-page__footer-page" data-bsm-report-bind="footer-page">Sayfa 1</span>
+                    </footer>
+                  </article>
+
+                  <!-- SAYFA 2: SEGMENTAL ANALIZ -->
+                  <article class="bsm-report-page" data-report-page="2" data-report-page-section="segmental" hidden aria-label="Sayfa 2: Segmental Analiz">
+                    <header class="bsm-report-page__head">
+                      <div>
+                        <span class="bsm-report-page__brand">Bahçeşehir Spor Merkezi</span>
+                        <h2>SEGMENTAL ANALİZ</h2>
+                        <p data-bsm-report-bind="member-name">Üye seçilmedi</p>
+                      </div>
+                      <div class="bsm-report-page__date" data-bsm-report-bind="measurement-date">—</div>
+                    </header>
+                    <div class="bsm-report-page__section" data-page-block="segmental-body">
+                      <span class="bsm-report-page__section-title">Kas ve Yağ Dağılımı</span>
+                      <div class="bsm-report-segmental" data-bsm-report-bind="segmental-body">
+                        <!-- Silhouette + 5 segment kart -->
+                      </div>
+                    </div>
+                    <div class="bsm-report-page__section" data-page-block="segmental-resistance">
+                      <span class="bsm-report-page__section-title">Direnç Değerleri (ohm)</span>
+                      <div class="bsm-report-segmental-resistance" data-bsm-report-bind="segmental-resistance">
+                        <!-- 5 resistance metrik -->
+                      </div>
+                    </div>
+                    <footer class="bsm-report-page__footer">
+                      <span>Bahçeşehir Spor Merkezi — Segmental Analiz</span>
+                      <span class="bsm-report-page__footer-page" data-bsm-report-bind="footer-page">Sayfa 2</span>
+                    </footer>
+                  </article>
+
+                  <!-- SAYFA 3: TREND & GECMIS -->
+                  <article class="bsm-report-page" data-report-page="3" data-report-page-section="trend" hidden aria-label="Sayfa 3: Trend & Geçmiş">
+                    <header class="bsm-report-page__head">
+                      <div>
+                        <span class="bsm-report-page__brand">Bahçeşehir Spor Merkezi</span>
+                        <h2>TREND &amp; GEÇMİŞ</h2>
+                        <p data-bsm-report-bind="member-name">Üye seçilmedi</p>
+                      </div>
+                      <div class="bsm-report-page__date" data-bsm-report-bind="measurement-date">—</div>
+                    </header>
+                    <div class="bsm-report-page__section" data-page-block="trend-charts">
+                      <span class="bsm-report-page__section-title">Trend Grafikleri</span>
+                      <div class="bsm-report-page__charts" data-bsm-report-bind="trend-charts">
+                        <!-- 4 trend chart: kilo / yag / kas / bel -->
+                      </div>
+                    </div>
+                    <div class="bsm-report-page__section" data-page-block="trend-history">
+                      <span class="bsm-report-page__section-title">Son Ölçümler</span>
+                      <div class="bsm-report-history-table-wrap" data-bsm-report-bind="trend-history">
+                        <!-- Son 5 olcum tablosu -->
+                      </div>
+                    </div>
+                    <footer class="bsm-report-page__footer">
+                      <span>Bahçeşehir Spor Merkezi — Trend & Geçmiş</span>
+                      <span class="bsm-report-page__footer-page" data-bsm-report-bind="footer-page">Sayfa 3</span>
+                    </footer>
+                  </article>
+
+                  <!-- SAYFA 4: KOCLUK / PROGRAM / NOTLAR -->
+                  <article class="bsm-report-page" data-report-page="4" data-report-page-section="coaching" hidden aria-label="Sayfa 4: Koçluk ve Notlar">
+                    <header class="bsm-report-page__head">
+                      <div>
+                        <span class="bsm-report-page__brand">Bahçeşehir Spor Merkezi</span>
+                        <h2>KOÇLUK &amp; NOTLAR</h2>
+                        <p data-bsm-report-bind="member-name">Üye seçilmedi</p>
+                      </div>
+                      <div class="bsm-report-page__date" data-bsm-report-bind="measurement-date">—</div>
+                    </header>
+                    <div class="bsm-report-page__section" data-page-block="coaching-summary">
+                      <span class="bsm-report-page__section-title">V3 Koçluk Özeti</span>
+                      <div class="bsm-report-coaching" data-bsm-report-bind="coaching-summary">
+                        <!-- v3 skor, risk, veri kalitesi, oneri -->
+                      </div>
+                    </div>
+                    <div class="bsm-report-page__section" data-page-block="program-notes">
+                      <span class="bsm-report-page__section-title">Program Durumu &amp; Notlar</span>
+                      <div class="bsm-report-notes" data-bsm-report-bind="program-notes">
+                        <!-- Program varsa adi/tarihi, antrenor notu -->
+                      </div>
+                    </div>
+                    <div class="bsm-report-page__section" data-page-block="nutrition-notes">
+                      <span class="bsm-report-page__section-title">Beslenme Notu</span>
+                      <div class="bsm-report-notes" data-bsm-report-bind="nutrition-notes">
+                        <!-- Nutrition plan varsa kalori/macros + not -->
+                      </div>
+                    </div>
+                    <footer class="bsm-report-page__footer">
+                      <span>Bahçeşehir Spor Merkezi — Koçluk Özeti</span>
+                      <span class="bsm-report-page__footer-page" data-bsm-report-bind="footer-page">Sayfa 4</span>
+                    </footer>
+                  </article>
+                </div>
 
                 <aside class="bsm-report-thumbs" id="bsmReportThumbs" aria-label="Sayfa kucuk goruntuleri">
-                  <button type="button" class="bsm-report-thumb is-active" data-report-thumb="1" aria-label="Sayfa 1"><span>1</span></button>
-                  <button type="button" class="bsm-report-thumb" data-report-thumb="2" aria-label="Sayfa 2"><span>2</span></button>
-                  <button type="button" class="bsm-report-thumb" data-report-thumb="3" aria-label="Sayfa 3"><span>3</span></button>
-                  <button type="button" class="bsm-report-thumb" data-report-thumb="4" aria-label="Sayfa 4"><span>4</span></button>
+                  <button type="button" class="bsm-report-thumb bsm-report-thumb--composition is-active" data-report-thumb="1" aria-label="Sayfa 1: Vucut Kompozisyonu">
+                    <div class="bsm-report-thumb__mini" data-bsm-report-bind="thumb-1"></div>
+                    <span>1</span>
+                  </button>
+                  <button type="button" class="bsm-report-thumb bsm-report-thumb--segmental" data-report-thumb="2" aria-label="Sayfa 2: Segmental Analiz">
+                    <div class="bsm-report-thumb__mini" data-bsm-report-bind="thumb-2"></div>
+                    <span>2</span>
+                  </button>
+                  <button type="button" class="bsm-report-thumb bsm-report-thumb--trend" data-report-thumb="3" aria-label="Sayfa 3: Trend">
+                    <div class="bsm-report-thumb__mini" data-bsm-report-bind="thumb-3"></div>
+                    <span>3</span>
+                  </button>
+                  <button type="button" class="bsm-report-thumb bsm-report-thumb--coaching" data-report-thumb="4" aria-label="Sayfa 4: Koçluk">
+                    <div class="bsm-report-thumb__mini" data-bsm-report-bind="thumb-4"></div>
+                    <span>4</span>
+                  </button>
                 </aside>
               </div>
             </section>
@@ -6497,10 +6612,34 @@ function loadLatestProgramForOutput() {
 // v1.1.8: Premium Report Center renderer.
 // Aktif uye + son olcum bilgisini hero + preview alanlarina yansitir.
 // JS minimal — sadece textContent ve class toggle, mevcut handler'lara dokunmaz.
+// v1.2.3: Rapor & PDF preview merkezi — 4 sayfa gercek veri renderer.
+// Veri kaynagi onceligi: getActiveMeasurementSnapshot -> member.measurements[0] -> null.
+// Toggle state'i applyReportPreviewVisibility() ile preview'a yansir.
+const BSM_REPORT_SECTION_TO_PAGE = {
+  composition: "1",
+  segmental: "2",
+  trend: "3",
+  history: "3",
+  "program-notes": "4",
+  "nutrition-notes": "4",
+};
+// Page 4 her zaman coaching summary'i tasidigi icin gizlenmez; sadece sub-blocklari kapanir.
+const BSM_REPORT_PAGE_REQUIRES = {
+  "1": ["composition"],
+  "2": ["segmental"],
+  "3": ["trend", "history"],
+  "4": [], // Her zaman gorunur (V3/coaching)
+};
+
 function renderReportCenter() {
   const member = findActiveMember();
   const profile = member?.profile || {};
-  const latestMeasurement = member?.measurements?.[0] || null;
+  const activeMeasurement = (typeof getActiveMeasurementSnapshot === "function")
+    ? getActiveMeasurementSnapshot(member)
+    : (member?.measurements?.[0] || null);
+  const allMeasurements = Array.isArray(member?.measurements) ? [...member.measurements] : [];
+  // measurements sorted by normalizeMember (desc by date). Get last 5 for preview.
+  const recentMeasurements = allMeasurements.slice(0, 5);
 
   // ── Hero: avatar + isim + hedef ────────────────────────────────
   const initialsEl = document.querySelector("#bsmReportAvatarInitials");
@@ -6550,40 +6689,507 @@ function renderReportCenter() {
   // ── Meta: son olcum tarihi ────────────────────────────────────
   const lastMeasurementEl = document.querySelector("#bsmReportLastMeasurement");
   if (lastMeasurementEl) {
-    lastMeasurementEl.textContent = latestMeasurement?.date || "Ölçüm yok";
+    lastMeasurementEl.textContent = activeMeasurement?.date || "Ölçüm yok";
   }
 
-  // ── Preview page: member name + date + metric values ──────────
-  const pageMemberEl = document.querySelector("#bsmReportPageMember");
-  if (pageMemberEl) {
-    pageMemberEl.textContent = profile.memberName || "Üye seçilmedi";
-  }
+  // ── Tum sayfalarin ortak head'i: uye adi + tarih ────────────────
+  document.querySelectorAll('[data-bsm-report-bind="member-name"]').forEach((el) => {
+    el.textContent = profile.memberName || "Üye seçilmedi";
+  });
+  document.querySelectorAll('[data-bsm-report-bind="measurement-date"]').forEach((el) => {
+    el.textContent = activeMeasurement?.date || "—";
+  });
 
-  const pageDateEl = document.querySelector("#bsmReportPageDate");
-  if (pageDateEl) {
-    pageDateEl.textContent = latestMeasurement?.date || "—";
-  }
+  // ── SAYFA 1: Vucut Kompozisyonu ────────────────────────────────
+  renderReportPage1Composition(activeMeasurement, recentMeasurements);
 
-  // Preview metrics doldur
-  const metricsHost = document.querySelector("#bsmReportPreviewMetrics");
-  if (metricsHost && latestMeasurement) {
-    const fmt = (v, unit) => {
-      if (v === null || v === undefined || v === "") return "—";
-      const n = Number(v);
-      return Number.isFinite(n) ? `${n}${unit ? " " + unit : ""}` : String(v);
-    };
-    metricsHost.innerHTML = `
-      <div class="bsm-report-page__metric"><small>Kilo</small><strong>${escapeHtml(fmt(latestMeasurement.weight, "kg"))}</strong></div>
-      <div class="bsm-report-page__metric"><small>Yağ Oranı</small><strong>${escapeHtml(fmt(latestMeasurement.fat, "%"))}</strong></div>
-      <div class="bsm-report-page__metric"><small>Kas Kütlesi</small><strong>${escapeHtml(fmt(latestMeasurement.muscleMass, "kg"))}</strong></div>
-      <div class="bsm-report-page__metric"><small>BMI</small><strong>${escapeHtml(fmt(latestMeasurement.bmi))}</strong></div>
-      <div class="bsm-report-page__metric"><small>Visceral Yağ</small><strong>${escapeHtml(fmt(latestMeasurement.visceralFat))}</strong></div>
-      <div class="bsm-report-page__metric"><small>BMR</small><strong>${escapeHtml(fmt(latestMeasurement.bmr, "kcal"))}</strong></div>
-    `;
-  }
+  // ── SAYFA 2: Segmental Analiz ──────────────────────────────────
+  renderReportPage2Segmental(activeMeasurement);
+
+  // ── SAYFA 3: Trend & Gecmis ────────────────────────────────────
+  renderReportPage3Trend(recentMeasurements);
+
+  // ── SAYFA 4: Koçluk / Program / Notlar ─────────────────────────
+  renderReportPage4Coaching(member, activeMeasurement);
+
+  // ── Thumbnails: mini icerik render ─────────────────────────────
+  renderReportThumbnails(activeMeasurement, recentMeasurements);
+
+  // ── Toggle state ve sayfa gorunurlugu ──────────────────────────
+  applyReportPreviewVisibility();
 
   // ── Toggle counter ────────────────────────────────────────────
   updateReportSectionCounter();
+}
+
+// Yardimci formatter: numeric -> "12.4 kg" / "—"
+function fmtReportMetric(v, unit) {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v);
+  const rounded = Math.abs(n) >= 100 ? Math.round(n) : Math.round(n * 10) / 10;
+  return `${rounded}${unit ? " " + unit : ""}`;
+}
+
+// Mini SVG sparkline 0-100 viewBox uretici (degerleri auto-normalize eder)
+function buildReportSparklinePoints(values) {
+  const nums = values.map((v) => Number(v)).filter((n) => Number.isFinite(n));
+  if (nums.length < 2) return null;
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  const range = max - min || 1;
+  const step = 100 / (nums.length - 1);
+  return nums
+    .map((n, i) => {
+      const x = (i * step).toFixed(1);
+      // y: invert (max -> top=4, min -> bottom=28)
+      const y = (28 - ((n - min) / range) * 24).toFixed(1);
+      return `${x},${y}`;
+    })
+    .join(" ");
+}
+
+function renderReportPage1Composition(measurement, recentMeasurements) {
+  const metricsHost = document.querySelector('[data-bsm-report-bind="composition-metrics"]');
+  const trendHost = document.querySelector('[data-bsm-report-bind="composition-trend"]');
+
+  if (metricsHost) {
+    if (!measurement) {
+      metricsHost.innerHTML = `<div class="bsm-report-empty">Henüz ölçüm yok — Tanita CSV yükleyin veya manuel ölçüm girin.</div>`;
+    } else {
+      const m = measurement;
+      const metrics = [
+        ["Kilo", fmtReportMetric(m.weight, "kg")],
+        ["Yağ Oranı", fmtReportMetric(m.fat, "%")],
+        ["Kas Kütlesi", fmtReportMetric(m.muscleMass, "kg")],
+        ["BMI", fmtReportMetric(m.bmi)],
+        ["Visceral Yağ", fmtReportMetric(m.visceralFat)],
+        ["BMR", fmtReportMetric(m.bmr, "kcal")],
+        ["Su Oranı", fmtReportMetric(m.bodyWater, "%")],
+        ["Metabolizma Yaşı", fmtReportMetric(m.metabolicAge)],
+      ];
+      metricsHost.innerHTML = metrics
+        .map(
+          ([label, value]) =>
+            `<div class="bsm-report-page__metric"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`,
+        )
+        .join("");
+    }
+  }
+
+  if (trendHost) {
+    // Son 6 olcumden kilo / yag / kas mini sparkline (sondan basa ters cevir -> kronoloji)
+    const series = recentMeasurements.slice(0, 6).reverse();
+    if (series.length < 2) {
+      trendHost.innerHTML = `<div class="bsm-report-empty">Trend için en az 2 ölçüm gerekli.</div>`;
+    } else {
+      const weightPts = buildReportSparklinePoints(series.map((s) => s.weight));
+      const fatPts = buildReportSparklinePoints(series.map((s) => s.fat));
+      const musclePts = buildReportSparklinePoints(series.map((s) => s.muscleMass));
+      const fallbackLine = "2,16 18,16 34,16 50,16 66,16 82,16 98,16";
+      trendHost.innerHTML = `
+        <div class="bsm-report-page__chart bsm-report-page__chart--blue">
+          <span>Kilo (kg)</span>
+          <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="${escapeHtml(weightPts || fallbackLine)}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+        </div>
+        <div class="bsm-report-page__chart bsm-report-page__chart--orange">
+          <span>Yağ Oranı (%)</span>
+          <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="${escapeHtml(fatPts || fallbackLine)}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+        </div>
+        <div class="bsm-report-page__chart bsm-report-page__chart--green">
+          <span>Kas Kütlesi (kg)</span>
+          <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="${escapeHtml(musclePts || fallbackLine)}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+        </div>
+      `;
+    }
+  }
+}
+
+function renderReportPage2Segmental(measurement) {
+  const bodyHost = document.querySelector('[data-bsm-report-bind="segmental-body"]');
+  const resistanceHost = document.querySelector('[data-bsm-report-bind="segmental-resistance"]');
+  const segments = measurement?.segments || {};
+  const resistance = measurement?.resistance || {};
+  const hasAnySegment = Object.values(segments).some((v) => v !== "" && v !== null && v !== undefined && Number(v) > 0);
+  const hasAnyResistance = Object.values(resistance).some((v) => v !== "" && v !== null && v !== undefined && Number(v) > 0);
+
+  if (bodyHost) {
+    if (!hasAnySegment) {
+      bodyHost.innerHTML = `<div class="bsm-report-empty">Segmental veri bulunamadı. Tanita CSV veya Segmental Analiz sekmesinden girin.</div>`;
+    } else {
+      // Silhouette (SVG insan figuru) + 5 segment kart
+      bodyHost.innerHTML = `
+        <div class="bsm-report-segmental__layout">
+          <div class="bsm-report-segmental__silhouette" aria-hidden="true">
+            <svg viewBox="0 0 100 180" preserveAspectRatio="xMidYMid meet">
+              <circle cx="50" cy="18" r="12" fill="#fafbfd" stroke="rgba(17,24,39,0.18)" stroke-width="1.2"/>
+              <rect x="38" y="33" width="24" height="50" rx="6" fill="#fafbfd" stroke="rgba(17,24,39,0.18)" stroke-width="1.2"/>
+              <rect x="22" y="36" width="12" height="42" rx="5" fill="#fafbfd" stroke="rgba(17,24,39,0.18)" stroke-width="1.2"/>
+              <rect x="66" y="36" width="12" height="42" rx="5" fill="#fafbfd" stroke="rgba(17,24,39,0.18)" stroke-width="1.2"/>
+              <rect x="38" y="85" width="11" height="62" rx="5" fill="#fafbfd" stroke="rgba(17,24,39,0.18)" stroke-width="1.2"/>
+              <rect x="51" y="85" width="11" height="62" rx="5" fill="#fafbfd" stroke="rgba(17,24,39,0.18)" stroke-width="1.2"/>
+            </svg>
+          </div>
+          <div class="bsm-report-segmental__grid">
+            ${[
+              ["Sağ Kol", segments.rightArmMuscle, segments.rightArmFat],
+              ["Sol Kol", segments.leftArmMuscle, segments.leftArmFat],
+              ["Gövde", segments.trunkMuscle, segments.trunkFat],
+              ["Sağ Bacak", segments.rightLegMuscle, segments.rightLegFat],
+              ["Sol Bacak", segments.leftLegMuscle, segments.leftLegFat],
+            ]
+              .map(
+                ([label, muscle, fat]) => `
+                  <div class="bsm-report-segmental__card">
+                    <strong>${escapeHtml(label)}</strong>
+                    <div class="bsm-report-segmental__card-row"><small>Kas</small><span>${escapeHtml(fmtReportMetric(muscle, "kg"))}</span></div>
+                    <div class="bsm-report-segmental__card-row"><small>Yağ</small><span>${escapeHtml(fmtReportMetric(fat, "kg"))}</span></div>
+                  </div>
+                `,
+              )
+              .join("")}
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  if (resistanceHost) {
+    if (!hasAnyResistance) {
+      resistanceHost.innerHTML = `<div class="bsm-report-empty">Direnç verisi yok (Tanita BC-418 segmental impedance gerekir).</div>`;
+    } else {
+      resistanceHost.innerHTML = [
+        ["Sağ Kol", resistance.rightArmResistance],
+        ["Sol Kol", resistance.leftArmResistance],
+        ["Gövde", resistance.trunkResistance],
+        ["Sağ Bacak", resistance.rightLegResistance],
+        ["Sol Bacak", resistance.leftLegResistance],
+      ]
+        .map(
+          ([label, value]) =>
+            `<div class="bsm-report-page__metric"><small>${escapeHtml(label)}</small><strong>${escapeHtml(fmtReportMetric(value, "Ω"))}</strong></div>`,
+        )
+        .join("");
+    }
+  }
+}
+
+function renderReportPage3Trend(recentMeasurements) {
+  const chartsHost = document.querySelector('[data-bsm-report-bind="trend-charts"]');
+  const historyHost = document.querySelector('[data-bsm-report-bind="trend-history"]');
+  const series = recentMeasurements.slice(0, 6).reverse(); // kronolojik
+
+  if (chartsHost) {
+    if (series.length < 2) {
+      chartsHost.innerHTML = `<div class="bsm-report-empty">Trend için en az 2 ölçüm gerekli.</div>`;
+    } else {
+      const weightPts = buildReportSparklinePoints(series.map((s) => s.weight));
+      const fatPts = buildReportSparklinePoints(series.map((s) => s.fat));
+      const musclePts = buildReportSparklinePoints(series.map((s) => s.muscleMass));
+      const waistPts = buildReportSparklinePoints(series.map((s) => s.waist));
+      const fallbackLine = "2,16 18,16 34,16 50,16 66,16 82,16 98,16";
+      chartsHost.innerHTML = `
+        <div class="bsm-report-page__chart bsm-report-page__chart--blue">
+          <span>Kilo (kg)</span>
+          <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="${escapeHtml(weightPts || fallbackLine)}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+        </div>
+        <div class="bsm-report-page__chart bsm-report-page__chart--orange">
+          <span>Yağ Oranı (%)</span>
+          <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="${escapeHtml(fatPts || fallbackLine)}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+        </div>
+        <div class="bsm-report-page__chart bsm-report-page__chart--green">
+          <span>Kas Kütlesi (kg)</span>
+          <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="${escapeHtml(musclePts || fallbackLine)}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+        </div>
+        ${
+          waistPts
+            ? `<div class="bsm-report-page__chart bsm-report-page__chart--purple">
+                <span>Bel (cm)</span>
+                <svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="${escapeHtml(waistPts)}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+              </div>`
+            : ""
+        }
+      `;
+    }
+  }
+
+  if (historyHost) {
+    if (!recentMeasurements.length) {
+      historyHost.innerHTML = `<div class="bsm-report-empty">Henüz kayıtlı ölçüm yok.</div>`;
+    } else {
+      const rows = recentMeasurements
+        .map(
+          (m) => `
+            <tr>
+              <td>${escapeHtml(m.date || "—")}</td>
+              <td>${escapeHtml(fmtReportMetric(m.weight, "kg"))}</td>
+              <td>${escapeHtml(fmtReportMetric(m.fat, "%"))}</td>
+              <td>${escapeHtml(fmtReportMetric(m.muscleMass, "kg"))}</td>
+              <td>${escapeHtml(fmtReportMetric(m.bmi))}</td>
+              <td>${escapeHtml((m.source || "manual").toUpperCase())}</td>
+            </tr>
+          `,
+        )
+        .join("");
+      historyHost.innerHTML = `
+        <table class="bsm-report-history-table">
+          <thead>
+            <tr><th>Tarih</th><th>Kilo</th><th>Yağ %</th><th>Kas</th><th>BMI</th><th>Kaynak</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+  }
+}
+
+function renderReportPage4Coaching(member, activeMeasurement) {
+  const coachingHost = document.querySelector('[data-bsm-report-bind="coaching-summary"]');
+  const programHost = document.querySelector('[data-bsm-report-bind="program-notes"]');
+  const nutritionHost = document.querySelector('[data-bsm-report-bind="nutrition-notes"]');
+
+  // V3 / koçluk özeti — measurement-report'taki ultraPro skor benzeri.
+  // state.activeMeasurementState veya member.coachingSummary varsa kullan;
+  // yoksa measurement bazli kompozit skor uret.
+  if (coachingHost) {
+    if (!member) {
+      coachingHost.innerHTML = `<div class="bsm-report-empty">Üye seçilmedi. Önce aktif üye belirleyin.</div>`;
+    } else if (!activeMeasurement) {
+      coachingHost.innerHTML = `<div class="bsm-report-empty">Koçluk notu henüz oluşturulmadı (ölçüm gerekli).</div>`;
+    } else {
+      // Veri kalitesi: doldurulmus alanlarin oranı
+      const fieldsToCheck = ["weight", "fat", "muscleMass", "bmi", "visceralFat", "bmr", "bodyWater", "metabolicAge"];
+      const filled = fieldsToCheck.filter((k) => activeMeasurement[k] !== "" && activeMeasurement[k] !== null && activeMeasurement[k] !== undefined).length;
+      const quality = Math.round((filled / fieldsToCheck.length) * 100);
+      const segs = activeMeasurement.segments || {};
+      const hasSegmental = Object.values(segs).some((v) => Number(v) > 0);
+      // Basit risk: visceral >= 10 yuksek, BMI > 27 orta-yuksek
+      const visc = Number(activeMeasurement.visceralFat || 0);
+      const bmi = Number(activeMeasurement.bmi || 0);
+      let risk = "Düşük";
+      let riskClass = "low";
+      if (visc >= 12 || bmi >= 30) { risk = "Yüksek"; riskClass = "high"; }
+      else if (visc >= 10 || bmi >= 27) { risk = "Orta"; riskClass = "medium"; }
+      // V3 skor: kompozit (kabaca: 100 - bmi-deviation - viscPenalty + segmentalBonus)
+      const bmiDev = bmi ? Math.min(20, Math.abs(bmi - 22.5)) : 5;
+      const viscPenalty = visc ? Math.min(20, Math.max(0, visc - 6)) : 5;
+      const segBonus = hasSegmental ? 5 : 0;
+      const score = Math.max(40, Math.min(100, Math.round(100 - bmiDev * 1.2 - viscPenalty + segBonus)));
+
+      const nextStep = !hasSegmental
+        ? "Tanita BC-418 ile segmental ölçüm alın."
+        : visc >= 10
+        ? "Visceral yağ azaltma odaklı 8 haftalık beslenme + kardiyo planı."
+        : bmi >= 27
+        ? "Kilo kontrolü için 4-6 haftalık güç + kardiyo kombinasyonu."
+        : "Mevcut programa devam, 4 hafta sonra kontrol ölçümü.";
+
+      coachingHost.innerHTML = `
+        <div class="bsm-report-coaching__grid">
+          <div class="bsm-report-coaching__score">
+            <small>V3 Skor</small>
+            <strong>${score}<span>/100</span></strong>
+          </div>
+          <div class="bsm-report-coaching__metric bsm-report-coaching__metric--${escapeHtml(riskClass)}">
+            <small>Risk Seviyesi</small>
+            <strong>${escapeHtml(risk)}</strong>
+          </div>
+          <div class="bsm-report-coaching__metric">
+            <small>Veri Kalitesi</small>
+            <strong>${quality}%</strong>
+          </div>
+        </div>
+        <div class="bsm-report-coaching__next">
+          <small>Önerilen Sonraki Adım</small>
+          <p>${escapeHtml(nextStep)}</p>
+        </div>
+      `;
+    }
+  }
+
+  if (programHost) {
+    const programs = Array.isArray(member?.programs) ? member.programs : [];
+    const latestProgram = programs[0];
+    const trainerNote = member?.profile?.notes || activeMeasurement?.note || "";
+    if (!latestProgram && !trainerNote) {
+      programHost.innerHTML = `<div class="bsm-report-empty">Üyenin kayıtlı programı veya antrenör notu yok.</div>`;
+    } else {
+      const programTitle = latestProgram?.program?.title || (latestProgram ? "Kayıtlı program mevcut" : "Program kaydı yok");
+      const programDate = latestProgram?.savedAt || (latestProgram?.program?.createdAt) || "";
+      programHost.innerHTML = `
+        ${
+          latestProgram
+            ? `<div class="bsm-report-note-row">
+                <strong>${escapeHtml(programTitle)}</strong>
+                <span>${escapeHtml(programDate || "Tarih yok")}</span>
+              </div>`
+            : ""
+        }
+        ${
+          trainerNote
+            ? `<div class="bsm-report-note-row bsm-report-note-row--text">
+                <small>Antrenör Notu</small>
+                <p>${escapeHtml(trainerNote)}</p>
+              </div>`
+            : ""
+        }
+      `;
+    }
+  }
+
+  if (nutritionHost) {
+    const plan = member?.nutritionPlan || member?.nutritionPlans?.[0] || null;
+    if (!plan) {
+      nutritionHost.innerHTML = `<div class="bsm-report-empty">Beslenme planı oluşturulmadı.</div>`;
+    } else {
+      const calories = plan?.targets?.calories || plan?.calories || plan?.totalCalories || "";
+      const protein = plan?.targets?.protein || plan?.protein || "";
+      const carb = plan?.targets?.carbs || plan?.carbs || "";
+      const fatVal = plan?.targets?.fat || plan?.fat || "";
+      nutritionHost.innerHTML = `
+        <div class="bsm-report-nutrition-grid">
+          <div><small>Kalori</small><strong>${escapeHtml(fmtReportMetric(calories, "kcal"))}</strong></div>
+          <div><small>Protein</small><strong>${escapeHtml(fmtReportMetric(protein, "g"))}</strong></div>
+          <div><small>Karbonhidrat</small><strong>${escapeHtml(fmtReportMetric(carb, "g"))}</strong></div>
+          <div><small>Yağ</small><strong>${escapeHtml(fmtReportMetric(fatVal, "g"))}</strong></div>
+        </div>
+        ${plan?.notes ? `<p class="bsm-report-nutrition-note">${escapeHtml(plan.notes)}</p>` : ""}
+      `;
+    }
+  }
+}
+
+function renderReportThumbnails(measurement, recentMeasurements) {
+  // Sayfa 1 thumb: 6 mini bar (kompozisyon kartlarini temsil)
+  const t1 = document.querySelector('[data-bsm-report-bind="thumb-1"]');
+  if (t1) {
+    if (!measurement) {
+      t1.innerHTML = `<div class="bsm-report-thumb__empty">–</div>`;
+    } else {
+      const items = [measurement.weight, measurement.fat, measurement.muscleMass, measurement.bmi, measurement.visceralFat, measurement.bmr];
+      t1.innerHTML = items
+        .map(
+          (v) =>
+            `<span class="bsm-report-thumb__cell">${v !== "" && v !== null && v !== undefined ? "•" : ""}</span>`,
+        )
+        .join("");
+    }
+  }
+  // Sayfa 2 thumb: mini silhouette + 5 nokta
+  const t2 = document.querySelector('[data-bsm-report-bind="thumb-2"]');
+  if (t2) {
+    const segs = measurement?.segments || {};
+    const dots = ["rightArmMuscle", "leftArmMuscle", "trunkMuscle", "rightLegMuscle", "leftLegMuscle"]
+      .map((k) => `<span class="bsm-report-thumb__dot${Number(segs[k]) > 0 ? " is-on" : ""}"></span>`)
+      .join("");
+    t2.innerHTML = `<div class="bsm-report-thumb__silhouette"></div><div class="bsm-report-thumb__dots">${dots}</div>`;
+  }
+  // Sayfa 3 thumb: mini sparkline
+  const t3 = document.querySelector('[data-bsm-report-bind="thumb-3"]');
+  if (t3) {
+    const pts = buildReportSparklinePoints(recentMeasurements.slice(0, 6).reverse().map((m) => m.weight)) || "0,16 100,16";
+    t3.innerHTML = `<svg viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="${escapeHtml(pts)}" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>`;
+  }
+  // Sayfa 4 thumb: 3 mini cizgi (notlar)
+  const t4 = document.querySelector('[data-bsm-report-bind="thumb-4"]');
+  if (t4) {
+    t4.innerHTML = `<div class="bsm-report-thumb__lines"><span></span><span></span><span></span></div>`;
+  }
+}
+
+// Toggle state'i preview'a yansit:
+// - composition toggle -> page 1 visible
+// - segmental toggle -> page 2 visible (+ segmental block hidden if off)
+// - trend toggle -> page 3 trend-charts block visible
+// - history toggle -> page 3 trend-history table block visible
+// - program-notes toggle -> page 4 program block visible
+// - nutrition-notes toggle -> page 4 nutrition block visible
+// Sayfa gorunurlugu: BSM_REPORT_PAGE_REQUIRES'a gore (any of mapped toggles on)
+function applyReportPreviewVisibility() {
+  const toggles = {};
+  document.querySelectorAll("[data-report-toggle]").forEach((t) => {
+    toggles[t.dataset.reportToggle] = !!t.checked;
+  });
+
+  // Page-level visibility
+  const pages = document.querySelectorAll("[data-report-page]");
+  let visiblePages = [];
+  pages.forEach((page) => {
+    const pageId = page.dataset.reportPage;
+    const requires = BSM_REPORT_PAGE_REQUIRES[pageId] || [];
+    const shouldShow = requires.length === 0 || requires.some((sec) => toggles[sec] !== false);
+    page.hidden = !shouldShow;
+    page.classList.toggle("is-hidden-by-toggle", !shouldShow);
+    if (shouldShow) visiblePages.push(page);
+  });
+
+  // Block-level visibility
+  const blockMap = {
+    "composition-trend": toggles["trend"] !== false || toggles["composition"] !== false, // both off -> hide
+    "composition-metrics": toggles["composition"] !== false,
+    "segmental-body": toggles["segmental"] !== false,
+    "segmental-resistance": toggles["segmental"] !== false,
+    "trend-charts": toggles["trend"] !== false,
+    "trend-history": toggles["history"] !== false,
+    "program-notes": toggles["program-notes"] !== false,
+    "nutrition-notes": toggles["nutrition-notes"] !== false,
+  };
+  Object.entries(blockMap).forEach(([blockId, shouldShow]) => {
+    document.querySelectorAll(`[data-page-block="${blockId}"]`).forEach((el) => {
+      el.style.display = shouldShow ? "" : "none";
+    });
+  });
+
+  // Aktif sayfa hala gorunuyor mu? Degilse ilk gorunur sayfaya gec
+  let activeThumb = document.querySelector("[data-report-thumb].is-active");
+  let activeNum = activeThumb?.dataset.reportThumb || "1";
+  let activePage = document.querySelector(`[data-report-page="${activeNum}"]`);
+  if (!activePage || activePage.hidden) {
+    activePage = visiblePages[0] || null;
+    activeNum = activePage?.dataset.reportPage || "1";
+  }
+
+  // Sayfalari arasinda gercek "is-active" toggle (CSS sadece is-active'i gosterir)
+  pages.forEach((p) => p.classList.toggle("is-active", p.dataset.reportPage === activeNum));
+
+  // Thumbnail visibility: gizli sayfalar icin thumb da gizle
+  document.querySelectorAll("[data-report-thumb]").forEach((thumb) => {
+    const num = thumb.dataset.reportThumb;
+    const page = document.querySelector(`[data-report-page="${num}"]`);
+    thumb.style.display = page && !page.hidden ? "" : "none";
+    thumb.classList.toggle("is-active", num === activeNum);
+  });
+
+  // Pager: sayfa N / M
+  const totalEl = document.querySelector("#bsmReportTotalPages");
+  if (totalEl) totalEl.textContent = String(visiblePages.length);
+  const currentEl = document.querySelector("#bsmReportCurrentPage");
+  if (currentEl) {
+    const visibleIdx = visiblePages.findIndex((p) => p.dataset.reportPage === activeNum);
+    currentEl.textContent = String(visibleIdx >= 0 ? visibleIdx + 1 : 1);
+  }
+  // Hero badge: "X sayfa"
+  const pageCountEl = document.querySelector("#bsmReportPageCount");
+  if (pageCountEl) pageCountEl.textContent = `${visiblePages.length} sayfa`;
+  // Sayfa footer: "Sayfa N"
+  document.querySelectorAll('[data-bsm-report-bind="footer-page"]').forEach((el) => {
+    const page = el.closest("[data-report-page]");
+    if (!page) return;
+    const num = page.dataset.reportPage;
+    const visibleIdx = visiblePages.findIndex((p) => p.dataset.reportPage === num);
+    el.textContent = `Sayfa ${visibleIdx >= 0 ? visibleIdx + 1 : num} / ${visiblePages.length}`;
+  });
+
+  // PDF export pipeline sync: state.selectedReportSections doldur
+  state.selectedReportSections = { ...toggles };
+
+  // Legacy PDF report container: kapali toggle'lara gore CSS skip class'lari
+  const legacyReportRoot = document.querySelector("#measurementReportSection") || document.querySelector("#measurementReportContent");
+  if (legacyReportRoot) {
+    ["composition", "segmental", "trend", "history", "program-notes", "nutrition-notes"].forEach((sec) => {
+      legacyReportRoot.classList.toggle(`bsm-report-skip--${sec}`, toggles[sec] === false);
+    });
+  }
 }
 
 function updateReportSectionCounter() {
@@ -6602,45 +7208,52 @@ function updateReportSectionCounter() {
   counterEl.textContent = `${checked}/${toggles.length} seçili`;
 }
 
-// v1.2.0: Report Center UI etkilesimleri (toggle counter + thumbnail switch).
-// Premium Report Center artik measurement panel'in 'report' alt sekmesinin
-// icinde render ediliyor — bu yuzden handler'lar #measurementsPanel'e baglandi.
+// v1.2.3: Report Center handlers — toggle live preview update + gercek sayfa navigation.
+// Premium Report Center measurement panel'in 'report' alt sekmesinde —
+// handler'lar #measurementsPanel'e baglanir, capture phase ile event delegation.
 function bindReportCenterHandlers() {
   const panel = document.querySelector("#measurementsPanel");
   if (!panel || panel.dataset.bsmReportBound === "true") return;
   panel.dataset.bsmReportBound = "true";
 
-  // Toggle counter
+  // Toggle change -> hem counter hem preview state'i guncelle
   panel.addEventListener("change", (e) => {
     const t = e.target.closest("[data-report-toggle]");
     if (!t) return;
     updateReportSectionCounter();
+    applyReportPreviewVisibility();
   });
 
-  // Thumbnail switch (visual only — gercek sayfa rendering scope disinda)
+  // Thumbnail click: aktif sayfa degis (gercek sayfa switching)
   panel.addEventListener("click", (e) => {
     const thumb = e.target.closest("[data-report-thumb]");
     if (!thumb) return;
+    const num = thumb.dataset.reportThumb;
+    // Gizli sayfa thumbnail'i tiklanamaz (zaten display:none)
+    const targetPage = document.querySelector(`[data-report-page="${num}"]`);
+    if (!targetPage || targetPage.hidden) return;
+    // Aktiflik durumu applyReportPreviewVisibility tarafindan yonetildigi icin
+    // sadece is-active class set + applyReportPreviewVisibility cagir.
     panel.querySelectorAll("[data-report-thumb]").forEach((t) => t.classList.remove("is-active"));
     thumb.classList.add("is-active");
-    const num = thumb.dataset.reportThumb;
-    const currentEl = document.querySelector("#bsmReportCurrentPage");
-    if (currentEl) currentEl.textContent = num;
-    const footerPage = document.querySelector(".bsm-report-page__footer-page");
-    if (footerPage) footerPage.textContent = `Sayfa ${num} / 4`;
+    applyReportPreviewVisibility();
   });
 
-  // Pager buttons
+  // Pager buttons: yalnizca GORUNUR sayfalar arasinda gec
   const prev = panel.querySelector("#bsmReportPagePrev");
   const next = panel.querySelector("#bsmReportPageNext");
-  const navigate = (delta) => {
-    const thumbs = Array.from(panel.querySelectorAll("[data-report-thumb]"));
-    const activeIdx = thumbs.findIndex((t) => t.classList.contains("is-active"));
-    const newIdx = Math.max(0, Math.min(thumbs.length - 1, activeIdx + delta));
-    thumbs[newIdx]?.click();
+  const navigateVisible = (delta) => {
+    const visiblePages = Array.from(panel.querySelectorAll("[data-report-page]")).filter((p) => !p.hidden);
+    if (!visiblePages.length) return;
+    const activeIdx = visiblePages.findIndex((p) => p.classList.contains("is-active"));
+    const safeIdx = activeIdx >= 0 ? activeIdx : 0;
+    const newIdx = Math.max(0, Math.min(visiblePages.length - 1, safeIdx + delta));
+    const targetNum = visiblePages[newIdx].dataset.reportPage;
+    const targetThumb = panel.querySelector(`[data-report-thumb="${targetNum}"]`);
+    if (targetThumb) targetThumb.click();
   };
-  prev?.addEventListener("click", () => navigate(-1));
-  next?.addEventListener("click", () => navigate(1));
+  prev?.addEventListener("click", () => navigateVisible(-1));
+  next?.addEventListener("click", () => navigateVisible(1));
 }
 
 function refreshNutritionPlanFromMeasurement(member) {
