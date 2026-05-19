@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
-    <link rel="stylesheet" href="./styles.css?v=1.2.3" />
+    <link rel="stylesheet" href="./styles.css?v=1.2.4" />
   </head>
   <body class="auth-required">
     <div class="page-backdrop" aria-hidden="true"></div>
@@ -725,59 +725,376 @@
       </div>
     </section>
 
-    <section class="nutrition-panel screen-panel is-hidden" id="nutritionPanel" data-screen="nutrition">
-      <div class="results__header">
-        <div>
-          <p class="section-kicker">Beslenme Modülü</p>
-          <h2>Üyeye Özel Beslenme Planı</h2>
-          <p>Aktif üyenin ölçüm, hedef ve antrenman sıklığına göre pratik, düzenlenebilir ve yazdırılabilir plan oluşturun.</p>
+    <!-- v1.2.4: Premium Beslenme paneli — top hero + 3 kolon (accordion / timeline / sidepanel).
+         Eski form+editor stack tamamen kaldirildi. nutritionPanel/nutritionPlanEditor ID'leri
+         korunur (handler/PDF/email pipeline degisiklik gerekmesin). nutritionPlanEditor
+         artik sadece preview container; collectNutritionPlanEdits null doner. -->
+    <section class="nutrition-panel screen-panel is-hidden nutrition-panel--premium" id="nutritionPanel" data-screen="nutrition">
+
+      <!-- TOP HERO -->
+      <header class="bsm-nutrition-hero" id="bsmNutritionHero">
+        <div class="bsm-nutrition-hero__member">
+          <div class="bsm-nutrition-hero__avatar" id="bsmNutritionAvatar" aria-hidden="true">
+            <span class="bsm-nutrition-hero__avatar-initials" id="bsmNutritionAvatarInitials">--</span>
+          </div>
+          <div class="bsm-nutrition-hero__info">
+            <div class="bsm-nutrition-hero__title-row">
+              <strong class="bsm-nutrition-hero__name" id="bsmNutritionMemberName">Üye seçilmedi</strong>
+              <span class="bsm-nutrition-chip bsm-nutrition-chip--status">Aktif Üye</span>
+              <span class="bsm-nutrition-chip bsm-nutrition-chip--goal" id="bsmNutritionGoalChip"><span>Hedef belirtilmedi</span></span>
+            </div>
+            <ul class="bsm-nutrition-hero__tags" aria-label="Üye temel bilgileri">
+              <li><span>Üye No:</span> <strong id="bsmNutritionHeroCode">—</strong></li>
+              <li><span>Seviye:</span> <strong id="bsmNutritionHeroLevel">—</strong></li>
+              <li><span>Program:</span> <strong id="bsmNutritionHeroProgram">—</strong></li>
+            </ul>
+          </div>
         </div>
-        <div class="panel-actions">
-          <button type="button" class="secondary-button" id="generateNutritionButton">Beslenme Planı Oluştur</button>
-          <button type="button" class="ghost-button" id="saveNutritionButton">Beslenme Planını Kaydet</button>
-          <button type="button" class="primary-button" id="printNutritionButton">PDF / Yazdır</button>
+
+        <div class="bsm-nutrition-hero__meta">
+          <div class="bsm-nutrition-hero__meta-row">
+            <span class="bsm-nutrition-hero__meta-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </span>
+            <div><span class="bsm-nutrition-hero__meta-label">Son Ölçüm</span><strong class="bsm-nutrition-hero__meta-value" id="bsmNutritionLastMeasurement">—</strong></div>
+          </div>
+          <div class="bsm-nutrition-hero__meta-row">
+            <span class="bsm-nutrition-hero__meta-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </span>
+            <div><span class="bsm-nutrition-hero__meta-label">Günlük Hedef</span><strong class="bsm-nutrition-hero__meta-value" id="bsmNutritionDailyCalories">—</strong></div>
+          </div>
+          <div class="bsm-nutrition-hero__meta-row">
+            <span class="bsm-nutrition-hero__meta-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18"/><path d="M3 12h18"/></svg>
+            </span>
+            <div><span class="bsm-nutrition-hero__meta-label">Makro Hedef</span><strong class="bsm-nutrition-hero__meta-value" id="bsmNutritionMacroSummary">—</strong></div>
+          </div>
         </div>
+
+        <div class="bsm-nutrition-hero__actions" role="toolbar" aria-label="Beslenme aksiyonlari">
+          <button type="button" class="bsm-nutrition-btn bsm-nutrition-btn--primary" id="generateNutritionButton">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            <span id="bsmNutritionGenerateLabel">Beslenme Planı Oluştur</span>
+          </button>
+          <button type="button" class="bsm-nutrition-btn bsm-nutrition-btn--ghost" id="printNutritionButton">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            <span>PDF / Yazdır</span>
+          </button>
+          <button type="button" class="bsm-nutrition-btn bsm-nutrition-btn--ghost" id="sendNutritionMailButton">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <span>E-posta ile Gönder</span>
+          </button>
+          <button type="button" class="bsm-nutrition-btn bsm-nutrition-btn--secondary is-hidden" id="saveNutritionButton">
+            <span>Planı Kaydet</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- 3-COLUMN LAYOUT -->
+      <div class="bsm-nutrition-layout">
+
+        <!-- SOL: PLAN AYARLARI (Accordion) -->
+        <aside class="bsm-nutrition-config" aria-label="Beslenme plan ayarlari">
+          <header class="bsm-nutrition-config__head">
+            <h3>Beslenme Plan Ayarları</h3>
+            <span>Hedefini ve tercihlerini belirleyerek canlı plan oluştur.</span>
+          </header>
+          <div class="bsm-nutrition-accordion" id="bsmNutritionAccordion">
+
+            <details class="bsm-nutrition-acc" data-acc="goal" open>
+              <summary>
+                <span class="bsm-nutrition-acc__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg>
+                </span>
+                <div><strong>1. Hedef &amp; Kalori</strong><small>Hedef + günlük kalori</small></div>
+              </summary>
+              <div class="bsm-nutrition-acc__body">
+                <label class="bsm-nutrition-field">
+                  <span>Beslenme hedefi</span>
+                  <select id="nutritionGoalSelect" data-nutrition-input="goal">
+                    <option value="fat-loss">Yağ yakımı</option>
+                    <option value="muscle-gain" selected>Kas kazanımı</option>
+                    <option value="maintenance">Koruma</option>
+                    <option value="recomposition">Recomposition</option>
+                  </select>
+                </label>
+                <label class="bsm-nutrition-field">
+                  <span>Günlük kalori hedefi</span>
+                  <input type="number" id="nutritionCaloriesInput" data-nutrition-input="calories" min="900" max="5000" step="50" placeholder="2850" />
+                </label>
+                <label class="bsm-nutrition-field">
+                  <span>Kalori fazlası / açığı</span>
+                  <select id="nutritionCalorieShiftSelect" data-nutrition-input="calorieShift">
+                    <option value="-500">-500 kcal (yağ yakım hızlı)</option>
+                    <option value="-300">-300 kcal (yağ yakım yumuşak)</option>
+                    <option value="0">Bakım</option>
+                    <option value="300" selected>+300 kcal (kas kazanım)</option>
+                    <option value="500">+500 kcal (kas kazanım hızlı)</option>
+                  </select>
+                </label>
+              </div>
+            </details>
+
+            <details class="bsm-nutrition-acc" data-acc="macros">
+              <summary>
+                <span class="bsm-nutrition-acc__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M9 17V9"/><path d="M15 17V5"/></svg>
+                </span>
+                <div><strong>2. Makro Dağılımı</strong><small>Protein, karbonhidrat ve yağ oranları</small></div>
+              </summary>
+              <div class="bsm-nutrition-acc__body">
+                <div class="bsm-nutrition-field-row">
+                  <label class="bsm-nutrition-field">
+                    <span>Protein (g)</span>
+                    <input type="number" id="nutritionProteinInput" data-nutrition-input="protein" min="60" max="350" placeholder="160" />
+                  </label>
+                  <label class="bsm-nutrition-field">
+                    <span>Karbonhidrat (g)</span>
+                    <input type="number" id="nutritionCarbsInput" data-nutrition-input="carbs" min="50" max="600" placeholder="320" />
+                  </label>
+                  <label class="bsm-nutrition-field">
+                    <span>Yağ (g)</span>
+                    <input type="number" id="nutritionFatInput" data-nutrition-input="fat" min="20" max="200" placeholder="75" />
+                  </label>
+                </div>
+                <button type="button" class="bsm-nutrition-mini-btn" data-nutrition-action="auto-macros">Otomatik makro hesapla</button>
+                <small class="bsm-nutrition-hint" id="nutritionMacrosHint">Ölçüm yoksa hedef + kiloya göre tahmini hesaplanır.</small>
+              </div>
+            </details>
+
+            <details class="bsm-nutrition-acc" data-acc="meals">
+              <summary>
+                <span class="bsm-nutrition-acc__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+                </span>
+                <div><strong>3. Öğün Planı</strong><small>Günlük öğün sayısı ve zamanlamalar</small></div>
+              </summary>
+              <div class="bsm-nutrition-acc__body">
+                <div class="bsm-nutrition-segment-group" role="radiogroup" aria-label="Öğün sayısı">
+                  <span class="bsm-nutrition-segment-label">Öğün sayısı</span>
+                  <div class="bsm-nutrition-segment" data-nutrition-input="mealCount">
+                    <button type="button" data-value="3">3</button>
+                    <button type="button" data-value="4">4</button>
+                    <button type="button" data-value="5" class="is-active">5</button>
+                    <button type="button" data-value="6">6</button>
+                  </div>
+                </div>
+                <label class="bsm-nutrition-field">
+                  <span>Gün tipi</span>
+                  <select id="nutritionDayTypeSelect" data-nutrition-input="dayType">
+                    <option value="training">Antrenman günü</option>
+                    <option value="rest">Dinlenme günü</option>
+                    <option value="balanced" selected>Dengeli gün</option>
+                  </select>
+                </label>
+              </div>
+            </details>
+
+            <details class="bsm-nutrition-acc" data-acc="activity">
+              <summary>
+                <span class="bsm-nutrition-acc__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3l4 4-4 4"/><path d="M11 21l-4-4 4-4"/><path d="M7 7h10"/><path d="M17 17H7"/></svg>
+                </span>
+                <div><strong>4. Antrenman &amp; Aktivite</strong><small>Antrenman saati ve aktivite düzeyi</small></div>
+              </summary>
+              <div class="bsm-nutrition-acc__body">
+                <div class="bsm-nutrition-field-row">
+                  <label class="bsm-nutrition-field"><span>Antrenman</span><input type="time" id="nutritionWorkoutTime" data-nutrition-input="workoutTime" value="18:30" /></label>
+                  <label class="bsm-nutrition-field"><span>Kardiyo</span><input type="time" id="nutritionCardioTime" data-nutrition-input="cardioTime" value="" /></label>
+                </div>
+                <label class="bsm-nutrition-field">
+                  <span>Aktivite düzeyi</span>
+                  <select id="nutritionActivityLevel" data-nutrition-input="activityLevel">
+                    <option value="sedentary">Hareketsiz</option>
+                    <option value="light">Hafif aktif</option>
+                    <option value="moderate" selected>Orta aktif</option>
+                    <option value="active">Aktif</option>
+                    <option value="very-active">Çok aktif</option>
+                  </select>
+                </label>
+              </div>
+            </details>
+
+            <details class="bsm-nutrition-acc" data-acc="if">
+              <summary>
+                <span class="bsm-nutrition-acc__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                </span>
+                <div><strong>5. Intermittent Fasting</strong><small>Oruç planı ayarları</small></div>
+              </summary>
+              <div class="bsm-nutrition-acc__body">
+                <label class="bsm-nutrition-toggle">
+                  <input type="checkbox" id="nutritionFastingEnabled" data-nutrition-input="fastingEnabled" />
+                  <span class="bsm-nutrition-toggle__slider"></span>
+                  <span class="bsm-nutrition-toggle__label">IF Aktif</span>
+                </label>
+                <label class="bsm-nutrition-field">
+                  <span>Yeme penceresi</span>
+                  <select id="nutritionFastingWindow" data-nutrition-input="fastingWindow">
+                    <option value="16:8" selected>16:8 (8 saat)</option>
+                    <option value="18:6">18:6 (6 saat)</option>
+                    <option value="20:4">20:4 (4 saat)</option>
+                  </select>
+                </label>
+              </div>
+            </details>
+
+            <details class="bsm-nutrition-acc" data-acc="supplement">
+              <summary>
+                <span class="bsm-nutrition-acc__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/></svg>
+                </span>
+                <div><strong>6. Supplement Planı</strong><small>Destek takviyeleri ve zamanlamalar</small></div>
+              </summary>
+              <div class="bsm-nutrition-acc__body">
+                <label class="bsm-nutrition-toggle">
+                  <input type="checkbox" id="supplementUseCheckbox" data-nutrition-input="supplementUse" />
+                  <span class="bsm-nutrition-toggle__slider"></span>
+                  <span class="bsm-nutrition-toggle__label">Supplement önerisi ekle</span>
+                </label>
+                <div class="bsm-nutrition-checkbox-group" id="supplementCategoryList" data-nutrition-input="supplementCategories">
+                  <label><input type="checkbox" value="basic" checked /><span>Temel destek</span></label>
+                  <label><input type="checkbox" value="performance" /><span>Performans</span></label>
+                  <label><input type="checkbox" value="recovery" /><span>Uyku / toparlanma</span></label>
+                  <label><input type="checkbox" value="joint" /><span>Eklem desteği</span></label>
+                </div>
+                <div class="bsm-nutrition-field-row">
+                  <label class="bsm-nutrition-field">
+                    <span>Kafein hassasiyeti</span>
+                    <select id="caffeineSensitive" data-nutrition-input="caffeineSensitive">
+                      <option value="no" selected>Hayır</option>
+                      <option value="yes">Evet</option>
+                    </select>
+                  </label>
+                  <label class="bsm-nutrition-field">
+                    <span>Laktoz hassasiyeti</span>
+                    <select id="lactoseSensitive" data-nutrition-input="lactoseSensitive">
+                      <option value="no" selected>Hayır</option>
+                      <option value="yes">Evet</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </details>
+
+            <details class="bsm-nutrition-acc" data-acc="notes">
+              <summary>
+                <span class="bsm-nutrition-acc__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </span>
+                <div><strong>7. Plan Notları</strong><small>Özel notlar ve hatırlatmalar</small></div>
+              </summary>
+              <div class="bsm-nutrition-acc__body">
+                <label class="bsm-nutrition-field">
+                  <span>Antrenör notu</span>
+                  <textarea id="nutritionTrainerNote" data-nutrition-input="trainerNote" rows="2" maxlength="280" placeholder="Örn. Akşam karb yüklemesi yok, antrenman sonrası 30g whey."></textarea>
+                </label>
+                <label class="bsm-nutrition-field">
+                  <span>Yasaklı / sevilmeyen besinler</span>
+                  <input type="text" id="nutritionAvoidList" data-nutrition-input="avoidList" placeholder="Örn. tuna, brokoli" />
+                </label>
+                <label class="bsm-nutrition-field">
+                  <span>Alerji / hassasiyet</span>
+                  <input type="text" id="nutritionAllergies" data-nutrition-input="allergies" placeholder="Örn. gluten, fıstık" />
+                </label>
+              </div>
+            </details>
+
+          </div>
+
+          <footer class="bsm-nutrition-config__footer">
+            <button type="button" class="bsm-nutrition-mini-btn bsm-nutrition-mini-btn--secondary" data-nutrition-action="reset">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
+              <span>Planı Sıfırla</span>
+            </button>
+          </footer>
+        </aside>
+
+        <!-- ORTA: GÜNLÜK PLAN PREVIEW -->
+        <section class="bsm-nutrition-preview" aria-label="Gunluk beslenme plani onizleme">
+          <header class="bsm-nutrition-preview__head">
+            <div>
+              <h3>Günlük Beslenme Planı Önizlemesi</h3>
+              <span class="bsm-nutrition-preview__sub">Seçimlerinize göre oluşturulan plan.</span>
+            </div>
+            <div class="bsm-nutrition-preview__tabs" role="tablist">
+              <button type="button" class="is-active" data-nutrition-view="timeline" aria-selected="true">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
+                <span>Günlük Akış</span>
+              </button>
+              <button type="button" data-nutrition-view="macros">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 3"/></svg>
+                <span>Makro Dağılımı</span>
+              </button>
+              <button type="button" data-nutrition-view="pdf">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span>PDF Önizleme</span>
+              </button>
+            </div>
+          </header>
+
+          <div class="bsm-nutrition-preview__body">
+            <div class="bsm-nutrition-view bsm-nutrition-view--timeline is-active" data-nutrition-view-pane="timeline">
+              <ol class="bsm-nutrition-timeline" id="bsmNutritionTimeline" aria-label="Gunluk ogun zaman cizgisi">
+                <li class="bsm-nutrition-empty">Plan ayarlarını seçin; öğün zamanlaması ve makrolar burada canlı görünecek.</li>
+              </ol>
+            </div>
+            <div class="bsm-nutrition-view bsm-nutrition-view--macros" data-nutrition-view-pane="macros" hidden>
+              <div class="bsm-nutrition-macro-detail" id="bsmNutritionMacroDetail">
+                <p class="bsm-nutrition-empty">Plan oluşturulduğunda makro dağılımı detayı burada görünür.</p>
+              </div>
+            </div>
+            <div class="bsm-nutrition-view bsm-nutrition-view--pdf" data-nutrition-view-pane="pdf" hidden>
+              <div class="bsm-nutrition-pdf-preview" id="bsmNutritionPdfPreview">
+                <p class="bsm-nutrition-empty">PDF önizleme — plan oluştur butonuna bastıktan sonra burada görünür.</p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="bsm-nutrition-totals" id="bsmNutritionTotals">
+            <div><span>Toplam Kalori</span><strong id="bsmNutritionTotalCalories">— kcal</strong></div>
+            <div><span>Protein</span><strong id="bsmNutritionTotalProtein">— g</strong></div>
+            <div><span>Karbonhidrat</span><strong id="bsmNutritionTotalCarbs">— g</strong></div>
+            <div><span>Yağ</span><strong id="bsmNutritionTotalFat">— g</strong></div>
+            <div><span>Su Hedefi</span><strong id="bsmNutritionWaterTarget">2.5 L</strong></div>
+          </footer>
+        </section>
+
+        <!-- SAĞ: MAKRO / SUPPLEMENT / PLAN BİLGİLERİ -->
+        <aside class="bsm-nutrition-sidepanel" aria-label="Beslenme analiz paneli">
+
+          <article class="bsm-nutrition-card">
+            <header class="bsm-nutrition-card__head"><h4>Makro Dağılımı</h4></header>
+            <div class="bsm-nutrition-macro-chart" id="bsmNutritionMacroChart" aria-label="Makro yuzdeleri">
+              <!-- Donut SVG + legend (JS renderlar) -->
+            </div>
+          </article>
+
+          <article class="bsm-nutrition-card">
+            <header class="bsm-nutrition-card__head"><h4>Supplement Zaman Çizgisi</h4></header>
+            <div class="bsm-nutrition-supplement-timeline" id="bsmNutritionSupplementTimeline">
+              <p class="bsm-nutrition-empty bsm-nutrition-empty--small">Supplement planı kapalı.</p>
+            </div>
+          </article>
+
+          <article class="bsm-nutrition-card">
+            <header class="bsm-nutrition-card__head"><h4>Plan Bilgileri</h4></header>
+            <dl class="bsm-nutrition-meta-list" id="bsmNutritionMetaList">
+              <div><dt>Oluşturulma</dt><dd id="bsmNutritionMetaCreated">—</dd></div>
+              <div><dt>Güncellenme</dt><dd id="bsmNutritionMetaUpdated">—</dd></div>
+              <div><dt>Plan türü</dt><dd id="bsmNutritionMetaType">—</dd></div>
+              <div><dt>Durum</dt><dd id="bsmNutritionMetaStatus">Taslak</dd></div>
+            </dl>
+          </article>
+
+        </aside>
       </div>
 
-      <div class="nutrition-layout">
-        <aside class="nutrition-side-card">
-          <div id="nutritionMemberSummary"></div>
-          <div class="supplement-preferences">
-            <p class="section-kicker">Supplement Tercihi</p>
-            <label class="field compact-field">
-              <span>Supplement kullanımı</span>
-              <select id="supplementUse">
-                <option value="no" selected>Hayır</option>
-                <option value="yes">Evet</option>
-              </select>
-            </label>
-            <label class="field compact-field">
-              <span>Kafein hassasiyeti</span>
-              <select id="caffeineSensitive">
-                <option value="no" selected>Hayır</option>
-                <option value="yes">Evet</option>
-              </select>
-            </label>
-            <label class="field compact-field">
-              <span>Laktoz hassasiyeti</span>
-              <select id="lactoseSensitive">
-                <option value="no" selected>Hayır</option>
-                <option value="yes">Evet</option>
-              </select>
-            </label>
-            <label class="field compact-field">
-              <span>Bütçe</span>
-              <select id="supplementBudget">
-                <option value="low">Düşük</option>
-                <option value="medium" selected>Orta</option>
-                <option value="high">Yüksek</option>
-              </select>
-            </label>
-            <small>Supplementler opsiyoneldir; gıda alternatifi her zaman önceliklidir.</small>
-          </div>
-        </aside>
-        <div id="nutritionPlanEditor" class="nutrition-editor"></div>
-      </div>
+      <!-- v1.2.4: Legacy editor container — collectNutritionPlanEdits cagrilirsa
+           DOM'da bulunsun (handlers/PDF servisi backward-compat). Sr-only gizli. -->
+      <div id="nutritionPlanEditor" class="bsm-nutrition-legacy" hidden></div>
+      <div id="nutritionMemberSummary" class="bsm-nutrition-legacy" hidden></div>
     </section>
 
     <section class="settings-panel screen-panel is-hidden" id="settingsPanel" data-screen="settings" data-requires-role="admin">
@@ -1210,22 +1527,22 @@
     <script src="./data/options.js"></script>
     <script src="./data/labels.js"></script>
     <script src="./data/presets.js"></script>
-    <script src="./data/repetition-presets.js?v=1.2.3"></script>
+    <script src="./data/repetition-presets.js?v=1.2.4"></script>
     <script src="./data/exercises.js"></script>
     <script src="./helpers/core-utils.js"></script>
     <script src="./helpers/label-utils.js"></script>
-    <script src="./data-migrations.js?v=1.2.3"></script>
+    <script src="./data-migrations.js?v=1.2.4"></script>
     <script src="./services/storage-service.js"></script>
-    <script src="./services/supabase-sync-service.js?v=1.2.3"></script>
+    <script src="./services/supabase-sync-service.js?v=1.2.4"></script>
     <script src="./services/member-service.js"></script>
     <script src="./services/tanita-csv-service.js"></script>
-    <script src="./nutrition/nutritionGoals.js?v=1.2.3"></script>
-    <script src="./nutrition/supplementDatabase.js?v=1.2.3"></script>
-    <script src="./nutrition/nutritionPlanEngine.js?v=1.2.3"></script>
-    <script src="./services/pdf-download-service.js?v=1.2.3"></script>
-    <script src="./nutrition/nutritionPdfRenderer.js?v=1.2.3"></script>
-    <script src="./nutrition/nutritionEmailService.js?v=1.2.3"></script>
-    <script src="./services/nutrition-service.js?v=1.2.3"></script>
+    <script src="./nutrition/nutritionGoals.js?v=1.2.4"></script>
+    <script src="./nutrition/supplementDatabase.js?v=1.2.4"></script>
+    <script src="./nutrition/nutritionPlanEngine.js?v=1.2.4"></script>
+    <script src="./services/pdf-download-service.js?v=1.2.4"></script>
+    <script src="./nutrition/nutritionPdfRenderer.js?v=1.2.4"></script>
+    <script src="./nutrition/nutritionEmailService.js?v=1.2.4"></script>
+    <script src="./services/nutrition-service.js?v=1.2.4"></script>
     <script src="./services/exercise-media-service.js"></script>
     <script src="./services/dashboard-service.js"></script>
     <script src="./services/validation-service.js"></script>
@@ -1239,17 +1556,17 @@
     <script src="./services/session-exercise-service.js"></script>
     <script src="./services/session-assembly-service.js"></script>
     <script src="./services/session-support-service.js"></script>
-    <script src="./ui/dashboard-ui.js?v=1.2.3"></script>
+    <script src="./ui/dashboard-ui.js?v=1.2.4"></script>
     <script src="./ui/alerts-ui.js"></script>
-    <script src="./ui/member-ui.js?v=1.2.3"></script>
+    <script src="./ui/member-ui.js?v=1.2.4"></script>
     <script src="./ui/library-ui.js"></script>
     <script src="./ui/output-ui.js"></script>
-    <script src="./ui/nutrition-ui.js?v=1.2.3"></script>
+    <script src="./ui/nutrition-ui.js?v=1.2.4"></script>
     <script src="./handlers/form-handlers.js"></script>
-    <script src="./handlers/navigation-handlers.js?v=1.2.3"></script>
+    <script src="./handlers/navigation-handlers.js?v=1.2.4"></script>
     <script src="./handlers/member-handlers.js"></script>
     <script src="./handlers/output-handlers.js"></script>
-    <script src="./handlers/nutrition-handlers.js?v=1.2.3"></script>
+    <script src="./handlers/nutrition-handlers.js?v=1.2.4"></script>
     <script src="./analysis-engine.js"></script>
     <script src="./program-engine-v2.js"></script>
     <script src="./automation-engine.js"></script>
@@ -1276,14 +1593,14 @@
 
     <!-- ── Feature modules (app.js'den önce) ────────────────── -->
     <script src="./features/measurement-report.js"></script>
-    <script src="./features/builder-wizard.js?v=1.2.3"></script>
+    <script src="./features/builder-wizard.js?v=1.2.4"></script>
     <script src="./features/body-analysis.js"></script>
 
     <!-- ── Ana uygulama ─────────────────────────────────────── -->
-    <script src="./app.js?v=1.2.3"></script>
+    <script src="./app.js?v=1.2.4"></script>
 
     <!-- ── Auth (app.js'den sonra — session kontrolü için) ──── -->
-    <script src="./auth/auth.js?v=1.2.3"></script>
+    <script src="./auth/auth.js?v=1.2.4"></script>
     <script src="./auth/rbac.js"></script>
     <script>
       if (window.BSMAuth) {
