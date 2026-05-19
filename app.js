@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.2.1";
+const BSM_BUILD_VERSION = "1.2.2";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -1970,6 +1970,10 @@ function setActiveMeasurementInnerTab(tabId = "tanita") {
   measurementsPanel.dataset.activeMeasurementTab = normalizedTabId;
   measurementsPanel.classList.toggle("measurement-panel--history-fullwidth", normalizedTabId === "history");
   measurementsPanel.classList.toggle("measurement-panel--v3-fullwidth", normalizedTabId === "ai");
+  // v1.2.2: Rapor & PDF aktifken sol/sag SaaS panellerini gizle, top member hero
+  // duplicate'ini gizle ve grid'i full width yap. Premium Report Center bsm-report-hero
+  // kendi member kartini ve aksiyonlarini icerir, dolayisiyla yan paneller tekrar olur.
+  measurementsPanel.classList.toggle("measurement-panel--report-fullwidth", normalizedTabId === "report");
 
   tabShell.querySelectorAll("[data-measurement-tab-target]").forEach((button) => {
     const isActive = button.dataset.measurementTabTarget === normalizedTabId;

@@ -17544,6 +17544,89 @@ body.bsm-photo-modal-open { overflow: hidden; }
   padding: 0 !important;
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   v1.2.2 — Rapor & PDF FULL WIDTH MODE
+   Premium Report Center kendi member kartini ve aksiyonlarini icerdiginden,
+   sol "Son Olcum Ozeti" + sag "Olcum Icgorusu" + ust "Member Hero" duplicate
+   olur. Report tab aktifken bu yan panelleri tamamen gizleyip ana sutunu
+   ekrana yaymayiz. JS toggle (.measurement-panel--report-fullwidth) ile
+   :has() yerine deterministik class kullaniyoruz; eski tarayicilarda da
+   guvenilir calisir.
+   ───────────────────────────────────────────────────────────────────── */
+
+.measurement-panel--report-fullwidth #measurementTopMemberHero,
+.measurement-panel--report-fullwidth .measurement-saas-left,
+.measurement-panel--report-fullwidth .measurement-saas-right {
+  display: none !important;
+}
+
+.measurement-panel--report-fullwidth .measurement-saas-shell {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0;
+  width: 100%;
+  max-width: none;
+}
+
+.measurement-panel--report-fullwidth .measurement-saas-main,
+.measurement-panel--report-fullwidth .measurement-workspace,
+.measurement-panel--report-fullwidth .measurement-inner-tabs,
+.measurement-panel--report-fullwidth .measurement-inner-tabs__content,
+.measurement-panel--report-fullwidth .measurement-tab-pane[data-measurement-tab-pane="report"] {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  justify-self: stretch;
+  grid-column: 1 / -1;
+}
+
+/* Report tab pane'in icerigi (Report Center) tam genislik */
+.measurement-panel--report-fullwidth .bsm-report-center--in-tab {
+  width: 100%;
+  max-width: none;
+}
+
+/* Report tab aktifken panel kenar bosluklarini ferah tut */
+.app-main .measurement-panel.measurement-panel--premium.measurement-panel--report-fullwidth {
+  width: 100%;
+  max-width: none !important;
+  padding-inline: 12px;
+}
+
+/* Hero full width: avatar+isim solda, meta-row ortada, aksiyonlar sagda.
+   Tek satirda durmasi icin grid kolon orani biraz daha cikar. */
+.measurement-panel--report-fullwidth .bsm-report-hero {
+  width: 100%;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.4fr) auto;
+  gap: 28px;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Hero meta-row inline wrap — tek satirda 3 meta-row */
+.measurement-panel--report-fullwidth .bsm-report-hero__meta {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 18px 24px;
+  align-items: center;
+}
+
+.measurement-panel--report-fullwidth .bsm-report-hero__meta-row {
+  flex: 0 0 auto;
+}
+
+/* Dar ekranlarda hero yine alt alta */
+@media (max-width: 1180px) {
+  .measurement-panel--report-fullwidth .bsm-report-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .measurement-panel--report-fullwidth .bsm-report-hero__meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
 /* Hero refinement: tag rozetleri + meta icon */
 .bsm-report-hero__title-row {
   display: flex;
