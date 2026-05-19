@@ -19753,11 +19753,32 @@ body.bsm-photo-modal-open { overflow: hidden; }
 
 .bsm-nutrition-timeline__macros {
   display: flex;
-  gap: 12px;
+  gap: 6px;
   flex-wrap: wrap;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* v1.3.3: Macro chip'leri renkli (protein yesil, karb mavi, yag amber) */
+.bsm-nutrition-timeline__macros > span {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
   color: var(--bsm-text-on-light-soft, #6b7280);
-  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bsm-nutrition-timeline__macros > span:nth-child(1) {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+.bsm-nutrition-timeline__macros > span:nth-child(2) {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1e40af;
+}
+.bsm-nutrition-timeline__macros > span:nth-child(3) {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
 }
 
 .bsm-nutrition-timeline__tag {
@@ -21883,19 +21904,33 @@ body.bsm-photo-modal-open { overflow: hidden; }
   body.is-printing-nutrition #bsmNutritionPdfPages * {
     visibility: visible !important;
   }
-  body.is-printing-nutrition #bsmNutritionPdfPages {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: auto !important;
+  /* v1.3.3 CRITIK FIX: print modunda position:fixed page-break ile uyumsuz —
+     fixed container'in icindekiler tek sayfada kalir, page-break-after islemez.
+     Cozum: static position + normal flow + body scrollable. */
+  body.is-printing-nutrition html,
+  body.is-printing-nutrition body {
     margin: 0 !important;
     padding: 0 !important;
     background: #fff !important;
-    width: 100% !important;
+  }
+  body.is-printing-nutrition #bsmNutritionPdfPages {
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    width: auto !important;
     display: block !important;
     grid-template-columns: none !important;
     grid-template-rows: none !important;
+    flex-direction: unset !important;
+    gap: 0 !important;
+    max-width: none !important;
+  }
+  /* Canvas wrapper print modunda visible flow icinde */
+  body.is-printing-nutrition .bsm-pdf-canvas {
+    visibility: visible !important;
+    position: static !important;
+    overflow: visible !important;
   }
   body.is-printing-nutrition #bsmNutritionPdfPages .bsm-pdf-v13 {
     grid-area: auto !important;
@@ -21908,10 +21943,12 @@ body.bsm-photo-modal-open { overflow: hidden; }
     width: 210mm !important;
     max-width: 210mm !important;
     height: 297mm !important;
-    min-height: auto !important;
+    min-height: 297mm !important;
     margin: 0 auto !important;
     padding: 12mm !important;
     overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
@@ -21928,6 +21965,7 @@ body.bsm-photo-modal-open { overflow: hidden; }
   body.is-printing-nutrition .bsm-nutrition-pdf-pages > .bsm-pdf-v13:not([data-active="true"]) {
     visibility: visible !important;
     opacity: 1 !important;
+    display: flex !important;
   }
   @page {
     size: A4;

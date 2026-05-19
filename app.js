@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.3.2";
+const BSM_BUILD_VERSION = "1.3.3";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -8340,11 +8340,68 @@ function tryAutoGenerateNutritionPlan(member) {
   try {
     const preferences = buildPreferencesFromFormState();
     const activeProgram = state.activeProgram || member.programs?.[0]?.program || null;
-    return normalizeNutritionPlan(buildNutritionPlan(member, activeProgram, preferences, { makeId }));
+    const plan = normalizeNutritionPlan(buildNutritionPlan(member, activeProgram, preferences, { makeId }));
+    // v1.3.3: User override (kalori/makro) engine sonucunu basar + meals orantili scale
+    return applyUserOverridesToPlan(plan, state.nutritionFormState);
   } catch (e) {
     console.warn("Nutrition auto-generate skipped:", e?.message);
     return null;
   }
+}
+
+// v1.3.3: User'in custom kalori/makro hedefi engine sonucunu OVERRIDE eder.
+// Engine measurement+goal'a gore plan yapar; user explicit kalori girerse o
+// degerle plan.calories override + meals orantili olcekle + macros yeniden dagit.
+// Meal macros redistribute: protein/carb/fat g'lari toplama gore scale.
+function applyUserOverridesToPlan(plan, formState) {
+  if (!plan || !formState) return plan;
+  const userCal = Number(formState.calories);
+  const userP = Number(formState.protein);
+  const userC = Number(formState.carbs);
+  const userF = Number(formState.fat);
+  const hasUserCal = Number.isFinite(userCal) && userCal > 0;
+  const hasUserMacros = [userP, userC, userF].every((v) => Number.isFinite(v) && v > 0);
+
+  // v1.3.3: User override yoksa bile, meal macros eksikse fallback turetimi calistir.
+  const oldCal = plan.calories || 1;
+  const oldP = plan.macros?.protein || 1;
+  const oldC = plan.macros?.carbs || 1;
+  const oldF = plan.macros?.fat || 1;
+  const targetCal = hasUserCal ? userCal : oldCal;
+  // Makro hedefi: user kismi girerse, kalan kismi engine'den kalsin (proporsiyonel scale)
+  const calScale = targetCal / oldCal;
+  const targetP = hasUserMacros ? userP : Math.round(oldP * calScale);
+  const targetC = hasUserMacros ? userC : Math.round(oldC * calScale);
+  const targetF = hasUserMacros ? userF : Math.round(oldF * calScale);
+  const targetTotalKcal = targetP * 4 + targetC * 4 + targetF * 9;
+
+  plan.calories = targetCal;
+  plan.macros = { protein: targetP, carbs: targetC, fat: targetF };
+
+  // v1.3.3: Meals'i orantili scale et + macro fallback.
+  // Engine meals'inin macros'u eksik gelirse meal.calories oraniyla
+  // hedef makrolar uzerinden tahmini macros set edilir.
+  if (Array.isArray(plan.meals) && plan.meals.length) {
+    const mealOldTotal = plan.meals.reduce((s, m) => s + (Number(m.calories) || 0), 0) || 1;
+    plan.meals = plan.meals.map((meal) => {
+      const ratio = (Number(meal.calories) || 0) / mealOldTotal;
+      const mCal = Math.round(targetCal * ratio);
+      const oldMP = Number(meal.macros?.protein) || 0;
+      const oldMC = Number(meal.macros?.carbs) || 0;
+      const oldMF = Number(meal.macros?.fat) || 0;
+      // Engine macros varsa scale et; yoksa kalori oranindan turet
+      const newMP = oldMP > 0 ? Math.round((oldMP / oldP) * targetP) : Math.round(targetP * ratio);
+      const newMC = oldMC > 0 ? Math.round((oldMC / oldC) * targetC) : Math.round(targetC * ratio);
+      const newMF = oldMF > 0 ? Math.round((oldMF / oldF) * targetF) : Math.round(targetF * ratio);
+      return {
+        ...meal,
+        calories: mCal,
+        macros: { protein: newMP, carbs: newMC, fat: newMF },
+      };
+    });
+  }
+
+  return plan;
 }
 
 // nutritionFormState -> buildNutritionPlan preferences formati
@@ -9531,9 +9588,33 @@ function bindNutritionPremiumHandlers() {
   // Form input change — CAPTURE phase ki legacy bindNutritionControlEvents
   // bubble handler'dan ONCE state'i guncelleyelim. Aksi takdirde syncAccordionInputs
   // user'in girdigi degeri eski state'le ezer.
-  nutritionPanel.addEventListener("input", (e) => handleNutritionFormInputChange(e), true);
+  // v1.3.3: 'input' eventleri debounced (300ms) — number/text yazarken render
+  // patirtisi olmasin. 'change' anlik (select/checkbox/segment).
+  nutritionPanel.addEventListener("input", (e) => debouncedNutritionInputHandler(e), true);
   nutritionPanel.addEventListener("change", (e) => handleNutritionFormInputChange(e), true);
 }
+
+// v1.3.3: Debounce wrapper — son input'tan 300ms sonra render et.
+// State update INSTANT olur, ama renderNutritionWorkspace cagrisi gecikmeli.
+const debouncedNutritionInputHandler = (() => {
+  let timer = null;
+  return function (e) {
+    // Hemen state'i guncelle (cunku React-like reactivity bekleniyor)
+    const input = e?.target?.closest("[data-nutrition-input]");
+    if (input) {
+      const f = state.nutritionFormState;
+      const key = input.dataset.nutritionInput;
+      if (key === "mealCount") return; // segment ile handle
+      if (input.type === "checkbox") f[key] = !!input.checked;
+      else if (input.type === "number") {
+        const n = Number(input.value);
+        f[key] = Number.isFinite(n) && n > 0 ? n : null;
+      } else f[key] = input.value;
+    }
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => { renderNutritionWorkspace(); }, 300);
+  };
+})();
 
 function handleNutritionFormInputChange(e) {
   const input = e.target.closest("[data-nutrition-input]");
