@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.3.4";
+const BSM_BUILD_VERSION = "1.3.5";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -9303,7 +9303,7 @@ function renderPdfPage1(member, plan, profile, goalLabel, activeMeasurement, act
         <div class="bsm-pdf-v13__cover-right">
           <div class="bsm-pdf-v13__kcal-hero">
             <span>Günlük Kalori</span>
-            <strong>${escapeHtml(String(plan.calories || 0))}</strong>
+            <strong>${escapeHtml(String(plan.calories || plan.targetCalories || state.nutritionFormState.calories || 0))}</strong>
             <em>kcal</em>
           </div>
           <div class="bsm-pdf-v13__date">${escapeHtml((plan.createdAt || "").split(" ").slice(0, 3).join(" "))}</div>
@@ -9345,19 +9345,26 @@ function renderPdfPage1(member, plan, profile, goalLabel, activeMeasurement, act
         </div>
       </section>
 
-      <!-- v1.3.1: Compact öğün timeline — max 5 ogun, fazlasi "+X ek ogun" özet -->
+      <!-- v1.3.5: PDF compact öğün timeline — TUM ogunler (3-6) sayfa 1'de.
+           foods tek satir (line-clamp:1), 2'den fazla varsa "+N" ozet inline. -->
       <section class="bsm-pdf-v13__meals">
         <h3>Günlük Öğün Akışı</h3>
         <ul class="bsm-pdf-v13__meal-list">
           ${meals
-            .slice(0, 5)
+            .slice(0, 6)
             .map((meal) => {
               const time = meal.scheduledTime || meal.time || "—";
               const allFoods = Array.isArray(meal.foods)
-                ? meal.foods.map((it) => typeof it === "string" ? it : it?.name || "").filter(Boolean)
+                ? meal.foods.map((it) => {
+                    if (typeof it === "string") return it;
+                    if (it?.displayLabel) return it.displayLabel;
+                    if (it?.name && it?.grams) return `${it.name} ${it.grams}g`;
+                    return it?.name || "";
+                  }).filter(Boolean)
                 : (typeof meal.foods === "string" ? meal.foods.split(/[,·•]/).map((s) => s.trim()).filter(Boolean) : []);
-              const displayFoods = allFoods.slice(0, 3).join(" • ");
-              const extra = allFoods.length > 3 ? ` +${allFoods.length - 3} ek besin` : "";
+              // v1.3.5: TEK SATIR — 2 besin + "+N" ozet (compact)
+              const displayFoods = allFoods.slice(0, 2).join(" • ");
+              const extra = allFoods.length > 2 ? ` +${allFoods.length - 2}` : "";
               const macros = meal.macros || {};
               const tag = meal.isPreWorkout ? "Pre" : meal.isPostWorkout ? "Post" : "";
               return `<li class="bsm-pdf-v13__meal-item${tag ? " is-workout" : ""}">
@@ -9365,20 +9372,15 @@ function renderPdfPage1(member, plan, profile, goalLabel, activeMeasurement, act
                 <div class="bsm-pdf-v13__meal-body">
                   <div class="bsm-pdf-v13__meal-head">
                     <strong>${escapeHtml(meal.name || "Öğün")}${tag ? ` <span class="bsm-pdf-v13__meal-tag">${tag}</span>` : ""}</strong>
-                    <span class="bsm-pdf-v13__meal-cal-inline">${escapeHtml(String(meal.calories || 0))} kcal</span>
+                    <span class="bsm-pdf-v13__meal-cal-inline">${escapeHtml(String(meal.calories || 0))} kcal · P${escapeHtml(String(macros.protein || 0))} K${escapeHtml(String(macros.carbs || 0))} Y${escapeHtml(String(macros.fat || 0))}</span>
                   </div>
                   ${displayFoods ? `<small class="bsm-pdf-v13__meal-foods">${escapeHtml(displayFoods)}${escapeHtml(extra)}</small>` : ""}
-                  <div class="bsm-pdf-v13__meal-macros-line">
-                    <span>P ${escapeHtml(String(macros.protein || 0))}g</span>
-                    <span>K ${escapeHtml(String(macros.carbs || 0))}g</span>
-                    <span>Y ${escapeHtml(String(macros.fat || 0))}g</span>
-                  </div>
                 </div>
               </li>`;
             })
             .join("")}
         </ul>
-        ${meals.length > 5 ? `<div class="bsm-pdf-v13__meal-overflow">+${meals.length - 5} ek öğün — detaylı plan üyeye iletilir</div>` : ""}
+        ${meals.length > 6 ? `<div class="bsm-pdf-v13__meal-overflow">+${meals.length - 6} ek öğün — detay üyeye iletilir</div>` : ""}
       </section>
 
       <footer class="bsm-pdf-v13__footer">
