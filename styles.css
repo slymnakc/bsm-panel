@@ -20279,15 +20279,21 @@ body.bsm-photo-modal-open { overflow: hidden; }
   transform: translateY(-1px);
 }
 
-/* Library kart container - scroll edilebilir */
+/* v1.4.0: Library kart container - kompakt scroll (380 -> 240px)
+   Kullanici accordion'da fazla yer kaplamasin, hemen 2-3 kart gorsun. */
 .bsm-suppl-library {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 380px;
+  max-height: 240px;
   overflow-y: auto;
   padding-right: 4px;
   scrollbar-width: thin;
+  /* Scroll bar visual ipucu — kart liste oldugu belli olsun */
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 10px;
+  padding: 6px;
+  background: #fafbfd;
 }
 
 .bsm-suppl-library::-webkit-scrollbar { width: 6px; }

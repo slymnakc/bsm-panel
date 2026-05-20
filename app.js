@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.3.9";
+const BSM_BUILD_VERSION = "1.4.0";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -10226,6 +10226,25 @@ function bindNutritionPremiumHandlers() {
   if (!nutritionPanel || nutritionPanel.dataset.bsmNutritionBound === "true") return;
   nutritionPanel.dataset.bsmNutritionBound = "true";
 
+  // v1.4.0: Supplement accordion <details toggle> event — open oldugunda
+  // library'i viewport'a getir. User accordion'i acinca otomatik olarak
+  // supplement kartlari ekranda gozukur, scroll etmek zorunda kalmaz.
+  // Bu listener'i 200ms sonra ekliyoruz cunku initial render sirasinda
+  // accordion default open ise gereksiz scroll tetiklemesin.
+  setTimeout(() => {
+    const supplAcc = nutritionPanel.querySelector('.bsm-nutrition-acc[data-acc="supplement"]');
+    if (supplAcc) {
+      supplAcc.addEventListener("toggle", () => {
+        if (supplAcc.open) {
+          // Library kartlarina smooth scroll (sol panel sticky bile olsa
+          // accordion icinden library'i viewport'a getirir)
+          const lib = nutritionPanel.querySelector("#supplementLibrary");
+          (lib || supplAcc).scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+        }
+      });
+    }
+  }, 200);
+
   // View tabs (Günlük Akış / Makro / PDF) + supplement library + PDF thumbs
   nutritionPanel.addEventListener("click", (e) => {
     const tab = e.target.closest("[data-nutrition-view]");
@@ -10343,6 +10362,10 @@ function bindNutritionPremiumHandlers() {
         if (cb) cb.checked = true;
         renderNutritionWorkspace();
         showStatus("Supplement sistemi açıldı.", "success");
+        // v1.4.0: Library viewport'a otomatik scroll (kullanici kartlari hemen gorsun)
+        setTimeout(() => {
+          document.querySelector("#supplementLibrary")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 100);
         return;
       } else if (act === "diversify-all") {
         // v1.3.4: Tüm planı çeşitlendir
