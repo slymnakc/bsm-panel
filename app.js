@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.3.7";
+const BSM_BUILD_VERSION = "1.3.8";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -2984,12 +2984,17 @@ function bindApplicationHandlers() {
     "click",
     (e) => {
       const member = findActiveMember();
-      const plan = state.activeNutritionPlan;
+      // v1.3.8 FIX: SAVE da livePreview snapshot al — eski state.activeNutritionPlan
+      // user'in son duzenlemelerini icermiyordu. Artik Save = ekrandaki canli plan.
+      const plan = tryAutoGenerateNutritionPlan(member) || state.activeNutritionPlan;
       if (!member || !plan) {
         showStatus("Kaydedilecek beslenme planı yok. Önce plan oluşturun.", "error");
         e.stopImmediatePropagation();
         return;
       }
+      // v1.3.8: state.activeNutritionPlan'i da livePreview'a sync et
+      state.activeNutritionPlan = plan;
+      state.activeNutritionMemberId = member.id;
       member.nutritionPlan = plan;
       member.nutritionPlans = [plan, ...(member.nutritionPlans || []).filter((it) => it.id !== plan.id)].slice(0, 12);
       member.updatedAt = new Date().toISOString();
@@ -3011,7 +3016,11 @@ function bindApplicationHandlers() {
     "click",
     (e) => {
       const member = findActiveMember();
-      const plan = state.activeNutritionPlan || tryAutoGenerateNutritionPlan(member);
+      // v1.3.8 FIX: livePreview ONCELIK — eski "savedPlan ?? livePreview"
+      // sirasında user Save sonrası meal/form duzenlerse preview canli ama
+      // PDF eski savedPlan'i basıyordu. Artik renderNutritionPremiumWorkspace
+      // ile AYNI veri kaynagi: tryAutoGenerateNutritionPlan(member).
+      const plan = tryAutoGenerateNutritionPlan(member) || state.activeNutritionPlan;
       if (!plan) {
         showStatus("PDF için önce plan oluşturun.", "error");
         e.stopImmediatePropagation();
