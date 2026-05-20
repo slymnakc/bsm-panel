@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.3.6";
+const BSM_BUILD_VERSION = "1.3.7";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -8289,6 +8289,76 @@ function calcFoodMacros(foodId, grams) {
   };
 }
 
+// v1.3.7: Meal-level macro aggregate — meal.foods array'inden TUM besinleri
+// dolasarak gramaj * Per100g/100 ile toplam P/K/Y/kcal hesaplar.
+// Spec gereği her meal'in dinamik hesaplanabilir actual macros'u olmali.
+function calculateMealMacros(meal) {
+  if (!meal || !Array.isArray(meal.foods) || !meal.foods.length) {
+    return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  }
+  const totals = meal.foods.reduce((acc, food) => {
+    // food iki formatta gelebilir:
+    //   - { id: "yumurta", grams: 100 } (manuel override / library match)
+    //   - "yumurta 4 adet" (engine free-form string)
+    if (food && food.id && Number(food.grams) > 0) {
+      const macros = calcFoodMacros(food.id, food.grams);
+      acc.calories += macros.calories;
+      acc.protein += macros.protein;
+      acc.carbs += macros.carbs;
+      acc.fat += macros.fat;
+    }
+    return acc;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  return {
+    calories: Math.round(totals.calories),
+    protein: Math.round(totals.protein),
+    carbs: Math.round(totals.carbs),
+    fat: Math.round(totals.fat),
+  };
+}
+
+// v1.3.7: Meal makros resolver — 4 katmanli fallback chain.
+// PDF renderer ve timeline view bu helper'i kullanarak her zaman dolu P/K/Y
+// elde eder. Spec gereği siralama:
+//   1) meal.actualMacros (en son hesaplanmis, manuel edit + diversify sonrasi)
+//   2) meal.macros (engine'in original cıktısı veya override)
+//   3) calculateMealMacros(meal) — foods'tan canli hesap
+//   4) 0 fallback (en son care)
+function resolveMealMacros(meal) {
+  if (!meal) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  // 1. actualMacros (v1.3.7: zorunlu field, ensureMealMacrosFallback yazar)
+  if (meal.actualMacros && hasNonZeroMacros(meal.actualMacros)) {
+    return {
+      calories: Math.round(Number(meal.actualCalories) || Number(meal.calories) || 0),
+      protein: Math.round(Number(meal.actualMacros.protein) || 0),
+      carbs: Math.round(Number(meal.actualMacros.carbs) || 0),
+      fat: Math.round(Number(meal.actualMacros.fat) || 0),
+    };
+  }
+  // 2. macros (engine veya manuel override)
+  if (meal.macros && hasNonZeroMacros(meal.macros)) {
+    return {
+      calories: Math.round(Number(meal.calories) || 0),
+      protein: Math.round(Number(meal.macros.protein) || 0),
+      carbs: Math.round(Number(meal.macros.carbs) || 0),
+      fat: Math.round(Number(meal.macros.fat) || 0),
+    };
+  }
+  // 3. Foods'tan dinamik hesap
+  const calc = calculateMealMacros(meal);
+  if (hasNonZeroMacros(calc)) return calc;
+  // 4. 0 fallback (cok nadir; ogun foods bos + macros yok)
+  return { calories: Math.round(Number(meal.calories) || 0), protein: 0, carbs: 0, fat: 0 };
+}
+
+function hasNonZeroMacros(m) {
+  if (!m) return false;
+  const p = Number(m.protein) || 0;
+  const c = Number(m.carbs) || 0;
+  const f = Number(m.fat) || 0;
+  return p > 0 || c > 0 || f > 0;
+}
+
 // v1.3.4: Meal key — plan.meals indexi bazli stable id (engine recreate olsa
 // bile aynı slot icin override saklanir).
 function mealOverrideKey(idx) { return String(idx); }
@@ -8618,9 +8688,15 @@ function tryAutoGenerateNutritionPlan(member) {
   }
 }
 
-// v1.3.6: P0 K0 Y0 fix — engine'in bazen meal.macros = {} veya {protein:0} cikti
-// vermesi durumunda PDF/preview'da "P0 K0 Y0" gozukmesini onler.
-// Strateji: plan total macros'unun meal kalori oranina gore bölünmesi.
+// v1.3.7: ensureMealMacrosFallback REWRITE — her meal'e actualCalories +
+// actualMacros field'larini ZORUNLU yazar. Spec gereği renderer 4-katmanli
+// resolveMealMacros chain'ini kullanırken actualMacros en yuksek oncelik.
+// Akis:
+//   1) Once calculateMealMacros (foods varsa gercek hesap)
+//   2) Sonra meal.macros (engine veya override)
+//   3) Sonra plan total ratio (engine bos verirse)
+//   4) Sonra 30/45/25 split (en son fallback)
+// Her durumda actualMacros DOLU bir obje olur, P0 K0 Y0 hatasi imkansiz.
 function ensureMealMacrosFallback(plan) {
   if (!plan || !Array.isArray(plan.meals)) return plan;
   const totalCal = plan.meals.reduce((s, m) => s + (Number(m.calories) || 0), 0) || 1;
@@ -8629,24 +8705,53 @@ function ensureMealMacrosFallback(plan) {
   const planF = Number(plan.macros?.fat) || 0;
 
   plan.meals = plan.meals.map((meal) => {
-    const m = meal.macros || {};
-    const hasAnyMacro = Number(m.protein) > 0 || Number(m.carbs) > 0 || Number(m.fat) > 0;
-    if (hasAnyMacro) return meal;
+    let actualCalories = Math.round(Number(meal.calories) || 0);
+    let actualMacros = null;
 
-    // Plan macros'undan oranla turet
-    const ratio = (Number(meal.calories) || 0) / totalCal;
-    let p = Math.round(planP * ratio);
-    let c = Math.round(planC * ratio);
-    let f = Math.round(planF * ratio);
-
-    // Plan macros'u da yoksa: kaloriden 30/45/25 split (P=30%, K=45%, Y=25%)
-    if (!p && !c && !f) {
-      const cal = Number(meal.calories) || 0;
-      p = Math.round((cal * 0.30) / 4);
-      c = Math.round((cal * 0.45) / 4);
-      f = Math.round((cal * 0.25) / 9);
+    // 1) Foods'tan dinamik hesap (en guvenilir kaynak)
+    const fromFoods = calculateMealMacros(meal);
+    if (hasNonZeroMacros(fromFoods)) {
+      actualMacros = { protein: fromFoods.protein, carbs: fromFoods.carbs, fat: fromFoods.fat };
+      // Foods'tan kalori de geliyorsa ona da guven
+      if (fromFoods.calories > 0) actualCalories = fromFoods.calories;
     }
-    return { ...meal, macros: { protein: p, carbs: c, fat: f } };
+
+    // 2) Engine/override macros
+    if (!actualMacros && meal.macros && hasNonZeroMacros(meal.macros)) {
+      actualMacros = {
+        protein: Math.round(Number(meal.macros.protein) || 0),
+        carbs: Math.round(Number(meal.macros.carbs) || 0),
+        fat: Math.round(Number(meal.macros.fat) || 0),
+      };
+    }
+
+    // 3) Plan total ratio (oranla daĝıt)
+    if (!actualMacros) {
+      const ratio = actualCalories / totalCal;
+      const p = Math.round(planP * ratio);
+      const c = Math.round(planC * ratio);
+      const f = Math.round(planF * ratio);
+      if (p > 0 || c > 0 || f > 0) actualMacros = { protein: p, carbs: c, fat: f };
+    }
+
+    // 4) Son care: kaloriden 30/45/25 split (P 30%, K 45%, Y 25%)
+    if (!actualMacros) {
+      actualMacros = {
+        protein: Math.round((actualCalories * 0.30) / 4),
+        carbs: Math.round((actualCalories * 0.45) / 4),
+        fat: Math.round((actualCalories * 0.25) / 9),
+      };
+    }
+
+    return {
+      ...meal,
+      calories: actualCalories,
+      // v1.3.7 zorunlu fieldlar — renderer bunlari oncelikli okur
+      actualCalories,
+      actualMacros,
+      // Backward compat: macros field'i de actualMacros ile senkron tut
+      macros: meal.macros && hasNonZeroMacros(meal.macros) ? meal.macros : actualMacros,
+    };
   });
   return plan;
 }
@@ -8864,7 +8969,8 @@ function renderNutritionTimelineView(plan) {
       const isEditing = editingKey === key;
       const time = meal.scheduledTime || meal.time || "—";
       const foods = Array.isArray(meal.foods) ? meal.foods : (typeof meal.foods === "string" ? meal.foods.split(/[,\n]/).map((s) => s.trim()).filter(Boolean) : []);
-      const macros = meal.macros || {};
+      // v1.3.7: resolveMealMacros 4-katmanlı fallback (P0K0Y0 imkansız)
+      const macros = resolveMealMacros(meal);
       const tags = [];
       if (meal.isPreWorkout) tags.push("Antrenman Öncesi");
       if (meal.isPostWorkout) tags.push("Antrenman Sonrası");
@@ -8892,7 +8998,7 @@ function renderNutritionTimelineView(plan) {
           <article class="bsm-nutrition-timeline__card">
             <header class="bsm-nutrition-timeline__head">
               <strong>${escapeHtml(meal.name || "Öğün")}</strong>
-              <span class="bsm-nutrition-timeline__cal">${escapeHtml(String(meal.calories || 0))} kcal</span>
+              <span class="bsm-nutrition-timeline__cal">${escapeHtml(String(macros.calories || meal.calories || 0))} kcal</span>
             </header>
             ${foodsHtml}
             <footer class="bsm-nutrition-timeline__macros">
@@ -9397,17 +9503,17 @@ function renderPdfPage1(member, plan, profile, goalLabel, activeMeasurement, act
                     return it?.name || "";
                   }).filter(Boolean)
                 : (typeof meal.foods === "string" ? meal.foods.split(/[,·•]/).map((s) => s.trim()).filter(Boolean) : []);
-              // v1.3.5: TEK SATIR — 2 besin + "+N" ozet (compact)
               const displayFoods = allFoods.slice(0, 2).join(" • ");
               const extra = allFoods.length > 2 ? ` +${allFoods.length - 2}` : "";
-              const macros = meal.macros || {};
+              // v1.3.7: resolveMealMacros 4-katmanli fallback — P0 K0 Y0 imkansiz
+              const resolved = resolveMealMacros(meal);
               const tag = meal.isPreWorkout ? "Pre" : meal.isPostWorkout ? "Post" : "";
               return `<li class="bsm-pdf-v13__meal-item${tag ? " is-workout" : ""}">
                 <div class="bsm-pdf-v13__meal-time">${escapeHtml(String(time))}</div>
                 <div class="bsm-pdf-v13__meal-body">
                   <div class="bsm-pdf-v13__meal-head">
                     <strong>${escapeHtml(meal.name || "Öğün")}${tag ? ` <span class="bsm-pdf-v13__meal-tag">${tag}</span>` : ""}</strong>
-                    <span class="bsm-pdf-v13__meal-cal-inline">${escapeHtml(String(meal.calories || 0))} kcal · P${escapeHtml(String(macros.protein || 0))} K${escapeHtml(String(macros.carbs || 0))} Y${escapeHtml(String(macros.fat || 0))}</span>
+                    <span class="bsm-pdf-v13__meal-cal-inline">${escapeHtml(String(resolved.calories))} kcal · P${escapeHtml(String(resolved.protein))} K${escapeHtml(String(resolved.carbs))} Y${escapeHtml(String(resolved.fat))}</span>
                   </div>
                   ${displayFoods ? `<small class="bsm-pdf-v13__meal-foods">${escapeHtml(displayFoods)}${escapeHtml(extra)}</small>` : ""}
                 </div>
