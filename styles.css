@@ -21881,96 +21881,111 @@ body.bsm-photo-modal-open { overflow: hidden; }
   max-height: 170px;
 }
 
-/* ── v1.3.1 PRINT REWRITE ───────────────────────────────────────────────
-   Tam A4 (210x297mm) sabit boyut, son sayfa page-break: avoid, sidebar/
-   header/form/buttons hidden. */
+/* ═════════════════════════════════════════════════════════════════════
+   v1.3.3 — PRINT ROOT REWRITE (boş ilk sayfa fix)
+   Onceki visibility:hidden + nested canvas yaklaşımı bos ilk sayfa
+   yaratiyordu. Yeni: body altinda temiz <div id="nutritionPrintRoot">
+   clone, dashboard tum digerleri display:none. Spec'in tam template'i.
+   ═════════════════════════════════════════════════════════════════════ */
+
+#nutritionPrintRoot {
+  /* Ekranda gizli; sadece print modunda gorunur. */
+  display: none;
+}
+
 @media print {
-  /* Tum panel + nav + control gizle */
-  body.is-printing-nutrition .studio-nav,
-  body.is-printing-nutrition .bsm-shell,
-  body.is-printing-nutrition .auth-gate,
-  body.is-printing-nutrition .bsm-nutrition-hero,
-  body.is-printing-nutrition .bsm-nutrition-config,
-  body.is-printing-nutrition .bsm-nutrition-sidepanel,
-  body.is-printing-nutrition .bsm-nutrition-preview__head,
-  body.is-printing-nutrition .bsm-nutrition-preview__tabs,
-  body.is-printing-nutrition .bsm-nutrition-pdf-thumbs,
-  body.is-printing-nutrition .bsm-nutrition-totals,
-  body.is-printing-nutrition .nutrition-panel--premium > :not(.bsm-nutrition-layout) {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 210mm !important;
+    min-height: 0 !important;
+    background: #fff !important;
+  }
+
+  /* Dashboard / header / nav / sidebar / form / footer — TUMU hidden.
+     visibility:hidden yerine display:none — bos layout alani birakmasin. */
+  body > *:not(#nutritionPrintRoot) {
     display: none !important;
   }
-  body.is-printing-nutrition * { visibility: hidden !important; }
-  body.is-printing-nutrition #bsmNutritionPdfPages,
-  body.is-printing-nutrition #bsmNutritionPdfPages * {
-    visibility: visible !important;
-  }
-  /* v1.3.3 CRITIK FIX: print modunda position:fixed page-break ile uyumsuz —
-     fixed container'in icindekiler tek sayfada kalir, page-break-after islemez.
-     Cozum: static position + normal flow + body scrollable. */
-  body.is-printing-nutrition html,
-  body.is-printing-nutrition body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #fff !important;
-  }
-  body.is-printing-nutrition #bsmNutritionPdfPages {
-    position: static !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #fff !important;
-    width: auto !important;
+
+  #nutritionPrintRoot {
     display: block !important;
-    grid-template-columns: none !important;
-    grid-template-rows: none !important;
-    flex-direction: unset !important;
-    gap: 0 !important;
-    max-width: none !important;
-  }
-  /* Canvas wrapper print modunda visible flow icinde */
-  body.is-printing-nutrition .bsm-pdf-canvas {
-    visibility: visible !important;
     position: static !important;
-    overflow: visible !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    border: none !important;
   }
-  body.is-printing-nutrition #bsmNutritionPdfPages .bsm-pdf-v13 {
-    grid-area: auto !important;
+
+  /* Print page article — A4 sabit, ilk sayfada page-break-before YOK */
+  .nutrition-print-page {
+    display: block !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 10mm !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* CRITIK: Ilk sayfa page-break-before YOK (yoksa once bos sayfa cikar) */
+  .nutrition-print-page--1 {
+    page-break-before: auto !important;
+    break-before: auto !important;
+  }
+
+  /* Iki sayfa arasinda zorunlu sayfa kirma */
+  .nutrition-print-page + .nutrition-print-page {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  /* Son sayfa page-break-after YOK (yoksa sonra ekstra bos sayfa) */
+  .nutrition-print-page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  /* Print Root icinde .bsm-pdf-v13 article'lari — preview gorseli ile birebir.
+     Ekran preview'da boyle gozukuyor: orange border, shadow vs. Print modunda
+     extra spacing/box-shadow gerek yok cunku nutrition-print-page wrapper
+     padding'i veriyor. */
+  #nutritionPrintRoot .bsm-pdf-v13 {
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
     box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
-    width: 210mm !important;
-    max-width: 210mm !important;
-    height: 297mm !important;
-    min-height: 297mm !important;
-    margin: 0 auto !important;
-    padding: 12mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
     overflow: hidden !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-width: none !important;
     display: flex !important;
     flex-direction: column !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
+    gap: 8px !important;
   }
-  body.is-printing-nutrition #bsmNutritionPdfPages .bsm-pdf-v13[data-pdf-page="1"] {
-    page-break-after: always !important;
-    break-after: page !important;
-  }
-  body.is-printing-nutrition #bsmNutritionPdfPages .bsm-pdf-v13[data-pdf-page="2"] {
-    page-break-after: avoid !important;
-    break-after: avoid !important;
-    page-break-before: auto !important;
-  }
-  /* Onemli: data-active sinirlamasini print modunda gevset, her 2 sayfa goster */
-  body.is-printing-nutrition .bsm-nutrition-pdf-pages > .bsm-pdf-v13:not([data-active="true"]) {
-    visibility: visible !important;
-    opacity: 1 !important;
-    display: flex !important;
-  }
-  @page {
-    size: A4;
-    margin: 0;
-  }
+
+  /* Print Root icindeki tum elemanlar gorunur (parent disinda hicbir sey gorunmuyor) */
+  #nutritionPrintRoot * { visibility: visible !important; }
 }
 
 /* Responsive */
@@ -22238,21 +22253,6 @@ body.bsm-photo-modal-open { overflow: hidden; }
   .bsm-pdf-toolbar__btn span { display: none; }
 }
 
-/* Print modunda toolbar gizli, canvas duz beyaz */
-@media print {
-  body.is-printing-nutrition .bsm-pdf-toolbar,
-  body.is-printing-nutrition .bsm-pdf-canvas {
-    background: #fff !important;
-  }
-  body.is-printing-nutrition .bsm-pdf-toolbar { display: none !important; }
-  body.is-printing-nutrition .bsm-pdf-canvas {
-    padding: 0 !important;
-    transform: none !important;
-  }
-  body.is-printing-nutrition .bsm-pdf-canvas .bsm-nutrition-pdf-pages {
-    transform: none !important;
-    max-width: none !important;
-    padding: 0 !important;
-    gap: 0 !important;
-  }
-}
+/* v1.3.3: Toolbar/canvas eski print kurallari kaldirildi — yeni Print Root
+   yaklaşımında body > *:not(#nutritionPrintRoot) display:none oldugu icin
+   .bsm-pdf-toolbar ve .bsm-pdf-canvas zaten gizli (dashboard alti). */

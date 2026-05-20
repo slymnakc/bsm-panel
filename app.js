@@ -2992,28 +2992,42 @@ function bindApplicationHandlers() {
     true,
   );
 
-  // v1.3.0: PDF/Yazdir butonu -> preview HTML'i direkt yazdir.
-  // Eski jspdf yolu yerine window.print() ile preview = export birebir aynisi.
-  // Print CSS @media print kurallari sadece .bsm-pdf-v13 article'larini gosterir.
+  // v1.3.3: PDF/Yazdir butonu -> body altinda temiz Print Root clone uret + window.print + cleanup.
+  // Onceki v1.3.0/1/2 yaklaşımı (dashboard container icinde visibility:hidden) bos ilk sayfa
+  // ve nested transform/sticky parent overflow problemleri yaratti. Yeni yaklaşım: body'ye
+  // direkt <div id="nutritionPrintRoot"> append edilir, dashboard ile arasinda hicbir
+  // ata-wrapper kalmaz, print sonrasi root temizlenir.
   printNutritionButton?.addEventListener(
     "click",
     (e) => {
-      const plan = state.activeNutritionPlan || tryAutoGenerateNutritionPlan(findActiveMember());
+      const member = findActiveMember();
+      const plan = state.activeNutritionPlan || tryAutoGenerateNutritionPlan(member);
       if (!plan) {
         showStatus("PDF için önce plan oluşturun.", "error");
         e.stopImmediatePropagation();
         return;
       }
-      // Aktif goruntude PDF view degilse gec
-      if (state.nutritionActiveView !== "pdf") {
-        state.nutritionActiveView = "pdf";
-        renderNutritionWorkspace();
+      try {
+        prepareNutritionPrintRoot(member, plan);
+        document.body.classList.add("is-printing-nutrition");
+        window.setTimeout(() => {
+          window.print();
+          // Cleanup print sonrasi; bazi tarayicilarda afterprint event guvenilir degil,
+          // bu yuzden hem afterprint hem fallback timeout kullaniyoruz.
+          const cleanup = () => {
+            cleanupNutritionPrintRoot();
+            document.body.classList.remove("is-printing-nutrition");
+            window.removeEventListener("afterprint", cleanup);
+          };
+          window.addEventListener("afterprint", cleanup, { once: true });
+          window.setTimeout(cleanup, 1500);
+        }, 80);
+      } catch (err) {
+        cleanupNutritionPrintRoot();
+        document.body.classList.remove("is-printing-nutrition");
+        showStatus("PDF üretilemedi: " + (err?.message || ""), "error");
+        console.error(err);
       }
-      document.body.classList.add("is-printing-nutrition");
-      window.setTimeout(() => {
-        window.print();
-        window.setTimeout(() => document.body.classList.remove("is-printing-nutrition"), 500);
-      }, 200);
       e.stopImmediatePropagation();
     },
     true,
@@ -8360,20 +8374,30 @@ function applyUserOverridesToPlan(plan, formState) {
   const userC = Number(formState.carbs);
   const userF = Number(formState.fat);
   const hasUserCal = Number.isFinite(userCal) && userCal > 0;
-  const hasUserMacros = [userP, userC, userF].every((v) => Number.isFinite(v) && v > 0);
+  // v1.3.3: Her makro BAGIMSIZ override edilebilir. Onceki "all-or-none" yaklaşımı
+  // spec'in "protein gramaji degisince ogunlerdeki gramajlar degissin" kuralini
+  // kirinca tekil override'lar etkisiz kaliyordu.
+  const hasUserP = Number.isFinite(userP) && userP > 0;
+  const hasUserC = Number.isFinite(userC) && userC > 0;
+  const hasUserF = Number.isFinite(userF) && userF > 0;
 
-  // v1.3.3: User override yoksa bile, meal macros eksikse fallback turetimi calistir.
   const oldCal = plan.calories || 1;
   const oldP = plan.macros?.protein || 1;
   const oldC = plan.macros?.carbs || 1;
   const oldF = plan.macros?.fat || 1;
-  const targetCal = hasUserCal ? userCal : oldCal;
-  // Makro hedefi: user kismi girerse, kalan kismi engine'den kalsin (proporsiyonel scale)
-  const calScale = targetCal / oldCal;
-  const targetP = hasUserMacros ? userP : Math.round(oldP * calScale);
-  const targetC = hasUserMacros ? userC : Math.round(oldC * calScale);
-  const targetF = hasUserMacros ? userF : Math.round(oldF * calScale);
-  const targetTotalKcal = targetP * 4 + targetC * 4 + targetF * 9;
+  // Hedef kalori: user girdise o, yoksa engine + (eger user macros girdiyse) makro
+  // toplamindan turetilen yeni kalori.
+  const calScale = (hasUserCal ? userCal : oldCal) / oldCal;
+  const targetP = hasUserP ? userP : Math.round(oldP * calScale);
+  const targetC = hasUserC ? userC : Math.round(oldC * calScale);
+  const targetF = hasUserF ? userF : Math.round(oldF * calScale);
+  // Kalori bagimsiz hesabi: user kalori vermediyse + bir veya daha cok makro
+  // override ettiyse, yeni kalori makrolardan hesaplanir.
+  const macroDerivedKcal = targetP * 4 + targetC * 4 + targetF * 9;
+  const targetCal = hasUserCal
+    ? userCal
+    : (hasUserP || hasUserC || hasUserF ? macroDerivedKcal : oldCal);
+  const targetTotalKcal = macroDerivedKcal || targetCal;
 
   plan.calories = targetCal;
   plan.macros = { protein: targetP, carbs: targetC, fat: targetF };
@@ -8870,6 +8894,51 @@ function renderNutritionPdfPreview(member, plan) {
   renderNutritionPdfThumbnails(plan, member);
   return;
 
+}
+
+// v1.3.3: Print Root yaklaşımı — body altında temiz <div id="nutritionPrintRoot">
+// clone container oluşturup print sırasında SADECE bu container'ı render eder.
+// Dashboard içindeki transform/scale/sticky parent zincirini bypass ettiği için
+// boş ilk sayfa, page-break-before:always tetiklenmesi ve overflow kesimi gibi
+// sorunlar kaldırılır. Preview ve export aynı renderPdfPage1/2 componentlerini
+// kullanır — sadece konum farklı (preview canvas içinde, export body altında).
+function prepareNutritionPrintRoot(member, plan) {
+  // Onceki kalintilari sil
+  cleanupNutritionPrintRoot();
+  const profile = member?.profile || {};
+  const activeMeasurement = (typeof getActiveMeasurementSnapshot === "function")
+    ? getActiveMeasurementSnapshot(member)
+    : null;
+  const goalLabelMap = { "fat-loss": "Yağ yakımı", "muscle-gain": "Kas kazanımı", "maintenance": "Koruma", "recomposition": "Recomposition" };
+  const goalLabel = goalLabelMap[state.nutritionFormState.goal] || plan.nutritionGoalLabel || "Hedef belirtilmedi";
+
+  // 2 sayfa article HTML uret (preview ile birebir ayni renderer)
+  const page1Html = renderPdfPage1(member, plan, profile, goalLabel, activeMeasurement, "1");
+  const page2Html = renderPdfPage2(member, plan, profile, activeMeasurement, "2");
+
+  // Print root'u olustur ve body'nin ILK cocugu olarak ekle (parent ata-zinciri
+  // dashboard degil dogrudan body olsun).
+  const root = document.createElement("div");
+  root.id = "nutritionPrintRoot";
+  root.className = "nutrition-print-root";
+  root.innerHTML = `
+    <section class="nutrition-print-page nutrition-print-page--1">${page1Html}</section>
+    <section class="nutrition-print-page nutrition-print-page--2">${page2Html}</section>
+  `;
+  // Body'nin EN BASINA ekle ki dashboard sibling'i olarak kalsin, icinde kalmasin.
+  // Boylece transform/sticky/overflow zinciri etkilemez.
+  if (document.body.firstChild) {
+    document.body.insertBefore(root, document.body.firstChild);
+  } else {
+    document.body.appendChild(root);
+  }
+}
+
+function cleanupNutritionPrintRoot() {
+  const existing = document.getElementById("nutritionPrintRoot");
+  if (existing && existing.parentNode) {
+    existing.parentNode.removeChild(existing);
+  }
 }
 
 // v1.3.0: Premium 2-sayfa PDF preview — Page 1 (hero + makro + öğün timeline)
