@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.3.8";
+const BSM_BUILD_VERSION = "1.3.9";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -223,6 +223,9 @@ const state = {
     activityLevel: "moderate",
     fastingEnabled: false,
     fastingWindow: "16:8",
+    // v1.3.9: Default OFF — BSM_SUPPLEMENT_LIBRARY const'u initialize'dan sonra
+    // declare ediliyor (TDZ); true default initial render'da patlardi. Empty
+    // state CTA buton ile kullanici tek click'le aktif edebilir.
     supplementUse: false,
     supplementCategories: [],
     caffeineSensitive: "no",
@@ -9919,9 +9922,16 @@ function renderSupplementLibrary() {
   const host = document.querySelector("#supplementLibrary");
   if (!host) return;
   const f = state.nutritionFormState;
-  // Toggle kapalıysa library card listesi gizle
+  // v1.3.9: Toggle kapaliysa daha yonlendirici empty state + CTA buton
   if (!f.supplementUse) {
-    host.innerHTML = `<p class="bsm-nutrition-empty bsm-nutrition-empty--small">Supplement önerisini aktif edin.</p>`;
+    host.innerHTML = `
+      <div class="bsm-suppl-cta-empty">
+        <p>Sporcunuza supplement zaman çizelgesi eklemek için aşağıdaki butonu kullanın.</p>
+        <button type="button" class="bsm-suppl-cta-btn" data-nutrition-action="enable-supplements">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/></svg>
+          <span>Supplement Sistemini Aç</span>
+        </button>
+      </div>`;
     return;
   }
   const search = String(f.supplementSearch || "").toLocaleLowerCase("tr");
@@ -10324,6 +10334,16 @@ function bindNutritionPremiumHandlers() {
         } else {
           showStatus("Önce kalori hedefi girin veya plan oluşturun.", "error");
         }
+      } else if (act === "enable-supplements") {
+        // v1.3.9: Empty state CTA — toggle aç + accordion aç + smart suggest
+        state.nutritionFormState.supplementUse = true;
+        document.querySelector('.bsm-nutrition-acc[data-acc="supplement"]')?.setAttribute("open", "");
+        // Sync checkbox
+        const cb = document.querySelector("#supplementUseCheckbox");
+        if (cb) cb.checked = true;
+        renderNutritionWorkspace();
+        showStatus("Supplement sistemi açıldı.", "success");
+        return;
       } else if (act === "diversify-all") {
         // v1.3.4: Tüm planı çeşitlendir
         const member = findActiveMember();

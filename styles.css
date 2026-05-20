@@ -22277,26 +22277,28 @@ body.bsm-photo-modal-open { overflow: hidden; }
    v1.3.4 — Manuel Meal Editor + Diversification + Target vs Actual UI
    ═════════════════════════════════════════════════════════════════════ */
 
-/* Tum plani cesitlendir butonu (preview head) */
+/* v1.3.9: Tum plani cesitlendir butonu — primary gradient (daha gorunur) */
 .bsm-nutrition-diversify-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
-  background: var(--bsm-orange-soft, #fef3ec);
-  color: var(--bsm-orange, #f26c1f);
-  border: 1px solid rgba(242, 108, 31, 0.2);
+  gap: 7px;
+  padding: 9px 16px;
+  background: linear-gradient(135deg, var(--bsm-orange, #f26c1f) 0%, var(--bsm-track-red, #e25022) 100%);
+  color: #fff;
+  border: 1px solid transparent;
   border-radius: 10px;
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 700;
   font-family: var(--bsm-font);
   cursor: pointer;
-  transition: background 0.15s, transform 0.05s;
+  transition: box-shadow 0.15s, transform 0.05s;
   white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(242, 108, 31, 0.25);
+  letter-spacing: 0.01em;
 }
 
 .bsm-nutrition-diversify-btn:hover {
-  background: rgba(242, 108, 31, 0.18);
+  box-shadow: 0 8px 20px rgba(242, 108, 31, 0.32);
   transform: translateY(-1px);
 }
 
@@ -22536,6 +22538,50 @@ body.bsm-photo-modal-open { overflow: hidden; }
 
 .bsm-nutrition-totals > div {
   position: relative;
+}
+
+/* v1.3.9: Supplement empty state CTA — kullanici toggle'i kesfetmek
+   zorunda kalmasin diye actiklayici metin + primary CTA buton */
+.bsm-suppl-cta-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+  padding: 14px;
+  background: #fafbfd;
+  border: 1px dashed rgba(15, 23, 42, 0.18);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.bsm-suppl-cta-empty p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  line-height: 1.4;
+}
+
+.bsm-suppl-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  background: linear-gradient(135deg, var(--bsm-orange, #f26c1f) 0%, var(--bsm-track-red, #e25022) 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: var(--bsm-font);
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(242, 108, 31, 0.22);
+  transition: box-shadow 0.15s, transform 0.05s;
+}
+
+.bsm-suppl-cta-btn:hover {
+  box-shadow: 0 8px 18px rgba(242, 108, 31, 0.3);
+  transform: translateY(-1px);
 }
 
 /* ═════════════════════════════════════════════════════════════════════
