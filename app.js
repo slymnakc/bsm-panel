@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.4.0";
+const BSM_BUILD_VERSION = "1.4.1";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -223,10 +223,11 @@ const state = {
     activityLevel: "moderate",
     fastingEnabled: false,
     fastingWindow: "16:8",
-    // v1.3.9: Default OFF — BSM_SUPPLEMENT_LIBRARY const'u initialize'dan sonra
-    // declare ediliyor (TDZ); true default initial render'da patlardi. Empty
-    // state CTA buton ile kullanici tek click'le aktif edebilir.
-    supplementUse: false,
+    // v1.4.1: Default ON — BSM_SUPPLEMENT_LIBRARY artik state init'inden hemen
+    // sonra declare ediliyor (TDZ duzeltildi, v1.4.1 declaration order fix).
+    // User sayfayi acinca supplement library hemen gorunur, toggle bilmek
+    // zorunda kalmaz. Kapatmak isterse checkbox'tan toggle off yapar.
+    supplementUse: true,
     supplementCategories: [],
     caffeineSensitive: "no",
     lactoseSensitive: "no",
@@ -252,6 +253,442 @@ const state = {
   // v1.2.5: PDF preview aktif sayfa (1-4)
   nutritionPdfPage: 1,
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v1.4.1: BSM_SUPPLEMENT_LIBRARY + BSM_FOOD_LIBRARY + helpers
+// Declaration order fix — render fonksiyonlarından ONCE initialize edilirler.
+// (Eski yer: line ~8183-8612, render cagrisi line ~905'te oldugu icin TDZ patlardi.)
+// ═══════════════════════════════════════════════════════════════════════════
+const BSM_SUPPLEMENT_LIBRARY = [
+  { id: "whey",        name: "Whey Protein",      category: "Protein",          goalTags: ["muscle-gain", "recomposition", "fat-loss"], timing: "post-workout",    dosage: "25-30 g",   warnings: ["lactose"],          icon: "💪", description: "Kas onarımı / antrenman sonrası hızlı protein." },
+  { id: "casein",      name: "Casein",            category: "Protein",          goalTags: ["muscle-gain", "recomposition"],            timing: "before-sleep",    dosage: "30 g",      warnings: ["lactose"],          icon: "🌙", description: "Uyku öncesi yavaş salınımlı protein." },
+  { id: "creatine",    name: "Kreatin Monohydrate", category: "Performans",     goalTags: ["muscle-gain", "recomposition"],            timing: "daily",           dosage: "5 g",       warnings: [],                   icon: "⚡", description: "Güç ve hacim için günlük destek." },
+  { id: "bcaa",        name: "BCAA",              category: "Amino Asit",       goalTags: ["muscle-gain", "fat-loss"],                  timing: "intra-workout",   dosage: "10 g",      warnings: [],                   icon: "🔋", description: "Antrenman sırasında kas koruma." },
+  { id: "preworkout",  name: "Pre Workout",       category: "Pre Workout",      goalTags: ["muscle-gain", "recomposition"],            timing: "pre-workout",     dosage: "1 ölçek",   warnings: ["caffeine"],         icon: "🚀", description: "Antrenman öncesi enerji + odak." },
+  { id: "carnitine",   name: "L-Carnitine",       category: "Yağ Yakımı",       goalTags: ["fat-loss", "recomposition"],                timing: "pre-workout",     dosage: "2 g",       warnings: [],                   icon: "🔥", description: "Yağ asitlerinin enerji dönüşümü." },
+  { id: "green-tea",   name: "Yeşil Çay Ekstresi", category: "Yağ Yakımı",      goalTags: ["fat-loss"],                                 timing: "morning",         dosage: "500 mg",    warnings: ["caffeine"],         icon: "🍵", description: "Metabolizma desteği antioksidan." },
+  { id: "cla",         name: "CLA",               category: "Yağ Yakımı",       goalTags: ["fat-loss"],                                 timing: "with-meals",      dosage: "3 g",       warnings: [],                   icon: "🍃", description: "Vücut kompozisyonu desteği." },
+  { id: "omega3",      name: "Omega 3",           category: "Sağlık",           goalTags: ["muscle-gain", "fat-loss", "maintenance"],   timing: "morning",         dosage: "2-3 g EPA+DHA", warnings: [],               icon: "🐟", description: "Kardiyovasküler + anti-inflamatuar destek." },
+  { id: "vitamin-d",   name: "D Vitamini",        category: "Vitamin",          goalTags: ["muscle-gain", "fat-loss", "maintenance"],   timing: "morning",         dosage: "2000 IU",   warnings: [],                   icon: "☀", description: "Kas fonksiyonu + bağışıklık." },
+  { id: "vitamin-c",   name: "C Vitamini",        category: "Vitamin",          goalTags: ["maintenance", "recomposition"],            timing: "morning",         dosage: "500 mg",    warnings: [],                   icon: "🍊", description: "Bağışıklık + antioksidan." },
+  { id: "multivitamin", name: "Multivitamin",     category: "Vitamin",          goalTags: ["muscle-gain", "fat-loss", "maintenance"],   timing: "morning",         dosage: "1 tablet",  warnings: [],                   icon: "💊", description: "Genel mikrobesin desteği." },
+  { id: "magnesium",   name: "Magnezyum",         category: "Mineral",          goalTags: ["muscle-gain", "fat-loss", "maintenance", "recomposition"], timing: "before-sleep", dosage: "300-400 mg", warnings: [],          icon: "✨", description: "Kas gevşemesi + uyku kalitesi." },
+  { id: "zinc",        name: "Çinko",             category: "Mineral",          goalTags: ["muscle-gain", "maintenance"],              timing: "before-sleep",    dosage: "15-25 mg",  warnings: [],                   icon: "🔷", description: "Test/anabolik hormon desteği." },
+  { id: "melatonin",   name: "Melatonin",         category: "Uyku / Toparlanma", goalTags: ["recomposition", "maintenance"],            timing: "before-sleep",    dosage: "1-3 mg",    warnings: [],                   icon: "😴", description: "Uyku başlatma desteği." },
+  { id: "ashwagandha", name: "Ashwagandha",       category: "Uyku / Toparlanma", goalTags: ["muscle-gain", "recomposition", "maintenance"], timing: "before-sleep", dosage: "600 mg",     warnings: [],                  icon: "🌿", description: "Kortizol regülasyonu + recovery." },
+  { id: "glucosamine", name: "Glucosamine",       category: "Eklem Desteği",    goalTags: ["muscle-gain", "maintenance"],              timing: "with-meals",      dosage: "1500 mg",   warnings: [],                   icon: "🦴", description: "Eklem kıkırdağı + hareketlilik." },
+  { id: "collagen",    name: "Kolajen Peptit",    category: "Eklem Desteği",    goalTags: ["muscle-gain", "fat-loss", "maintenance"],   timing: "morning",         dosage: "10 g",      warnings: [],                   icon: "🧬", description: "Cilt + eklem + tendon yapısı." },
+  { id: "electrolytes", name: "Elektrolit",       category: "Hidrasyon",        goalTags: ["muscle-gain", "fat-loss", "maintenance"],   timing: "intra-workout",   dosage: "1 ölçek",   warnings: [],                   icon: "💧", description: "Antrenman sırasında elektrolit dengesi." },
+  // v1.3.0 yeni library elemanlari
+  { id: "glutamine",   name: "Glutamine",         category: "Amino Asit",       goalTags: ["muscle-gain", "recomposition", "maintenance"], timing: "post-workout", dosage: "5 g",       warnings: [],                   icon: "🟢", description: "Kas onarımı + bağışıklık desteği." },
+  { id: "citrulline",  name: "L-Citrulline Malat", category: "Pre Workout",     goalTags: ["muscle-gain", "recomposition"],            timing: "pre-workout",     dosage: "6-8 g",     warnings: [],                   icon: "🌶", description: "Pump + nitrik oksit + dayanıklılık." },
+  { id: "probiotic",   name: "Probiotic",         category: "Sağlık",           goalTags: ["fat-loss", "maintenance", "recomposition"], timing: "morning",       dosage: "10-20 mlrd CFU", warnings: [],              icon: "🦠", description: "Bağırsak florası + bağışıklık + sindirim." },
+];
+
+// Library getter (deterministik kopya doner)
+function getSupplementLibrary() { return BSM_SUPPLEMENT_LIBRARY.map((s) => ({ ...s })); }
+
+// v1.3.4: BSM_FOOD_LIBRARY — geniş besin havuzu (50 item)
+// Her item: id, name, category, caloriesPer100g, proteinPer100g, carbsPer100g,
+// fatPer100g, mealTags (kahvalti/ogle/aksam/ara/preworkout/postworkout),
+// goalTags (muscle-gain/fat-loss/maintenance/recomposition).
+// Diversification engine ve manuel meal editor bu library'den beslenir.
+const BSM_FOOD_LIBRARY = [
+  // PROTEIN KAYNAKLARI (12)
+  { id: "tavuk-gogus",  name: "Tavuk göğüs (haşlanmış)", category: "Protein",        caloriesPer100g: 165, proteinPer100g: 31, carbsPer100g: 0,    fatPer100g: 3.6, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss", "recomposition"] },
+  { id: "hindi-gogus",  name: "Hindi göğsü",              category: "Protein",        caloriesPer100g: 135, proteinPer100g: 30, carbsPer100g: 0,    fatPer100g: 1.0, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss"] },
+  { id: "kirmizi-et",   name: "Dana bonfile",             category: "Protein",        caloriesPer100g: 217, proteinPer100g: 26, carbsPer100g: 0,    fatPer100g: 12,  mealTags: ["aksam", "ogle"],                  goalTags: ["muscle-gain", "recomposition"] },
+  { id: "kuzu-pirzola", name: "Kuzu pirzola",             category: "Protein",        caloriesPer100g: 282, proteinPer100g: 25, carbsPer100g: 0,    fatPer100g: 20,  mealTags: ["aksam"],                          goalTags: ["muscle-gain"] },
+  { id: "somon",        name: "Somon",                    category: "Protein",        caloriesPer100g: 208, proteinPer100g: 20, carbsPer100g: 0,    fatPer100g: 13,  mealTags: ["aksam", "ogle"],                  goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "ton-baligi",   name: "Ton balığı (suda)",        category: "Protein",        caloriesPer100g: 128, proteinPer100g: 26, carbsPer100g: 0,    fatPer100g: 2.5, mealTags: ["ogle", "ara"],                    goalTags: ["fat-loss", "recomposition"] },
+  { id: "yumurta",      name: "Yumurta (tam)",            category: "Protein",        caloriesPer100g: 155, proteinPer100g: 13, carbsPer100g: 1.1,  fatPer100g: 11,  mealTags: ["kahvalti"],                       goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "yumurta-beyaz",name: "Yumurta beyazı",           category: "Protein",        caloriesPer100g: 52,  proteinPer100g: 11, carbsPer100g: 0.7,  fatPer100g: 0.2, mealTags: ["kahvalti"],                       goalTags: ["fat-loss"] },
+  { id: "lor",          name: "Lor peyniri",              category: "Süt Ürünleri",   caloriesPer100g: 98,  proteinPer100g: 11, carbsPer100g: 3.4,  fatPer100g: 4.3, mealTags: ["kahvalti", "ara"],                goalTags: ["muscle-gain", "fat-loss", "recomposition"] },
+  { id: "yogurt",       name: "Yoğurt (yağsız)",          category: "Süt Ürünleri",   caloriesPer100g: 59,  proteinPer100g: 10, carbsPer100g: 3.6,  fatPer100g: 0.4, mealTags: ["kahvalti", "ara", "aksam"],       goalTags: ["fat-loss", "recomposition"] },
+  { id: "kefir",        name: "Kefir",                    category: "Süt Ürünleri",   caloriesPer100g: 41,  proteinPer100g: 3.8, carbsPer100g: 4.8, fatPer100g: 0.9, mealTags: ["ara", "preworkout"],              goalTags: ["fat-loss", "maintenance"] },
+  { id: "whey",         name: "Whey protein",             category: "Supplement",     caloriesPer100g: 380, proteinPer100g: 80, carbsPer100g: 6,    fatPer100g: 5,   mealTags: ["postworkout", "kahvalti"],        goalTags: ["muscle-gain", "fat-loss", "recomposition"] },
+
+  // KARBONHIDRAT KAYNAKLARI (10)
+  { id: "pirinc",       name: "Pirinç (haşlanmış)",       category: "Karbonhidrat",   caloriesPer100g: 130, proteinPer100g: 2.7, carbsPer100g: 28,  fatPer100g: 0.3, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "maintenance"] },
+  { id: "bulgur",       name: "Bulgur (pişmiş)",          category: "Karbonhidrat",   caloriesPer100g: 83,  proteinPer100g: 3.1, carbsPer100g: 19,  fatPer100g: 0.2, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss"] },
+  { id: "makarna",      name: "Tam buğday makarnası",     category: "Karbonhidrat",   caloriesPer100g: 124, proteinPer100g: 5,   carbsPer100g: 26,  fatPer100g: 0.9, mealTags: ["ogle"],                           goalTags: ["muscle-gain"] },
+  { id: "patates",      name: "Patates (haşlanmış)",      category: "Karbonhidrat",   caloriesPer100g: 87,  proteinPer100g: 1.9, carbsPer100g: 20,  fatPer100g: 0.1, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "maintenance"] },
+  { id: "tatli-patates",name: "Tatlı patates",            category: "Karbonhidrat",   caloriesPer100g: 86,  proteinPer100g: 1.6, carbsPer100g: 20,  fatPer100g: 0.1, mealTags: ["ogle", "preworkout"],             goalTags: ["muscle-gain", "fat-loss", "recomposition"] },
+  { id: "yulaf",        name: "Yulaf ezmesi",             category: "Karbonhidrat",   caloriesPer100g: 389, proteinPer100g: 17,  carbsPer100g: 66,  fatPer100g: 7,   mealTags: ["kahvalti", "preworkout"],         goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "ekmek",        name: "Tam buğday ekmeği",        category: "Karbonhidrat",   caloriesPer100g: 247, proteinPer100g: 13,  carbsPer100g: 41,  fatPer100g: 3.4, mealTags: ["kahvalti", "ogle"],               goalTags: ["muscle-gain", "maintenance"] },
+  { id: "kinoa",        name: "Kinoa",                    category: "Karbonhidrat",   caloriesPer100g: 120, proteinPer100g: 4.4, carbsPer100g: 21,  fatPer100g: 1.9, mealTags: ["ogle", "aksam"],                  goalTags: ["fat-loss", "recomposition"] },
+  { id: "muz",          name: "Muz",                      category: "Meyve",          caloriesPer100g: 89,  proteinPer100g: 1.1, carbsPer100g: 23,  fatPer100g: 0.3, mealTags: ["kahvalti", "preworkout", "ara"], goalTags: ["muscle-gain", "maintenance"] },
+  { id: "elma",         name: "Elma",                     category: "Meyve",          caloriesPer100g: 52,  proteinPer100g: 0.3, carbsPer100g: 14,  fatPer100g: 0.2, mealTags: ["ara"],                            goalTags: ["fat-loss", "maintenance"] },
+
+  // YAĞ KAYNAKLARI (8)
+  { id: "zeytinyagi",   name: "Zeytinyağı",               category: "Yağ",            caloriesPer100g: 884, proteinPer100g: 0,   carbsPer100g: 0,   fatPer100g: 100, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "avokado",      name: "Avokado",                  category: "Yağ",            caloriesPer100g: 160, proteinPer100g: 2,   carbsPer100g: 9,   fatPer100g: 15,  mealTags: ["kahvalti", "ogle"],               goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "badem",        name: "Badem (çiğ)",              category: "Kuruyemiş",      caloriesPer100g: 579, proteinPer100g: 21,  carbsPer100g: 22,  fatPer100g: 50,  mealTags: ["ara"],                            goalTags: ["muscle-gain", "maintenance"] },
+  { id: "ceviz",        name: "Ceviz",                    category: "Kuruyemiş",      caloriesPer100g: 654, proteinPer100g: 15,  carbsPer100g: 14,  fatPer100g: 65,  mealTags: ["ara", "kahvalti"],                goalTags: ["maintenance", "fat-loss"] },
+  { id: "findik",       name: "Fındık",                   category: "Kuruyemiş",      caloriesPer100g: 628, proteinPer100g: 15,  carbsPer100g: 17,  fatPer100g: 61,  mealTags: ["ara"],                            goalTags: ["maintenance", "muscle-gain"] },
+  { id: "fistik-ezmesi",name: "Fıstık ezmesi (şekersiz)", category: "Yağ",            caloriesPer100g: 588, proteinPer100g: 25,  carbsPer100g: 20,  fatPer100g: 50,  mealTags: ["kahvalti", "ara"],                goalTags: ["muscle-gain", "maintenance"] },
+  { id: "hindistancevizi",name: "Hindistan cevizi yağı",  category: "Yağ",            caloriesPer100g: 862, proteinPer100g: 0,   carbsPer100g: 0,   fatPer100g: 100, mealTags: ["kahvalti"],                       goalTags: ["fat-loss", "recomposition"] },
+  { id: "chia",         name: "Chia tohumu",              category: "Yağ",            caloriesPer100g: 486, proteinPer100g: 17,  carbsPer100g: 42,  fatPer100g: 31,  mealTags: ["kahvalti", "ara"],                goalTags: ["fat-loss", "maintenance"] },
+
+  // SEBZE & SALATA (5)
+  { id: "brokoli",      name: "Brokoli",                  category: "Sebze",          caloriesPer100g: 34,  proteinPer100g: 2.8, carbsPer100g: 7,   fatPer100g: 0.4, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "ispanak",      name: "Ispanak",                  category: "Sebze",          caloriesPer100g: 23,  proteinPer100g: 2.9, carbsPer100g: 3.6, fatPer100g: 0.4, mealTags: ["ogle", "aksam", "kahvalti"],      goalTags: ["fat-loss", "maintenance"] },
+  { id: "domates",      name: "Domates",                  category: "Sebze",          caloriesPer100g: 18,  proteinPer100g: 0.9, carbsPer100g: 3.9, fatPer100g: 0.2, mealTags: ["kahvalti", "ogle", "aksam"],      goalTags: ["fat-loss", "maintenance"] },
+  { id: "salatalik",    name: "Salatalık",                category: "Sebze",          caloriesPer100g: 16,  proteinPer100g: 0.7, carbsPer100g: 3.6, fatPer100g: 0.1, mealTags: ["kahvalti", "ogle", "aksam"],      goalTags: ["fat-loss", "maintenance"] },
+  { id: "salata-yapragi",name: "Karışık yeşillik",        category: "Sebze",          caloriesPer100g: 15,  proteinPer100g: 1.4, carbsPer100g: 2.9, fatPer100g: 0.2, mealTags: ["ogle", "aksam"],                  goalTags: ["fat-loss", "maintenance", "recomposition"] },
+
+  // MEYVE (3 ek)
+  { id: "yaban-mersini",name: "Yaban mersini",            category: "Meyve",          caloriesPer100g: 57,  proteinPer100g: 0.7, carbsPer100g: 14,  fatPer100g: 0.3, mealTags: ["kahvalti", "ara"],                goalTags: ["fat-loss", "maintenance"] },
+  { id: "cilek",        name: "Çilek",                    category: "Meyve",          caloriesPer100g: 32,  proteinPer100g: 0.7, carbsPer100g: 7.7, fatPer100g: 0.3, mealTags: ["kahvalti", "ara"],                goalTags: ["fat-loss", "maintenance"] },
+  { id: "portakal",     name: "Portakal",                 category: "Meyve",          caloriesPer100g: 47,  proteinPer100g: 0.9, carbsPer100g: 12,  fatPer100g: 0.1, mealTags: ["ara", "kahvalti"],                goalTags: ["fat-loss", "maintenance"] },
+
+  // SÜT ÜRÜNLERİ (3 ek)
+  { id: "beyaz-peynir", name: "Beyaz peynir (yağsız)",    category: "Süt Ürünleri",   caloriesPer100g: 264, proteinPer100g: 21,  carbsPer100g: 1.3, fatPer100g: 20,  mealTags: ["kahvalti"],                       goalTags: ["muscle-gain", "maintenance"] },
+  { id: "kasari",       name: "Kaşar peynir",             category: "Süt Ürünleri",   caloriesPer100g: 350, proteinPer100g: 25,  carbsPer100g: 1.3, fatPer100g: 27,  mealTags: ["kahvalti"],                       goalTags: ["muscle-gain"] },
+  { id: "sut",          name: "Süt (yağsız)",             category: "Süt Ürünleri",   caloriesPer100g: 42,  proteinPer100g: 3.4, carbsPer100g: 5,   fatPer100g: 1,   mealTags: ["kahvalti", "postworkout"],        goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+
+  // PRATIK ÖĞÜNLER (4)
+  { id: "tuna-salata",  name: "Ton balıklı salata",       category: "Pratik",         caloriesPer100g: 95,  proteinPer100g: 13,  carbsPer100g: 5,   fatPer100g: 3,   mealTags: ["ogle", "ara"],                    goalTags: ["fat-loss", "recomposition"] },
+  { id: "smoothie-bowl",name: "Yoğurt smoothie bowl",     category: "Pratik",         caloriesPer100g: 110, proteinPer100g: 7,   carbsPer100g: 15,  fatPer100g: 2,   mealTags: ["kahvalti", "ara"],                goalTags: ["muscle-gain", "fat-loss"] },
+  { id: "omlet-sebze",  name: "Sebzeli omlet",            category: "Pratik",         caloriesPer100g: 154, proteinPer100g: 11,  carbsPer100g: 3,   fatPer100g: 11,  mealTags: ["kahvalti"],                       goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "tavuk-pilav",  name: "Tavuklu pilav (porsiyon)", category: "Pratik",         caloriesPer100g: 165, proteinPer100g: 14,  carbsPer100g: 18,  fatPer100g: 4,   mealTags: ["ogle"],                           goalTags: ["muscle-gain", "maintenance"] },
+];
+
+function getFoodLibrary() { return BSM_FOOD_LIBRARY.map((f) => ({ ...f })); }
+function findFoodById(id) { return BSM_FOOD_LIBRARY.find((f) => f.id === id) || null; }
+function searchFoods(query, category) {
+  const q = String(query || "").toLocaleLowerCase("tr");
+  return BSM_FOOD_LIBRARY.filter((f) => {
+    if (category && f.category !== category) return false;
+    if (!q) return true;
+    return f.name.toLocaleLowerCase("tr").includes(q) || f.category.toLocaleLowerCase("tr").includes(q);
+  });
+}
+
+// Hesaplanmis makro/kcal (gramaj * Per100g/100)
+function calcFoodMacros(foodId, grams) {
+  const food = findFoodById(foodId);
+  if (!food) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  const g = Number(grams) || 0;
+  const f = g / 100;
+  return {
+    calories: Math.round(food.caloriesPer100g * f),
+    protein: Math.round(food.proteinPer100g * f * 10) / 10,
+    carbs: Math.round(food.carbsPer100g * f * 10) / 10,
+    fat: Math.round(food.fatPer100g * f * 10) / 10,
+  };
+}
+
+// v1.3.7: Meal-level macro aggregate — meal.foods array'inden TUM besinleri
+// dolasarak gramaj * Per100g/100 ile toplam P/K/Y/kcal hesaplar.
+// Spec gereği her meal'in dinamik hesaplanabilir actual macros'u olmali.
+function calculateMealMacros(meal) {
+  if (!meal || !Array.isArray(meal.foods) || !meal.foods.length) {
+    return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  }
+  const totals = meal.foods.reduce((acc, food) => {
+    // food iki formatta gelebilir:
+    //   - { id: "yumurta", grams: 100 } (manuel override / library match)
+    //   - "yumurta 4 adet" (engine free-form string)
+    if (food && food.id && Number(food.grams) > 0) {
+      const macros = calcFoodMacros(food.id, food.grams);
+      acc.calories += macros.calories;
+      acc.protein += macros.protein;
+      acc.carbs += macros.carbs;
+      acc.fat += macros.fat;
+    }
+    return acc;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  return {
+    calories: Math.round(totals.calories),
+    protein: Math.round(totals.protein),
+    carbs: Math.round(totals.carbs),
+    fat: Math.round(totals.fat),
+  };
+}
+
+// v1.3.7: Meal makros resolver — 4 katmanli fallback chain.
+// PDF renderer ve timeline view bu helper'i kullanarak her zaman dolu P/K/Y
+// elde eder. Spec gereği siralama:
+//   1) meal.actualMacros (en son hesaplanmis, manuel edit + diversify sonrasi)
+//   2) meal.macros (engine'in original cıktısı veya override)
+//   3) calculateMealMacros(meal) — foods'tan canli hesap
+//   4) 0 fallback (en son care)
+function resolveMealMacros(meal) {
+  if (!meal) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  // 1. actualMacros (v1.3.7: zorunlu field, ensureMealMacrosFallback yazar)
+  if (meal.actualMacros && hasNonZeroMacros(meal.actualMacros)) {
+    return {
+      calories: Math.round(Number(meal.actualCalories) || Number(meal.calories) || 0),
+      protein: Math.round(Number(meal.actualMacros.protein) || 0),
+      carbs: Math.round(Number(meal.actualMacros.carbs) || 0),
+      fat: Math.round(Number(meal.actualMacros.fat) || 0),
+    };
+  }
+  // 2. macros (engine veya manuel override)
+  if (meal.macros && hasNonZeroMacros(meal.macros)) {
+    return {
+      calories: Math.round(Number(meal.calories) || 0),
+      protein: Math.round(Number(meal.macros.protein) || 0),
+      carbs: Math.round(Number(meal.macros.carbs) || 0),
+      fat: Math.round(Number(meal.macros.fat) || 0),
+    };
+  }
+  // 3. Foods'tan dinamik hesap
+  const calc = calculateMealMacros(meal);
+  if (hasNonZeroMacros(calc)) return calc;
+  // 4. 0 fallback (cok nadir; ogun foods bos + macros yok)
+  return { calories: Math.round(Number(meal.calories) || 0), protein: 0, carbs: 0, fat: 0 };
+}
+
+function hasNonZeroMacros(m) {
+  if (!m) return false;
+  const p = Number(m.protein) || 0;
+  const c = Number(m.carbs) || 0;
+  const f = Number(m.fat) || 0;
+  return p > 0 || c > 0 || f > 0;
+}
+
+// v1.3.4: Meal key — plan.meals indexi bazli stable id (engine recreate olsa
+// bile aynı slot icin override saklanir).
+function mealOverrideKey(idx) { return String(idx); }
+
+// v1.3.4: applyMealOverridesToPlan — state.nutritionFormState.mealOverrides
+// plan.meals'e merge eder. Override edilen meal'in foods/name/time'i override'tan
+// alinir, kcal/macros food library'den yeniden hesaplanir.
+// Sonra plan.calories ve plan.macros TUM meals'in toplaminden TURETILIR
+// (eski engine degerlerini override eder ki manuel duzenleme totals'a yansisin).
+function applyMealOverridesToPlan(plan, formState) {
+  if (!plan || !Array.isArray(plan.meals)) return plan;
+  const overrides = formState?.mealOverrides || {};
+  if (!Object.keys(overrides).length) return plan;
+
+  plan.meals = plan.meals.map((meal, idx) => {
+    const key = mealOverrideKey(idx);
+    const ov = overrides[key];
+    if (!ov) return meal;
+    // Override foods: her food {id, grams} -> macros hesapla
+    const foods = Array.isArray(ov.foods) ? ov.foods.filter((f) => f && f.id) : [];
+    if (foods.length) {
+      const totals = foods.reduce((acc, f) => {
+        const macros = calcFoodMacros(f.id, f.grams);
+        acc.calories += macros.calories;
+        acc.protein += macros.protein;
+        acc.carbs += macros.carbs;
+        acc.fat += macros.fat;
+        return acc;
+      }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+      return {
+        ...meal,
+        name: ov.name || meal.name,
+        time: ov.time || meal.time,
+        scheduledTime: ov.time || meal.scheduledTime || meal.time,
+        foods: foods.map((f) => {
+          const food = findFoodById(f.id);
+          return { ...f, name: food?.name || f.id, displayLabel: `${food?.name || f.id} ${Math.round(f.grams)}g` };
+        }),
+        calories: totals.calories,
+        macros: {
+          protein: Math.round(totals.protein),
+          carbs: Math.round(totals.carbs),
+          fat: Math.round(totals.fat),
+        },
+        isOverridden: true,
+      };
+    }
+    return { ...meal, name: ov.name || meal.name, time: ov.time || meal.time };
+  });
+
+  // Plan.calories ve plan.macros'u meal toplamlarindan TURETIR (manuel edit yansisin)
+  const planTotal = plan.meals.reduce((acc, m) => {
+    acc.calories += Number(m.calories) || 0;
+    acc.protein += Number(m.macros?.protein) || 0;
+    acc.carbs += Number(m.macros?.carbs) || 0;
+    acc.fat += Number(m.macros?.fat) || 0;
+    return acc;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  // Engine'in original hedeflerini sakla (target vs actual gosterimi icin)
+  plan.targetCalories = plan.targetCalories || plan.calories;
+  plan.targetMacros = plan.targetMacros || { ...plan.macros };
+  plan.calories = planTotal.calories;
+  plan.macros = { protein: Math.round(planTotal.protein), carbs: Math.round(planTotal.carbs), fat: Math.round(planTotal.fat) };
+  return plan;
+}
+
+// v1.3.4: Diversification engine — bir meal'in foods'larini library'den
+// alternatif besinlerle değiştirir. Hedef makrolardan gramaj türetilir.
+// Aynı protein gün içinde 2'den fazla tekrar etmesin diye usedProteinIds set.
+function diversifyMealFoods(meal, mealIdx, seed, formState, usedProteinIds) {
+  if (!meal) return meal;
+  const goal = formState?.goal || "maintenance";
+  // Meal tipi belirleme (saatten kaba ipucu)
+  const time = meal.scheduledTime || meal.time || "12:00";
+  const hour = parseInt(String(time).split(":")[0], 10) || 12;
+  let mealType = "ogle";
+  if (hour < 10) mealType = "kahvalti";
+  else if (hour < 13) mealType = (meal.name || "").toLowerCase().includes("ara") ? "ara" : "ogle";
+  else if (hour < 17) mealType = "ara";
+  else if (hour < 22) mealType = "aksam";
+  else mealType = "ara";
+  // Pre/Post workout override
+  if (meal.isPreWorkout) mealType = "preworkout";
+  if (meal.isPostWorkout) mealType = "postworkout";
+
+  // Bu meal tipine + hedefe uygun protein/karb/yag adaylari
+  const tagFilter = (food, tag) => food.mealTags?.includes(tag);
+  const goalFilter = (food) => food.goalTags?.includes(goal);
+
+  const candidates = BSM_FOOD_LIBRARY.filter((f) => tagFilter(f, mealType) && goalFilter(f));
+  const proteinCandidates = candidates.filter((f) => f.proteinPer100g >= 10 && !usedProteinIds.has(f.id));
+  const carbCandidates = candidates.filter((f) => f.carbsPer100g >= 15 && f.proteinPer100g < 10);
+  const fatCandidates = candidates.filter((f) => f.fatPer100g >= 10);
+
+  // Seed + idx bazli secim (deterministik ama farkli her diversify'da)
+  const pick = (arr, offset) => {
+    if (!arr.length) return null;
+    return arr[(seed + mealIdx + offset) % arr.length];
+  };
+
+  const protein = pick(proteinCandidates, 0) || pick(candidates.filter((f) => f.proteinPer100g >= 8), 0);
+  const carb = pick(carbCandidates, 1) || pick(candidates.filter((f) => f.carbsPer100g >= 10), 1);
+  const fat = pick(fatCandidates, 2) || pick(candidates.filter((f) => f.fatPer100g >= 5), 2);
+
+  // Hedef makro/meal — meal'in engine'den gelen mevcut makrolari
+  const targetCal = Number(meal.calories) || 500;
+  const targetP = Number(meal.macros?.protein) || 30;
+  const targetC = Number(meal.macros?.carbs) || 50;
+  const targetF = Number(meal.macros?.fat) || 15;
+
+  const foods = [];
+  if (protein) {
+    const grams = Math.round((targetP / protein.proteinPer100g) * 100 / 5) * 5;
+    if (grams > 0) foods.push({ id: protein.id, grams: Math.min(grams, 300) });
+    usedProteinIds.add(protein.id);
+  }
+  if (carb) {
+    const grams = Math.round((targetC / Math.max(carb.carbsPer100g, 1)) * 100 / 10) * 10;
+    if (grams > 0) foods.push({ id: carb.id, grams: Math.min(grams, 400) });
+  }
+  if (fat && targetF > 5) {
+    const grams = Math.round((targetF / Math.max(fat.fatPer100g, 1)) * 100 / 5) * 5;
+    if (grams > 0) foods.push({ id: fat.id, grams: Math.min(grams, 60) });
+  }
+
+  return foods;
+}
+
+// v1.3.4: applyDiversification — plan.meals'in TAMAMI icin diversify uygula.
+// Sonuc state.mealOverrides'a yazilir; applyMealOverridesToPlan recall ile
+// totals yeniden hesaplar.
+function applyDiversificationToPlan(plan, formState) {
+  if (!plan || !Array.isArray(plan.meals)) return;
+  const seed = Number(formState?.diversifySeed) || 0;
+  const usedProteinIds = new Set();
+  const newOverrides = { ...(formState.mealOverrides || {}) };
+  plan.meals.forEach((meal, idx) => {
+    const foods = diversifyMealFoods(meal, idx, seed, formState, usedProteinIds);
+    if (foods.length) {
+      newOverrides[mealOverrideKey(idx)] = {
+        foods,
+        name: meal.name,
+        time: meal.scheduledTime || meal.time,
+      };
+    }
+  });
+  formState.mealOverrides = newOverrides;
+}
+function findSupplementById(id) { return BSM_SUPPLEMENT_LIBRARY.find((s) => s.id === id) || null; }
+
+// v1.2.5: Smart Supplement Engine — hedef + IF + workout time + hassasiyet bazli
+// otomatik 5-7 supplement onerir. Manuel ekleme/cikarma user'in elinde kalir.
+function buildSmartSupplementSuggestions(formState, activeMeasurement) {
+  const goal = formState?.goal || "maintenance";
+  const hasWorkout = !!formState?.workoutTime;
+  const fastingOn = !!formState?.fastingEnabled;
+  const caffeineSensitive = formState?.caffeineSensitive === "yes";
+  const lactoseSensitive = formState?.lactoseSensitive === "yes";
+  const categoryFilter = Array.isArray(formState?.supplementCategories) ? formState.supplementCategories : [];
+
+  const scores = BSM_SUPPLEMENT_LIBRARY.map((s) => {
+    let score = 0;
+    // Hedef eslesmesi: en kritik kriter
+    if (s.goalTags.includes(goal)) score += 30;
+    // Antrenman varsa pre/post/intra workout supplements'i artir
+    if (hasWorkout && /workout/.test(s.timing || "")) score += 18;
+    // IF aktifse intra-workout BCAA cok degerli
+    if (fastingOn && s.id === "bcaa") score += 25;
+    // Hassasiyet penalty
+    if (caffeineSensitive && s.warnings?.includes("caffeine")) score -= 40;
+    if (lactoseSensitive && s.warnings?.includes("lactose")) score -= 35;
+    // Sağlık kategorisi her zaman ust seviyede onerelim (omega3, D vitamini)
+    if (s.category === "Sağlık" || s.category === "Vitamin") score += 8;
+    // Olcum bazli: visceral fat yuksekse omega3 ve magnezyum ekstra ag
+    const visc = Number(activeMeasurement?.visceralFat || 0);
+    if (visc >= 10 && (s.id === "omega3" || s.id === "magnesium")) score += 12;
+    // Kategori filter — user secmisse, sadece bu kategorilere bonus
+    if (categoryFilter.length) {
+      const cMatch = categoryFilter.some((c) => normalizeSupplementCategoryKey(s.category) === c);
+      if (cMatch) score += 10;
+    }
+    return { supplement: s, score };
+  });
+
+  return scores
+    .filter((x) => x.score > 15)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 7)
+    .map((x) => x.supplement.id);
+}
+
+// Kategori filtreleri UI'da kullanilan key'leri library category isimlerine ceviren map
+function normalizeSupplementCategoryKey(category) {
+  const m = {
+    "Protein": "muscle",
+    "Amino Asit": "muscle",
+    "Kreatin": "muscle",
+    "Pre Workout": "performance",
+    "Performans": "performance",
+    "Post Workout": "performance",
+    "Yağ Yakımı": "fat-burn",
+    "Vitamin": "health",
+    "Mineral": "health",
+    "Sağlık": "health",
+    "Uyku / Toparlanma": "recovery",
+    "Eklem Desteği": "recovery",
+    "Hidrasyon": "performance",
+  };
+  return m[category] || "health";
+}
+
+// Supplement timing -> gunluk saate cevirici
+function getSupplementScheduleTime(supplement, formState) {
+  const wake = formState?.wakeTime || "07:30";
+  const firstMeal = "08:30";
+  const workout = formState?.workoutTime || "18:30";
+  const sleep = "23:00";
+  const lastMeal = "21:30";
+  const map = {
+    "morning": wake,
+    "with-meals": firstMeal,
+    "pre-workout": shiftTime(workout, -30),
+    "post-workout": shiftTime(workout, 60),
+    "intra-workout": workout,
+    "before-sleep": shiftTime(sleep, -45),
+    "daily": firstMeal,
+  };
+  return map[supplement.timing] || firstMeal;
+}
+
+// HH:MM saatini delta dakika ile kaydir
+function shiftTime(hhmm, deltaMinutes) {
+  if (!/^\d{2}:\d{2}$/.test(String(hhmm || ""))) return hhmm;
+  const [h, m] = String(hhmm).split(":").map(Number);
+  let total = h * 60 + m + (Number(deltaMinutes) || 0);
+  total = Math.max(0, Math.min(23 * 60 + 59, total));
+  const nh = Math.floor(total / 60);
+  const nm = total % 60;
+  return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
+}
 
 const {
   turkishAlphabet,
@@ -8181,436 +8618,6 @@ function renderNutritionWorkspace() {
 // v1.2.5: Supplement Library — 18 supplement, kategori/goalTag/timing/dosage/warning/icon.
 // Bu library hardcoded ama "smart engine"in karari icin gerekli kapsami sunar.
 // icon: emoji veya kisa string (UI swatch ile birlikte gozukur).
-const BSM_SUPPLEMENT_LIBRARY = [
-  { id: "whey",        name: "Whey Protein",      category: "Protein",          goalTags: ["muscle-gain", "recomposition", "fat-loss"], timing: "post-workout",    dosage: "25-30 g",   warnings: ["lactose"],          icon: "💪", description: "Kas onarımı / antrenman sonrası hızlı protein." },
-  { id: "casein",      name: "Casein",            category: "Protein",          goalTags: ["muscle-gain", "recomposition"],            timing: "before-sleep",    dosage: "30 g",      warnings: ["lactose"],          icon: "🌙", description: "Uyku öncesi yavaş salınımlı protein." },
-  { id: "creatine",    name: "Kreatin Monohydrate", category: "Performans",     goalTags: ["muscle-gain", "recomposition"],            timing: "daily",           dosage: "5 g",       warnings: [],                   icon: "⚡", description: "Güç ve hacim için günlük destek." },
-  { id: "bcaa",        name: "BCAA",              category: "Amino Asit",       goalTags: ["muscle-gain", "fat-loss"],                  timing: "intra-workout",   dosage: "10 g",      warnings: [],                   icon: "🔋", description: "Antrenman sırasında kas koruma." },
-  { id: "preworkout",  name: "Pre Workout",       category: "Pre Workout",      goalTags: ["muscle-gain", "recomposition"],            timing: "pre-workout",     dosage: "1 ölçek",   warnings: ["caffeine"],         icon: "🚀", description: "Antrenman öncesi enerji + odak." },
-  { id: "carnitine",   name: "L-Carnitine",       category: "Yağ Yakımı",       goalTags: ["fat-loss", "recomposition"],                timing: "pre-workout",     dosage: "2 g",       warnings: [],                   icon: "🔥", description: "Yağ asitlerinin enerji dönüşümü." },
-  { id: "green-tea",   name: "Yeşil Çay Ekstresi", category: "Yağ Yakımı",      goalTags: ["fat-loss"],                                 timing: "morning",         dosage: "500 mg",    warnings: ["caffeine"],         icon: "🍵", description: "Metabolizma desteği antioksidan." },
-  { id: "cla",         name: "CLA",               category: "Yağ Yakımı",       goalTags: ["fat-loss"],                                 timing: "with-meals",      dosage: "3 g",       warnings: [],                   icon: "🍃", description: "Vücut kompozisyonu desteği." },
-  { id: "omega3",      name: "Omega 3",           category: "Sağlık",           goalTags: ["muscle-gain", "fat-loss", "maintenance"],   timing: "morning",         dosage: "2-3 g EPA+DHA", warnings: [],               icon: "🐟", description: "Kardiyovasküler + anti-inflamatuar destek." },
-  { id: "vitamin-d",   name: "D Vitamini",        category: "Vitamin",          goalTags: ["muscle-gain", "fat-loss", "maintenance"],   timing: "morning",         dosage: "2000 IU",   warnings: [],                   icon: "☀", description: "Kas fonksiyonu + bağışıklık." },
-  { id: "vitamin-c",   name: "C Vitamini",        category: "Vitamin",          goalTags: ["maintenance", "recomposition"],            timing: "morning",         dosage: "500 mg",    warnings: [],                   icon: "🍊", description: "Bağışıklık + antioksidan." },
-  { id: "multivitamin", name: "Multivitamin",     category: "Vitamin",          goalTags: ["muscle-gain", "fat-loss", "maintenance"],   timing: "morning",         dosage: "1 tablet",  warnings: [],                   icon: "💊", description: "Genel mikrobesin desteği." },
-  { id: "magnesium",   name: "Magnezyum",         category: "Mineral",          goalTags: ["muscle-gain", "fat-loss", "maintenance", "recomposition"], timing: "before-sleep", dosage: "300-400 mg", warnings: [],          icon: "✨", description: "Kas gevşemesi + uyku kalitesi." },
-  { id: "zinc",        name: "Çinko",             category: "Mineral",          goalTags: ["muscle-gain", "maintenance"],              timing: "before-sleep",    dosage: "15-25 mg",  warnings: [],                   icon: "🔷", description: "Test/anabolik hormon desteği." },
-  { id: "melatonin",   name: "Melatonin",         category: "Uyku / Toparlanma", goalTags: ["recomposition", "maintenance"],            timing: "before-sleep",    dosage: "1-3 mg",    warnings: [],                   icon: "😴", description: "Uyku başlatma desteği." },
-  { id: "ashwagandha", name: "Ashwagandha",       category: "Uyku / Toparlanma", goalTags: ["muscle-gain", "recomposition", "maintenance"], timing: "before-sleep", dosage: "600 mg",     warnings: [],                  icon: "🌿", description: "Kortizol regülasyonu + recovery." },
-  { id: "glucosamine", name: "Glucosamine",       category: "Eklem Desteği",    goalTags: ["muscle-gain", "maintenance"],              timing: "with-meals",      dosage: "1500 mg",   warnings: [],                   icon: "🦴", description: "Eklem kıkırdağı + hareketlilik." },
-  { id: "collagen",    name: "Kolajen Peptit",    category: "Eklem Desteği",    goalTags: ["muscle-gain", "fat-loss", "maintenance"],   timing: "morning",         dosage: "10 g",      warnings: [],                   icon: "🧬", description: "Cilt + eklem + tendon yapısı." },
-  { id: "electrolytes", name: "Elektrolit",       category: "Hidrasyon",        goalTags: ["muscle-gain", "fat-loss", "maintenance"],   timing: "intra-workout",   dosage: "1 ölçek",   warnings: [],                   icon: "💧", description: "Antrenman sırasında elektrolit dengesi." },
-  // v1.3.0 yeni library elemanlari
-  { id: "glutamine",   name: "Glutamine",         category: "Amino Asit",       goalTags: ["muscle-gain", "recomposition", "maintenance"], timing: "post-workout", dosage: "5 g",       warnings: [],                   icon: "🟢", description: "Kas onarımı + bağışıklık desteği." },
-  { id: "citrulline",  name: "L-Citrulline Malat", category: "Pre Workout",     goalTags: ["muscle-gain", "recomposition"],            timing: "pre-workout",     dosage: "6-8 g",     warnings: [],                   icon: "🌶", description: "Pump + nitrik oksit + dayanıklılık." },
-  { id: "probiotic",   name: "Probiotic",         category: "Sağlık",           goalTags: ["fat-loss", "maintenance", "recomposition"], timing: "morning",       dosage: "10-20 mlrd CFU", warnings: [],              icon: "🦠", description: "Bağırsak florası + bağışıklık + sindirim." },
-];
-
-// Library getter (deterministik kopya doner)
-function getSupplementLibrary() { return BSM_SUPPLEMENT_LIBRARY.map((s) => ({ ...s })); }
-
-// v1.3.4: BSM_FOOD_LIBRARY — geniş besin havuzu (50 item)
-// Her item: id, name, category, caloriesPer100g, proteinPer100g, carbsPer100g,
-// fatPer100g, mealTags (kahvalti/ogle/aksam/ara/preworkout/postworkout),
-// goalTags (muscle-gain/fat-loss/maintenance/recomposition).
-// Diversification engine ve manuel meal editor bu library'den beslenir.
-const BSM_FOOD_LIBRARY = [
-  // PROTEIN KAYNAKLARI (12)
-  { id: "tavuk-gogus",  name: "Tavuk göğüs (haşlanmış)", category: "Protein",        caloriesPer100g: 165, proteinPer100g: 31, carbsPer100g: 0,    fatPer100g: 3.6, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss", "recomposition"] },
-  { id: "hindi-gogus",  name: "Hindi göğsü",              category: "Protein",        caloriesPer100g: 135, proteinPer100g: 30, carbsPer100g: 0,    fatPer100g: 1.0, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss"] },
-  { id: "kirmizi-et",   name: "Dana bonfile",             category: "Protein",        caloriesPer100g: 217, proteinPer100g: 26, carbsPer100g: 0,    fatPer100g: 12,  mealTags: ["aksam", "ogle"],                  goalTags: ["muscle-gain", "recomposition"] },
-  { id: "kuzu-pirzola", name: "Kuzu pirzola",             category: "Protein",        caloriesPer100g: 282, proteinPer100g: 25, carbsPer100g: 0,    fatPer100g: 20,  mealTags: ["aksam"],                          goalTags: ["muscle-gain"] },
-  { id: "somon",        name: "Somon",                    category: "Protein",        caloriesPer100g: 208, proteinPer100g: 20, carbsPer100g: 0,    fatPer100g: 13,  mealTags: ["aksam", "ogle"],                  goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
-  { id: "ton-baligi",   name: "Ton balığı (suda)",        category: "Protein",        caloriesPer100g: 128, proteinPer100g: 26, carbsPer100g: 0,    fatPer100g: 2.5, mealTags: ["ogle", "ara"],                    goalTags: ["fat-loss", "recomposition"] },
-  { id: "yumurta",      name: "Yumurta (tam)",            category: "Protein",        caloriesPer100g: 155, proteinPer100g: 13, carbsPer100g: 1.1,  fatPer100g: 11,  mealTags: ["kahvalti"],                       goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
-  { id: "yumurta-beyaz",name: "Yumurta beyazı",           category: "Protein",        caloriesPer100g: 52,  proteinPer100g: 11, carbsPer100g: 0.7,  fatPer100g: 0.2, mealTags: ["kahvalti"],                       goalTags: ["fat-loss"] },
-  { id: "lor",          name: "Lor peyniri",              category: "Süt Ürünleri",   caloriesPer100g: 98,  proteinPer100g: 11, carbsPer100g: 3.4,  fatPer100g: 4.3, mealTags: ["kahvalti", "ara"],                goalTags: ["muscle-gain", "fat-loss", "recomposition"] },
-  { id: "yogurt",       name: "Yoğurt (yağsız)",          category: "Süt Ürünleri",   caloriesPer100g: 59,  proteinPer100g: 10, carbsPer100g: 3.6,  fatPer100g: 0.4, mealTags: ["kahvalti", "ara", "aksam"],       goalTags: ["fat-loss", "recomposition"] },
-  { id: "kefir",        name: "Kefir",                    category: "Süt Ürünleri",   caloriesPer100g: 41,  proteinPer100g: 3.8, carbsPer100g: 4.8, fatPer100g: 0.9, mealTags: ["ara", "preworkout"],              goalTags: ["fat-loss", "maintenance"] },
-  { id: "whey",         name: "Whey protein",             category: "Supplement",     caloriesPer100g: 380, proteinPer100g: 80, carbsPer100g: 6,    fatPer100g: 5,   mealTags: ["postworkout", "kahvalti"],        goalTags: ["muscle-gain", "fat-loss", "recomposition"] },
-
-  // KARBONHIDRAT KAYNAKLARI (10)
-  { id: "pirinc",       name: "Pirinç (haşlanmış)",       category: "Karbonhidrat",   caloriesPer100g: 130, proteinPer100g: 2.7, carbsPer100g: 28,  fatPer100g: 0.3, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "maintenance"] },
-  { id: "bulgur",       name: "Bulgur (pişmiş)",          category: "Karbonhidrat",   caloriesPer100g: 83,  proteinPer100g: 3.1, carbsPer100g: 19,  fatPer100g: 0.2, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss"] },
-  { id: "makarna",      name: "Tam buğday makarnası",     category: "Karbonhidrat",   caloriesPer100g: 124, proteinPer100g: 5,   carbsPer100g: 26,  fatPer100g: 0.9, mealTags: ["ogle"],                           goalTags: ["muscle-gain"] },
-  { id: "patates",      name: "Patates (haşlanmış)",      category: "Karbonhidrat",   caloriesPer100g: 87,  proteinPer100g: 1.9, carbsPer100g: 20,  fatPer100g: 0.1, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "maintenance"] },
-  { id: "tatli-patates",name: "Tatlı patates",            category: "Karbonhidrat",   caloriesPer100g: 86,  proteinPer100g: 1.6, carbsPer100g: 20,  fatPer100g: 0.1, mealTags: ["ogle", "preworkout"],             goalTags: ["muscle-gain", "fat-loss", "recomposition"] },
-  { id: "yulaf",        name: "Yulaf ezmesi",             category: "Karbonhidrat",   caloriesPer100g: 389, proteinPer100g: 17,  carbsPer100g: 66,  fatPer100g: 7,   mealTags: ["kahvalti", "preworkout"],         goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
-  { id: "ekmek",        name: "Tam buğday ekmeği",        category: "Karbonhidrat",   caloriesPer100g: 247, proteinPer100g: 13,  carbsPer100g: 41,  fatPer100g: 3.4, mealTags: ["kahvalti", "ogle"],               goalTags: ["muscle-gain", "maintenance"] },
-  { id: "kinoa",        name: "Kinoa",                    category: "Karbonhidrat",   caloriesPer100g: 120, proteinPer100g: 4.4, carbsPer100g: 21,  fatPer100g: 1.9, mealTags: ["ogle", "aksam"],                  goalTags: ["fat-loss", "recomposition"] },
-  { id: "muz",          name: "Muz",                      category: "Meyve",          caloriesPer100g: 89,  proteinPer100g: 1.1, carbsPer100g: 23,  fatPer100g: 0.3, mealTags: ["kahvalti", "preworkout", "ara"], goalTags: ["muscle-gain", "maintenance"] },
-  { id: "elma",         name: "Elma",                     category: "Meyve",          caloriesPer100g: 52,  proteinPer100g: 0.3, carbsPer100g: 14,  fatPer100g: 0.2, mealTags: ["ara"],                            goalTags: ["fat-loss", "maintenance"] },
-
-  // YAĞ KAYNAKLARI (8)
-  { id: "zeytinyagi",   name: "Zeytinyağı",               category: "Yağ",            caloriesPer100g: 884, proteinPer100g: 0,   carbsPer100g: 0,   fatPer100g: 100, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
-  { id: "avokado",      name: "Avokado",                  category: "Yağ",            caloriesPer100g: 160, proteinPer100g: 2,   carbsPer100g: 9,   fatPer100g: 15,  mealTags: ["kahvalti", "ogle"],               goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
-  { id: "badem",        name: "Badem (çiğ)",              category: "Kuruyemiş",      caloriesPer100g: 579, proteinPer100g: 21,  carbsPer100g: 22,  fatPer100g: 50,  mealTags: ["ara"],                            goalTags: ["muscle-gain", "maintenance"] },
-  { id: "ceviz",        name: "Ceviz",                    category: "Kuruyemiş",      caloriesPer100g: 654, proteinPer100g: 15,  carbsPer100g: 14,  fatPer100g: 65,  mealTags: ["ara", "kahvalti"],                goalTags: ["maintenance", "fat-loss"] },
-  { id: "findik",       name: "Fındık",                   category: "Kuruyemiş",      caloriesPer100g: 628, proteinPer100g: 15,  carbsPer100g: 17,  fatPer100g: 61,  mealTags: ["ara"],                            goalTags: ["maintenance", "muscle-gain"] },
-  { id: "fistik-ezmesi",name: "Fıstık ezmesi (şekersiz)", category: "Yağ",            caloriesPer100g: 588, proteinPer100g: 25,  carbsPer100g: 20,  fatPer100g: 50,  mealTags: ["kahvalti", "ara"],                goalTags: ["muscle-gain", "maintenance"] },
-  { id: "hindistancevizi",name: "Hindistan cevizi yağı",  category: "Yağ",            caloriesPer100g: 862, proteinPer100g: 0,   carbsPer100g: 0,   fatPer100g: 100, mealTags: ["kahvalti"],                       goalTags: ["fat-loss", "recomposition"] },
-  { id: "chia",         name: "Chia tohumu",              category: "Yağ",            caloriesPer100g: 486, proteinPer100g: 17,  carbsPer100g: 42,  fatPer100g: 31,  mealTags: ["kahvalti", "ara"],                goalTags: ["fat-loss", "maintenance"] },
-
-  // SEBZE & SALATA (5)
-  { id: "brokoli",      name: "Brokoli",                  category: "Sebze",          caloriesPer100g: 34,  proteinPer100g: 2.8, carbsPer100g: 7,   fatPer100g: 0.4, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
-  { id: "ispanak",      name: "Ispanak",                  category: "Sebze",          caloriesPer100g: 23,  proteinPer100g: 2.9, carbsPer100g: 3.6, fatPer100g: 0.4, mealTags: ["ogle", "aksam", "kahvalti"],      goalTags: ["fat-loss", "maintenance"] },
-  { id: "domates",      name: "Domates",                  category: "Sebze",          caloriesPer100g: 18,  proteinPer100g: 0.9, carbsPer100g: 3.9, fatPer100g: 0.2, mealTags: ["kahvalti", "ogle", "aksam"],      goalTags: ["fat-loss", "maintenance"] },
-  { id: "salatalik",    name: "Salatalık",                category: "Sebze",          caloriesPer100g: 16,  proteinPer100g: 0.7, carbsPer100g: 3.6, fatPer100g: 0.1, mealTags: ["kahvalti", "ogle", "aksam"],      goalTags: ["fat-loss", "maintenance"] },
-  { id: "salata-yapragi",name: "Karışık yeşillik",        category: "Sebze",          caloriesPer100g: 15,  proteinPer100g: 1.4, carbsPer100g: 2.9, fatPer100g: 0.2, mealTags: ["ogle", "aksam"],                  goalTags: ["fat-loss", "maintenance", "recomposition"] },
-
-  // MEYVE (3 ek)
-  { id: "yaban-mersini",name: "Yaban mersini",            category: "Meyve",          caloriesPer100g: 57,  proteinPer100g: 0.7, carbsPer100g: 14,  fatPer100g: 0.3, mealTags: ["kahvalti", "ara"],                goalTags: ["fat-loss", "maintenance"] },
-  { id: "cilek",        name: "Çilek",                    category: "Meyve",          caloriesPer100g: 32,  proteinPer100g: 0.7, carbsPer100g: 7.7, fatPer100g: 0.3, mealTags: ["kahvalti", "ara"],                goalTags: ["fat-loss", "maintenance"] },
-  { id: "portakal",     name: "Portakal",                 category: "Meyve",          caloriesPer100g: 47,  proteinPer100g: 0.9, carbsPer100g: 12,  fatPer100g: 0.1, mealTags: ["ara", "kahvalti"],                goalTags: ["fat-loss", "maintenance"] },
-
-  // SÜT ÜRÜNLERİ (3 ek)
-  { id: "beyaz-peynir", name: "Beyaz peynir (yağsız)",    category: "Süt Ürünleri",   caloriesPer100g: 264, proteinPer100g: 21,  carbsPer100g: 1.3, fatPer100g: 20,  mealTags: ["kahvalti"],                       goalTags: ["muscle-gain", "maintenance"] },
-  { id: "kasari",       name: "Kaşar peynir",             category: "Süt Ürünleri",   caloriesPer100g: 350, proteinPer100g: 25,  carbsPer100g: 1.3, fatPer100g: 27,  mealTags: ["kahvalti"],                       goalTags: ["muscle-gain"] },
-  { id: "sut",          name: "Süt (yağsız)",             category: "Süt Ürünleri",   caloriesPer100g: 42,  proteinPer100g: 3.4, carbsPer100g: 5,   fatPer100g: 1,   mealTags: ["kahvalti", "postworkout"],        goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
-
-  // PRATIK ÖĞÜNLER (4)
-  { id: "tuna-salata",  name: "Ton balıklı salata",       category: "Pratik",         caloriesPer100g: 95,  proteinPer100g: 13,  carbsPer100g: 5,   fatPer100g: 3,   mealTags: ["ogle", "ara"],                    goalTags: ["fat-loss", "recomposition"] },
-  { id: "smoothie-bowl",name: "Yoğurt smoothie bowl",     category: "Pratik",         caloriesPer100g: 110, proteinPer100g: 7,   carbsPer100g: 15,  fatPer100g: 2,   mealTags: ["kahvalti", "ara"],                goalTags: ["muscle-gain", "fat-loss"] },
-  { id: "omlet-sebze",  name: "Sebzeli omlet",            category: "Pratik",         caloriesPer100g: 154, proteinPer100g: 11,  carbsPer100g: 3,   fatPer100g: 11,  mealTags: ["kahvalti"],                       goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
-  { id: "tavuk-pilav",  name: "Tavuklu pilav (porsiyon)", category: "Pratik",         caloriesPer100g: 165, proteinPer100g: 14,  carbsPer100g: 18,  fatPer100g: 4,   mealTags: ["ogle"],                           goalTags: ["muscle-gain", "maintenance"] },
-];
-
-function getFoodLibrary() { return BSM_FOOD_LIBRARY.map((f) => ({ ...f })); }
-function findFoodById(id) { return BSM_FOOD_LIBRARY.find((f) => f.id === id) || null; }
-function searchFoods(query, category) {
-  const q = String(query || "").toLocaleLowerCase("tr");
-  return BSM_FOOD_LIBRARY.filter((f) => {
-    if (category && f.category !== category) return false;
-    if (!q) return true;
-    return f.name.toLocaleLowerCase("tr").includes(q) || f.category.toLocaleLowerCase("tr").includes(q);
-  });
-}
-
-// Hesaplanmis makro/kcal (gramaj * Per100g/100)
-function calcFoodMacros(foodId, grams) {
-  const food = findFoodById(foodId);
-  if (!food) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  const g = Number(grams) || 0;
-  const f = g / 100;
-  return {
-    calories: Math.round(food.caloriesPer100g * f),
-    protein: Math.round(food.proteinPer100g * f * 10) / 10,
-    carbs: Math.round(food.carbsPer100g * f * 10) / 10,
-    fat: Math.round(food.fatPer100g * f * 10) / 10,
-  };
-}
-
-// v1.3.7: Meal-level macro aggregate — meal.foods array'inden TUM besinleri
-// dolasarak gramaj * Per100g/100 ile toplam P/K/Y/kcal hesaplar.
-// Spec gereği her meal'in dinamik hesaplanabilir actual macros'u olmali.
-function calculateMealMacros(meal) {
-  if (!meal || !Array.isArray(meal.foods) || !meal.foods.length) {
-    return { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  }
-  const totals = meal.foods.reduce((acc, food) => {
-    // food iki formatta gelebilir:
-    //   - { id: "yumurta", grams: 100 } (manuel override / library match)
-    //   - "yumurta 4 adet" (engine free-form string)
-    if (food && food.id && Number(food.grams) > 0) {
-      const macros = calcFoodMacros(food.id, food.grams);
-      acc.calories += macros.calories;
-      acc.protein += macros.protein;
-      acc.carbs += macros.carbs;
-      acc.fat += macros.fat;
-    }
-    return acc;
-  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-  return {
-    calories: Math.round(totals.calories),
-    protein: Math.round(totals.protein),
-    carbs: Math.round(totals.carbs),
-    fat: Math.round(totals.fat),
-  };
-}
-
-// v1.3.7: Meal makros resolver — 4 katmanli fallback chain.
-// PDF renderer ve timeline view bu helper'i kullanarak her zaman dolu P/K/Y
-// elde eder. Spec gereği siralama:
-//   1) meal.actualMacros (en son hesaplanmis, manuel edit + diversify sonrasi)
-//   2) meal.macros (engine'in original cıktısı veya override)
-//   3) calculateMealMacros(meal) — foods'tan canli hesap
-//   4) 0 fallback (en son care)
-function resolveMealMacros(meal) {
-  if (!meal) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  // 1. actualMacros (v1.3.7: zorunlu field, ensureMealMacrosFallback yazar)
-  if (meal.actualMacros && hasNonZeroMacros(meal.actualMacros)) {
-    return {
-      calories: Math.round(Number(meal.actualCalories) || Number(meal.calories) || 0),
-      protein: Math.round(Number(meal.actualMacros.protein) || 0),
-      carbs: Math.round(Number(meal.actualMacros.carbs) || 0),
-      fat: Math.round(Number(meal.actualMacros.fat) || 0),
-    };
-  }
-  // 2. macros (engine veya manuel override)
-  if (meal.macros && hasNonZeroMacros(meal.macros)) {
-    return {
-      calories: Math.round(Number(meal.calories) || 0),
-      protein: Math.round(Number(meal.macros.protein) || 0),
-      carbs: Math.round(Number(meal.macros.carbs) || 0),
-      fat: Math.round(Number(meal.macros.fat) || 0),
-    };
-  }
-  // 3. Foods'tan dinamik hesap
-  const calc = calculateMealMacros(meal);
-  if (hasNonZeroMacros(calc)) return calc;
-  // 4. 0 fallback (cok nadir; ogun foods bos + macros yok)
-  return { calories: Math.round(Number(meal.calories) || 0), protein: 0, carbs: 0, fat: 0 };
-}
-
-function hasNonZeroMacros(m) {
-  if (!m) return false;
-  const p = Number(m.protein) || 0;
-  const c = Number(m.carbs) || 0;
-  const f = Number(m.fat) || 0;
-  return p > 0 || c > 0 || f > 0;
-}
-
-// v1.3.4: Meal key — plan.meals indexi bazli stable id (engine recreate olsa
-// bile aynı slot icin override saklanir).
-function mealOverrideKey(idx) { return String(idx); }
-
-// v1.3.4: applyMealOverridesToPlan — state.nutritionFormState.mealOverrides
-// plan.meals'e merge eder. Override edilen meal'in foods/name/time'i override'tan
-// alinir, kcal/macros food library'den yeniden hesaplanir.
-// Sonra plan.calories ve plan.macros TUM meals'in toplaminden TURETILIR
-// (eski engine degerlerini override eder ki manuel duzenleme totals'a yansisin).
-function applyMealOverridesToPlan(plan, formState) {
-  if (!plan || !Array.isArray(plan.meals)) return plan;
-  const overrides = formState?.mealOverrides || {};
-  if (!Object.keys(overrides).length) return plan;
-
-  plan.meals = plan.meals.map((meal, idx) => {
-    const key = mealOverrideKey(idx);
-    const ov = overrides[key];
-    if (!ov) return meal;
-    // Override foods: her food {id, grams} -> macros hesapla
-    const foods = Array.isArray(ov.foods) ? ov.foods.filter((f) => f && f.id) : [];
-    if (foods.length) {
-      const totals = foods.reduce((acc, f) => {
-        const macros = calcFoodMacros(f.id, f.grams);
-        acc.calories += macros.calories;
-        acc.protein += macros.protein;
-        acc.carbs += macros.carbs;
-        acc.fat += macros.fat;
-        return acc;
-      }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-      return {
-        ...meal,
-        name: ov.name || meal.name,
-        time: ov.time || meal.time,
-        scheduledTime: ov.time || meal.scheduledTime || meal.time,
-        foods: foods.map((f) => {
-          const food = findFoodById(f.id);
-          return { ...f, name: food?.name || f.id, displayLabel: `${food?.name || f.id} ${Math.round(f.grams)}g` };
-        }),
-        calories: totals.calories,
-        macros: {
-          protein: Math.round(totals.protein),
-          carbs: Math.round(totals.carbs),
-          fat: Math.round(totals.fat),
-        },
-        isOverridden: true,
-      };
-    }
-    return { ...meal, name: ov.name || meal.name, time: ov.time || meal.time };
-  });
-
-  // Plan.calories ve plan.macros'u meal toplamlarindan TURETIR (manuel edit yansisin)
-  const planTotal = plan.meals.reduce((acc, m) => {
-    acc.calories += Number(m.calories) || 0;
-    acc.protein += Number(m.macros?.protein) || 0;
-    acc.carbs += Number(m.macros?.carbs) || 0;
-    acc.fat += Number(m.macros?.fat) || 0;
-    return acc;
-  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-  // Engine'in original hedeflerini sakla (target vs actual gosterimi icin)
-  plan.targetCalories = plan.targetCalories || plan.calories;
-  plan.targetMacros = plan.targetMacros || { ...plan.macros };
-  plan.calories = planTotal.calories;
-  plan.macros = { protein: Math.round(planTotal.protein), carbs: Math.round(planTotal.carbs), fat: Math.round(planTotal.fat) };
-  return plan;
-}
-
-// v1.3.4: Diversification engine — bir meal'in foods'larini library'den
-// alternatif besinlerle değiştirir. Hedef makrolardan gramaj türetilir.
-// Aynı protein gün içinde 2'den fazla tekrar etmesin diye usedProteinIds set.
-function diversifyMealFoods(meal, mealIdx, seed, formState, usedProteinIds) {
-  if (!meal) return meal;
-  const goal = formState?.goal || "maintenance";
-  // Meal tipi belirleme (saatten kaba ipucu)
-  const time = meal.scheduledTime || meal.time || "12:00";
-  const hour = parseInt(String(time).split(":")[0], 10) || 12;
-  let mealType = "ogle";
-  if (hour < 10) mealType = "kahvalti";
-  else if (hour < 13) mealType = (meal.name || "").toLowerCase().includes("ara") ? "ara" : "ogle";
-  else if (hour < 17) mealType = "ara";
-  else if (hour < 22) mealType = "aksam";
-  else mealType = "ara";
-  // Pre/Post workout override
-  if (meal.isPreWorkout) mealType = "preworkout";
-  if (meal.isPostWorkout) mealType = "postworkout";
-
-  // Bu meal tipine + hedefe uygun protein/karb/yag adaylari
-  const tagFilter = (food, tag) => food.mealTags?.includes(tag);
-  const goalFilter = (food) => food.goalTags?.includes(goal);
-
-  const candidates = BSM_FOOD_LIBRARY.filter((f) => tagFilter(f, mealType) && goalFilter(f));
-  const proteinCandidates = candidates.filter((f) => f.proteinPer100g >= 10 && !usedProteinIds.has(f.id));
-  const carbCandidates = candidates.filter((f) => f.carbsPer100g >= 15 && f.proteinPer100g < 10);
-  const fatCandidates = candidates.filter((f) => f.fatPer100g >= 10);
-
-  // Seed + idx bazli secim (deterministik ama farkli her diversify'da)
-  const pick = (arr, offset) => {
-    if (!arr.length) return null;
-    return arr[(seed + mealIdx + offset) % arr.length];
-  };
-
-  const protein = pick(proteinCandidates, 0) || pick(candidates.filter((f) => f.proteinPer100g >= 8), 0);
-  const carb = pick(carbCandidates, 1) || pick(candidates.filter((f) => f.carbsPer100g >= 10), 1);
-  const fat = pick(fatCandidates, 2) || pick(candidates.filter((f) => f.fatPer100g >= 5), 2);
-
-  // Hedef makro/meal — meal'in engine'den gelen mevcut makrolari
-  const targetCal = Number(meal.calories) || 500;
-  const targetP = Number(meal.macros?.protein) || 30;
-  const targetC = Number(meal.macros?.carbs) || 50;
-  const targetF = Number(meal.macros?.fat) || 15;
-
-  const foods = [];
-  if (protein) {
-    const grams = Math.round((targetP / protein.proteinPer100g) * 100 / 5) * 5;
-    if (grams > 0) foods.push({ id: protein.id, grams: Math.min(grams, 300) });
-    usedProteinIds.add(protein.id);
-  }
-  if (carb) {
-    const grams = Math.round((targetC / Math.max(carb.carbsPer100g, 1)) * 100 / 10) * 10;
-    if (grams > 0) foods.push({ id: carb.id, grams: Math.min(grams, 400) });
-  }
-  if (fat && targetF > 5) {
-    const grams = Math.round((targetF / Math.max(fat.fatPer100g, 1)) * 100 / 5) * 5;
-    if (grams > 0) foods.push({ id: fat.id, grams: Math.min(grams, 60) });
-  }
-
-  return foods;
-}
-
-// v1.3.4: applyDiversification — plan.meals'in TAMAMI icin diversify uygula.
-// Sonuc state.mealOverrides'a yazilir; applyMealOverridesToPlan recall ile
-// totals yeniden hesaplar.
-function applyDiversificationToPlan(plan, formState) {
-  if (!plan || !Array.isArray(plan.meals)) return;
-  const seed = Number(formState?.diversifySeed) || 0;
-  const usedProteinIds = new Set();
-  const newOverrides = { ...(formState.mealOverrides || {}) };
-  plan.meals.forEach((meal, idx) => {
-    const foods = diversifyMealFoods(meal, idx, seed, formState, usedProteinIds);
-    if (foods.length) {
-      newOverrides[mealOverrideKey(idx)] = {
-        foods,
-        name: meal.name,
-        time: meal.scheduledTime || meal.time,
-      };
-    }
-  });
-  formState.mealOverrides = newOverrides;
-}
-function findSupplementById(id) { return BSM_SUPPLEMENT_LIBRARY.find((s) => s.id === id) || null; }
-
-// v1.2.5: Smart Supplement Engine — hedef + IF + workout time + hassasiyet bazli
-// otomatik 5-7 supplement onerir. Manuel ekleme/cikarma user'in elinde kalir.
-function buildSmartSupplementSuggestions(formState, activeMeasurement) {
-  const goal = formState?.goal || "maintenance";
-  const hasWorkout = !!formState?.workoutTime;
-  const fastingOn = !!formState?.fastingEnabled;
-  const caffeineSensitive = formState?.caffeineSensitive === "yes";
-  const lactoseSensitive = formState?.lactoseSensitive === "yes";
-  const categoryFilter = Array.isArray(formState?.supplementCategories) ? formState.supplementCategories : [];
-
-  const scores = BSM_SUPPLEMENT_LIBRARY.map((s) => {
-    let score = 0;
-    // Hedef eslesmesi: en kritik kriter
-    if (s.goalTags.includes(goal)) score += 30;
-    // Antrenman varsa pre/post/intra workout supplements'i artir
-    if (hasWorkout && /workout/.test(s.timing || "")) score += 18;
-    // IF aktifse intra-workout BCAA cok degerli
-    if (fastingOn && s.id === "bcaa") score += 25;
-    // Hassasiyet penalty
-    if (caffeineSensitive && s.warnings?.includes("caffeine")) score -= 40;
-    if (lactoseSensitive && s.warnings?.includes("lactose")) score -= 35;
-    // Sağlık kategorisi her zaman ust seviyede onerelim (omega3, D vitamini)
-    if (s.category === "Sağlık" || s.category === "Vitamin") score += 8;
-    // Olcum bazli: visceral fat yuksekse omega3 ve magnezyum ekstra ag
-    const visc = Number(activeMeasurement?.visceralFat || 0);
-    if (visc >= 10 && (s.id === "omega3" || s.id === "magnesium")) score += 12;
-    // Kategori filter — user secmisse, sadece bu kategorilere bonus
-    if (categoryFilter.length) {
-      const cMatch = categoryFilter.some((c) => normalizeSupplementCategoryKey(s.category) === c);
-      if (cMatch) score += 10;
-    }
-    return { supplement: s, score };
-  });
-
-  return scores
-    .filter((x) => x.score > 15)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 7)
-    .map((x) => x.supplement.id);
-}
-
-// Kategori filtreleri UI'da kullanilan key'leri library category isimlerine ceviren map
-function normalizeSupplementCategoryKey(category) {
-  const m = {
-    "Protein": "muscle",
-    "Amino Asit": "muscle",
-    "Kreatin": "muscle",
-    "Pre Workout": "performance",
-    "Performans": "performance",
-    "Post Workout": "performance",
-    "Yağ Yakımı": "fat-burn",
-    "Vitamin": "health",
-    "Mineral": "health",
-    "Sağlık": "health",
-    "Uyku / Toparlanma": "recovery",
-    "Eklem Desteği": "recovery",
-    "Hidrasyon": "performance",
-  };
-  return m[category] || "health";
-}
-
-// Supplement timing -> gunluk saate cevirici
-function getSupplementScheduleTime(supplement, formState) {
-  const wake = formState?.wakeTime || "07:30";
-  const firstMeal = "08:30";
-  const workout = formState?.workoutTime || "18:30";
-  const sleep = "23:00";
-  const lastMeal = "21:30";
-  const map = {
-    "morning": wake,
-    "with-meals": firstMeal,
-    "pre-workout": shiftTime(workout, -30),
-    "post-workout": shiftTime(workout, 60),
-    "intra-workout": workout,
-    "before-sleep": shiftTime(sleep, -45),
-    "daily": firstMeal,
-  };
-  return map[supplement.timing] || firstMeal;
-}
-
-// HH:MM saatini delta dakika ile kaydir
-function shiftTime(hhmm, deltaMinutes) {
-  if (!/^\d{2}:\d{2}$/.test(String(hhmm || ""))) return hhmm;
-  const [h, m] = String(hhmm).split(":").map(Number);
-  let total = h * 60 + m + (Number(deltaMinutes) || 0);
-  total = Math.max(0, Math.min(23 * 60 + 59, total));
-  const nh = Math.floor(total / 60);
-  const nm = total % 60;
-  return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
-}
 
 function renderNutritionPremiumWorkspace(member, savedPlan) {
   if (!nutritionPanel) return;
@@ -9921,6 +9928,11 @@ function renderNutritionSupplementTimeline(plan) {
 function renderSupplementLibrary() {
   const host = document.querySelector("#supplementLibrary");
   if (!host) return;
+  // v1.4.1: Library hazır mı kontrolü (defansif — async load / future Supabase ihtimaline karşı)
+  if (!Array.isArray(BSM_SUPPLEMENT_LIBRARY) || !BSM_SUPPLEMENT_LIBRARY.length) {
+    host.innerHTML = `<p class="bsm-nutrition-empty bsm-nutrition-empty--small">Supplement veritabanı yükleniyor…</p>`;
+    return;
+  }
   const f = state.nutritionFormState;
   // v1.3.9: Toggle kapaliysa daha yonlendirici empty state + CTA buton
   if (!f.supplementUse) {
