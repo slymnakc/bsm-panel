@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.3.3";
+const BSM_BUILD_VERSION = "1.3.4";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -233,6 +233,16 @@ const state = {
     // v1.2.5: Aktif user-secimi supplement ID listesi (smart suggestion + manuel)
     selectedSupplements: [],
     supplementSearch: "",
+    // v1.3.4: Manuel meal overrides — meal-key bazli ozelleştirme.
+    // { "0": { foods: [{ id, grams }], name, time }, "1": {...} }
+    // applyMealOverridesToPlan plan.meals'e merge eder + kcal/macros food
+    // library bazli yeniden hesaplar.
+    mealOverrides: {},
+    // v1.3.4: Diversify seed — "Tum plani cesitlendir" butonu artirir.
+    // diversifyMealFoods her arttismda library'den farkli alternatif secer.
+    diversifySeed: 0,
+    // v1.3.4: Editor expanded meal key (inline editor goster/gizle)
+    editingMealKey: null,
   },
   nutritionFormMemberId: null,
   nutritionActiveView: "timeline",
@@ -8187,6 +8197,246 @@ const BSM_SUPPLEMENT_LIBRARY = [
 
 // Library getter (deterministik kopya doner)
 function getSupplementLibrary() { return BSM_SUPPLEMENT_LIBRARY.map((s) => ({ ...s })); }
+
+// v1.3.4: BSM_FOOD_LIBRARY — geniş besin havuzu (50 item)
+// Her item: id, name, category, caloriesPer100g, proteinPer100g, carbsPer100g,
+// fatPer100g, mealTags (kahvalti/ogle/aksam/ara/preworkout/postworkout),
+// goalTags (muscle-gain/fat-loss/maintenance/recomposition).
+// Diversification engine ve manuel meal editor bu library'den beslenir.
+const BSM_FOOD_LIBRARY = [
+  // PROTEIN KAYNAKLARI (12)
+  { id: "tavuk-gogus",  name: "Tavuk göğüs (haşlanmış)", category: "Protein",        caloriesPer100g: 165, proteinPer100g: 31, carbsPer100g: 0,    fatPer100g: 3.6, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss", "recomposition"] },
+  { id: "hindi-gogus",  name: "Hindi göğsü",              category: "Protein",        caloriesPer100g: 135, proteinPer100g: 30, carbsPer100g: 0,    fatPer100g: 1.0, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss"] },
+  { id: "kirmizi-et",   name: "Dana bonfile",             category: "Protein",        caloriesPer100g: 217, proteinPer100g: 26, carbsPer100g: 0,    fatPer100g: 12,  mealTags: ["aksam", "ogle"],                  goalTags: ["muscle-gain", "recomposition"] },
+  { id: "kuzu-pirzola", name: "Kuzu pirzola",             category: "Protein",        caloriesPer100g: 282, proteinPer100g: 25, carbsPer100g: 0,    fatPer100g: 20,  mealTags: ["aksam"],                          goalTags: ["muscle-gain"] },
+  { id: "somon",        name: "Somon",                    category: "Protein",        caloriesPer100g: 208, proteinPer100g: 20, carbsPer100g: 0,    fatPer100g: 13,  mealTags: ["aksam", "ogle"],                  goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "ton-baligi",   name: "Ton balığı (suda)",        category: "Protein",        caloriesPer100g: 128, proteinPer100g: 26, carbsPer100g: 0,    fatPer100g: 2.5, mealTags: ["ogle", "ara"],                    goalTags: ["fat-loss", "recomposition"] },
+  { id: "yumurta",      name: "Yumurta (tam)",            category: "Protein",        caloriesPer100g: 155, proteinPer100g: 13, carbsPer100g: 1.1,  fatPer100g: 11,  mealTags: ["kahvalti"],                       goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "yumurta-beyaz",name: "Yumurta beyazı",           category: "Protein",        caloriesPer100g: 52,  proteinPer100g: 11, carbsPer100g: 0.7,  fatPer100g: 0.2, mealTags: ["kahvalti"],                       goalTags: ["fat-loss"] },
+  { id: "lor",          name: "Lor peyniri",              category: "Süt Ürünleri",   caloriesPer100g: 98,  proteinPer100g: 11, carbsPer100g: 3.4,  fatPer100g: 4.3, mealTags: ["kahvalti", "ara"],                goalTags: ["muscle-gain", "fat-loss", "recomposition"] },
+  { id: "yogurt",       name: "Yoğurt (yağsız)",          category: "Süt Ürünleri",   caloriesPer100g: 59,  proteinPer100g: 10, carbsPer100g: 3.6,  fatPer100g: 0.4, mealTags: ["kahvalti", "ara", "aksam"],       goalTags: ["fat-loss", "recomposition"] },
+  { id: "kefir",        name: "Kefir",                    category: "Süt Ürünleri",   caloriesPer100g: 41,  proteinPer100g: 3.8, carbsPer100g: 4.8, fatPer100g: 0.9, mealTags: ["ara", "preworkout"],              goalTags: ["fat-loss", "maintenance"] },
+  { id: "whey",         name: "Whey protein",             category: "Supplement",     caloriesPer100g: 380, proteinPer100g: 80, carbsPer100g: 6,    fatPer100g: 5,   mealTags: ["postworkout", "kahvalti"],        goalTags: ["muscle-gain", "fat-loss", "recomposition"] },
+
+  // KARBONHIDRAT KAYNAKLARI (10)
+  { id: "pirinc",       name: "Pirinç (haşlanmış)",       category: "Karbonhidrat",   caloriesPer100g: 130, proteinPer100g: 2.7, carbsPer100g: 28,  fatPer100g: 0.3, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "maintenance"] },
+  { id: "bulgur",       name: "Bulgur (pişmiş)",          category: "Karbonhidrat",   caloriesPer100g: 83,  proteinPer100g: 3.1, carbsPer100g: 19,  fatPer100g: 0.2, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss"] },
+  { id: "makarna",      name: "Tam buğday makarnası",     category: "Karbonhidrat",   caloriesPer100g: 124, proteinPer100g: 5,   carbsPer100g: 26,  fatPer100g: 0.9, mealTags: ["ogle"],                           goalTags: ["muscle-gain"] },
+  { id: "patates",      name: "Patates (haşlanmış)",      category: "Karbonhidrat",   caloriesPer100g: 87,  proteinPer100g: 1.9, carbsPer100g: 20,  fatPer100g: 0.1, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "maintenance"] },
+  { id: "tatli-patates",name: "Tatlı patates",            category: "Karbonhidrat",   caloriesPer100g: 86,  proteinPer100g: 1.6, carbsPer100g: 20,  fatPer100g: 0.1, mealTags: ["ogle", "preworkout"],             goalTags: ["muscle-gain", "fat-loss", "recomposition"] },
+  { id: "yulaf",        name: "Yulaf ezmesi",             category: "Karbonhidrat",   caloriesPer100g: 389, proteinPer100g: 17,  carbsPer100g: 66,  fatPer100g: 7,   mealTags: ["kahvalti", "preworkout"],         goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "ekmek",        name: "Tam buğday ekmeği",        category: "Karbonhidrat",   caloriesPer100g: 247, proteinPer100g: 13,  carbsPer100g: 41,  fatPer100g: 3.4, mealTags: ["kahvalti", "ogle"],               goalTags: ["muscle-gain", "maintenance"] },
+  { id: "kinoa",        name: "Kinoa",                    category: "Karbonhidrat",   caloriesPer100g: 120, proteinPer100g: 4.4, carbsPer100g: 21,  fatPer100g: 1.9, mealTags: ["ogle", "aksam"],                  goalTags: ["fat-loss", "recomposition"] },
+  { id: "muz",          name: "Muz",                      category: "Meyve",          caloriesPer100g: 89,  proteinPer100g: 1.1, carbsPer100g: 23,  fatPer100g: 0.3, mealTags: ["kahvalti", "preworkout", "ara"], goalTags: ["muscle-gain", "maintenance"] },
+  { id: "elma",         name: "Elma",                     category: "Meyve",          caloriesPer100g: 52,  proteinPer100g: 0.3, carbsPer100g: 14,  fatPer100g: 0.2, mealTags: ["ara"],                            goalTags: ["fat-loss", "maintenance"] },
+
+  // YAĞ KAYNAKLARI (8)
+  { id: "zeytinyagi",   name: "Zeytinyağı",               category: "Yağ",            caloriesPer100g: 884, proteinPer100g: 0,   carbsPer100g: 0,   fatPer100g: 100, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "avokado",      name: "Avokado",                  category: "Yağ",            caloriesPer100g: 160, proteinPer100g: 2,   carbsPer100g: 9,   fatPer100g: 15,  mealTags: ["kahvalti", "ogle"],               goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "badem",        name: "Badem (çiğ)",              category: "Kuruyemiş",      caloriesPer100g: 579, proteinPer100g: 21,  carbsPer100g: 22,  fatPer100g: 50,  mealTags: ["ara"],                            goalTags: ["muscle-gain", "maintenance"] },
+  { id: "ceviz",        name: "Ceviz",                    category: "Kuruyemiş",      caloriesPer100g: 654, proteinPer100g: 15,  carbsPer100g: 14,  fatPer100g: 65,  mealTags: ["ara", "kahvalti"],                goalTags: ["maintenance", "fat-loss"] },
+  { id: "findik",       name: "Fındık",                   category: "Kuruyemiş",      caloriesPer100g: 628, proteinPer100g: 15,  carbsPer100g: 17,  fatPer100g: 61,  mealTags: ["ara"],                            goalTags: ["maintenance", "muscle-gain"] },
+  { id: "fistik-ezmesi",name: "Fıstık ezmesi (şekersiz)", category: "Yağ",            caloriesPer100g: 588, proteinPer100g: 25,  carbsPer100g: 20,  fatPer100g: 50,  mealTags: ["kahvalti", "ara"],                goalTags: ["muscle-gain", "maintenance"] },
+  { id: "hindistancevizi",name: "Hindistan cevizi yağı",  category: "Yağ",            caloriesPer100g: 862, proteinPer100g: 0,   carbsPer100g: 0,   fatPer100g: 100, mealTags: ["kahvalti"],                       goalTags: ["fat-loss", "recomposition"] },
+  { id: "chia",         name: "Chia tohumu",              category: "Yağ",            caloriesPer100g: 486, proteinPer100g: 17,  carbsPer100g: 42,  fatPer100g: 31,  mealTags: ["kahvalti", "ara"],                goalTags: ["fat-loss", "maintenance"] },
+
+  // SEBZE & SALATA (5)
+  { id: "brokoli",      name: "Brokoli",                  category: "Sebze",          caloriesPer100g: 34,  proteinPer100g: 2.8, carbsPer100g: 7,   fatPer100g: 0.4, mealTags: ["ogle", "aksam"],                  goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "ispanak",      name: "Ispanak",                  category: "Sebze",          caloriesPer100g: 23,  proteinPer100g: 2.9, carbsPer100g: 3.6, fatPer100g: 0.4, mealTags: ["ogle", "aksam", "kahvalti"],      goalTags: ["fat-loss", "maintenance"] },
+  { id: "domates",      name: "Domates",                  category: "Sebze",          caloriesPer100g: 18,  proteinPer100g: 0.9, carbsPer100g: 3.9, fatPer100g: 0.2, mealTags: ["kahvalti", "ogle", "aksam"],      goalTags: ["fat-loss", "maintenance"] },
+  { id: "salatalik",    name: "Salatalık",                category: "Sebze",          caloriesPer100g: 16,  proteinPer100g: 0.7, carbsPer100g: 3.6, fatPer100g: 0.1, mealTags: ["kahvalti", "ogle", "aksam"],      goalTags: ["fat-loss", "maintenance"] },
+  { id: "salata-yapragi",name: "Karışık yeşillik",        category: "Sebze",          caloriesPer100g: 15,  proteinPer100g: 1.4, carbsPer100g: 2.9, fatPer100g: 0.2, mealTags: ["ogle", "aksam"],                  goalTags: ["fat-loss", "maintenance", "recomposition"] },
+
+  // MEYVE (3 ek)
+  { id: "yaban-mersini",name: "Yaban mersini",            category: "Meyve",          caloriesPer100g: 57,  proteinPer100g: 0.7, carbsPer100g: 14,  fatPer100g: 0.3, mealTags: ["kahvalti", "ara"],                goalTags: ["fat-loss", "maintenance"] },
+  { id: "cilek",        name: "Çilek",                    category: "Meyve",          caloriesPer100g: 32,  proteinPer100g: 0.7, carbsPer100g: 7.7, fatPer100g: 0.3, mealTags: ["kahvalti", "ara"],                goalTags: ["fat-loss", "maintenance"] },
+  { id: "portakal",     name: "Portakal",                 category: "Meyve",          caloriesPer100g: 47,  proteinPer100g: 0.9, carbsPer100g: 12,  fatPer100g: 0.1, mealTags: ["ara", "kahvalti"],                goalTags: ["fat-loss", "maintenance"] },
+
+  // SÜT ÜRÜNLERİ (3 ek)
+  { id: "beyaz-peynir", name: "Beyaz peynir (yağsız)",    category: "Süt Ürünleri",   caloriesPer100g: 264, proteinPer100g: 21,  carbsPer100g: 1.3, fatPer100g: 20,  mealTags: ["kahvalti"],                       goalTags: ["muscle-gain", "maintenance"] },
+  { id: "kasari",       name: "Kaşar peynir",             category: "Süt Ürünleri",   caloriesPer100g: 350, proteinPer100g: 25,  carbsPer100g: 1.3, fatPer100g: 27,  mealTags: ["kahvalti"],                       goalTags: ["muscle-gain"] },
+  { id: "sut",          name: "Süt (yağsız)",             category: "Süt Ürünleri",   caloriesPer100g: 42,  proteinPer100g: 3.4, carbsPer100g: 5,   fatPer100g: 1,   mealTags: ["kahvalti", "postworkout"],        goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+
+  // PRATIK ÖĞÜNLER (4)
+  { id: "tuna-salata",  name: "Ton balıklı salata",       category: "Pratik",         caloriesPer100g: 95,  proteinPer100g: 13,  carbsPer100g: 5,   fatPer100g: 3,   mealTags: ["ogle", "ara"],                    goalTags: ["fat-loss", "recomposition"] },
+  { id: "smoothie-bowl",name: "Yoğurt smoothie bowl",     category: "Pratik",         caloriesPer100g: 110, proteinPer100g: 7,   carbsPer100g: 15,  fatPer100g: 2,   mealTags: ["kahvalti", "ara"],                goalTags: ["muscle-gain", "fat-loss"] },
+  { id: "omlet-sebze",  name: "Sebzeli omlet",            category: "Pratik",         caloriesPer100g: 154, proteinPer100g: 11,  carbsPer100g: 3,   fatPer100g: 11,  mealTags: ["kahvalti"],                       goalTags: ["muscle-gain", "fat-loss", "maintenance"] },
+  { id: "tavuk-pilav",  name: "Tavuklu pilav (porsiyon)", category: "Pratik",         caloriesPer100g: 165, proteinPer100g: 14,  carbsPer100g: 18,  fatPer100g: 4,   mealTags: ["ogle"],                           goalTags: ["muscle-gain", "maintenance"] },
+];
+
+function getFoodLibrary() { return BSM_FOOD_LIBRARY.map((f) => ({ ...f })); }
+function findFoodById(id) { return BSM_FOOD_LIBRARY.find((f) => f.id === id) || null; }
+function searchFoods(query, category) {
+  const q = String(query || "").toLocaleLowerCase("tr");
+  return BSM_FOOD_LIBRARY.filter((f) => {
+    if (category && f.category !== category) return false;
+    if (!q) return true;
+    return f.name.toLocaleLowerCase("tr").includes(q) || f.category.toLocaleLowerCase("tr").includes(q);
+  });
+}
+
+// Hesaplanmis makro/kcal (gramaj * Per100g/100)
+function calcFoodMacros(foodId, grams) {
+  const food = findFoodById(foodId);
+  if (!food) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  const g = Number(grams) || 0;
+  const f = g / 100;
+  return {
+    calories: Math.round(food.caloriesPer100g * f),
+    protein: Math.round(food.proteinPer100g * f * 10) / 10,
+    carbs: Math.round(food.carbsPer100g * f * 10) / 10,
+    fat: Math.round(food.fatPer100g * f * 10) / 10,
+  };
+}
+
+// v1.3.4: Meal key — plan.meals indexi bazli stable id (engine recreate olsa
+// bile aynı slot icin override saklanir).
+function mealOverrideKey(idx) { return String(idx); }
+
+// v1.3.4: applyMealOverridesToPlan — state.nutritionFormState.mealOverrides
+// plan.meals'e merge eder. Override edilen meal'in foods/name/time'i override'tan
+// alinir, kcal/macros food library'den yeniden hesaplanir.
+// Sonra plan.calories ve plan.macros TUM meals'in toplaminden TURETILIR
+// (eski engine degerlerini override eder ki manuel duzenleme totals'a yansisin).
+function applyMealOverridesToPlan(plan, formState) {
+  if (!plan || !Array.isArray(plan.meals)) return plan;
+  const overrides = formState?.mealOverrides || {};
+  if (!Object.keys(overrides).length) return plan;
+
+  plan.meals = plan.meals.map((meal, idx) => {
+    const key = mealOverrideKey(idx);
+    const ov = overrides[key];
+    if (!ov) return meal;
+    // Override foods: her food {id, grams} -> macros hesapla
+    const foods = Array.isArray(ov.foods) ? ov.foods.filter((f) => f && f.id) : [];
+    if (foods.length) {
+      const totals = foods.reduce((acc, f) => {
+        const macros = calcFoodMacros(f.id, f.grams);
+        acc.calories += macros.calories;
+        acc.protein += macros.protein;
+        acc.carbs += macros.carbs;
+        acc.fat += macros.fat;
+        return acc;
+      }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+      return {
+        ...meal,
+        name: ov.name || meal.name,
+        time: ov.time || meal.time,
+        scheduledTime: ov.time || meal.scheduledTime || meal.time,
+        foods: foods.map((f) => {
+          const food = findFoodById(f.id);
+          return { ...f, name: food?.name || f.id, displayLabel: `${food?.name || f.id} ${Math.round(f.grams)}g` };
+        }),
+        calories: totals.calories,
+        macros: {
+          protein: Math.round(totals.protein),
+          carbs: Math.round(totals.carbs),
+          fat: Math.round(totals.fat),
+        },
+        isOverridden: true,
+      };
+    }
+    return { ...meal, name: ov.name || meal.name, time: ov.time || meal.time };
+  });
+
+  // Plan.calories ve plan.macros'u meal toplamlarindan TURETIR (manuel edit yansisin)
+  const planTotal = plan.meals.reduce((acc, m) => {
+    acc.calories += Number(m.calories) || 0;
+    acc.protein += Number(m.macros?.protein) || 0;
+    acc.carbs += Number(m.macros?.carbs) || 0;
+    acc.fat += Number(m.macros?.fat) || 0;
+    return acc;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  // Engine'in original hedeflerini sakla (target vs actual gosterimi icin)
+  plan.targetCalories = plan.targetCalories || plan.calories;
+  plan.targetMacros = plan.targetMacros || { ...plan.macros };
+  plan.calories = planTotal.calories;
+  plan.macros = { protein: Math.round(planTotal.protein), carbs: Math.round(planTotal.carbs), fat: Math.round(planTotal.fat) };
+  return plan;
+}
+
+// v1.3.4: Diversification engine — bir meal'in foods'larini library'den
+// alternatif besinlerle değiştirir. Hedef makrolardan gramaj türetilir.
+// Aynı protein gün içinde 2'den fazla tekrar etmesin diye usedProteinIds set.
+function diversifyMealFoods(meal, mealIdx, seed, formState, usedProteinIds) {
+  if (!meal) return meal;
+  const goal = formState?.goal || "maintenance";
+  // Meal tipi belirleme (saatten kaba ipucu)
+  const time = meal.scheduledTime || meal.time || "12:00";
+  const hour = parseInt(String(time).split(":")[0], 10) || 12;
+  let mealType = "ogle";
+  if (hour < 10) mealType = "kahvalti";
+  else if (hour < 13) mealType = (meal.name || "").toLowerCase().includes("ara") ? "ara" : "ogle";
+  else if (hour < 17) mealType = "ara";
+  else if (hour < 22) mealType = "aksam";
+  else mealType = "ara";
+  // Pre/Post workout override
+  if (meal.isPreWorkout) mealType = "preworkout";
+  if (meal.isPostWorkout) mealType = "postworkout";
+
+  // Bu meal tipine + hedefe uygun protein/karb/yag adaylari
+  const tagFilter = (food, tag) => food.mealTags?.includes(tag);
+  const goalFilter = (food) => food.goalTags?.includes(goal);
+
+  const candidates = BSM_FOOD_LIBRARY.filter((f) => tagFilter(f, mealType) && goalFilter(f));
+  const proteinCandidates = candidates.filter((f) => f.proteinPer100g >= 10 && !usedProteinIds.has(f.id));
+  const carbCandidates = candidates.filter((f) => f.carbsPer100g >= 15 && f.proteinPer100g < 10);
+  const fatCandidates = candidates.filter((f) => f.fatPer100g >= 10);
+
+  // Seed + idx bazli secim (deterministik ama farkli her diversify'da)
+  const pick = (arr, offset) => {
+    if (!arr.length) return null;
+    return arr[(seed + mealIdx + offset) % arr.length];
+  };
+
+  const protein = pick(proteinCandidates, 0) || pick(candidates.filter((f) => f.proteinPer100g >= 8), 0);
+  const carb = pick(carbCandidates, 1) || pick(candidates.filter((f) => f.carbsPer100g >= 10), 1);
+  const fat = pick(fatCandidates, 2) || pick(candidates.filter((f) => f.fatPer100g >= 5), 2);
+
+  // Hedef makro/meal — meal'in engine'den gelen mevcut makrolari
+  const targetCal = Number(meal.calories) || 500;
+  const targetP = Number(meal.macros?.protein) || 30;
+  const targetC = Number(meal.macros?.carbs) || 50;
+  const targetF = Number(meal.macros?.fat) || 15;
+
+  const foods = [];
+  if (protein) {
+    const grams = Math.round((targetP / protein.proteinPer100g) * 100 / 5) * 5;
+    if (grams > 0) foods.push({ id: protein.id, grams: Math.min(grams, 300) });
+    usedProteinIds.add(protein.id);
+  }
+  if (carb) {
+    const grams = Math.round((targetC / Math.max(carb.carbsPer100g, 1)) * 100 / 10) * 10;
+    if (grams > 0) foods.push({ id: carb.id, grams: Math.min(grams, 400) });
+  }
+  if (fat && targetF > 5) {
+    const grams = Math.round((targetF / Math.max(fat.fatPer100g, 1)) * 100 / 5) * 5;
+    if (grams > 0) foods.push({ id: fat.id, grams: Math.min(grams, 60) });
+  }
+
+  return foods;
+}
+
+// v1.3.4: applyDiversification — plan.meals'in TAMAMI icin diversify uygula.
+// Sonuc state.mealOverrides'a yazilir; applyMealOverridesToPlan recall ile
+// totals yeniden hesaplar.
+function applyDiversificationToPlan(plan, formState) {
+  if (!plan || !Array.isArray(plan.meals)) return;
+  const seed = Number(formState?.diversifySeed) || 0;
+  const usedProteinIds = new Set();
+  const newOverrides = { ...(formState.mealOverrides || {}) };
+  plan.meals.forEach((meal, idx) => {
+    const foods = diversifyMealFoods(meal, idx, seed, formState, usedProteinIds);
+    if (foods.length) {
+      newOverrides[mealOverrideKey(idx)] = {
+        foods,
+        name: meal.name,
+        time: meal.scheduledTime || meal.time,
+      };
+    }
+  });
+  formState.mealOverrides = newOverrides;
+}
 function findSupplementById(id) { return BSM_SUPPLEMENT_LIBRARY.find((s) => s.id === id) || null; }
 
 // v1.2.5: Smart Supplement Engine — hedef + IF + workout time + hassasiyet bazli
@@ -8354,9 +8604,12 @@ function tryAutoGenerateNutritionPlan(member) {
   try {
     const preferences = buildPreferencesFromFormState();
     const activeProgram = state.activeProgram || member.programs?.[0]?.program || null;
-    const plan = normalizeNutritionPlan(buildNutritionPlan(member, activeProgram, preferences, { makeId }));
+    let plan = normalizeNutritionPlan(buildNutritionPlan(member, activeProgram, preferences, { makeId }));
     // v1.3.3: User override (kalori/makro) engine sonucunu basar + meals orantili scale
-    return applyUserOverridesToPlan(plan, state.nutritionFormState);
+    plan = applyUserOverridesToPlan(plan, state.nutritionFormState);
+    // v1.3.4: Manuel meal overrides + diversification post-process
+    plan = applyMealOverridesToPlan(plan, state.nutritionFormState);
+    return plan;
   } catch (e) {
     console.warn("Nutrition auto-generate skipped:", e?.message);
     return null;
@@ -8569,16 +8822,34 @@ function renderNutritionTimelineView(plan) {
     if (/antrenman sonra|post[- ]?workout/.test(lower)) return "💪";
     return "•";
   };
+  const editingKey = state.nutritionFormState?.editingMealKey;
   host.innerHTML = meals
-    .map((meal) => {
+    .map((meal, idx) => {
+      const key = mealOverrideKey(idx);
+      const isEditing = editingKey === key;
       const time = meal.scheduledTime || meal.time || "—";
       const foods = Array.isArray(meal.foods) ? meal.foods : (typeof meal.foods === "string" ? meal.foods.split(/[,\n]/).map((s) => s.trim()).filter(Boolean) : []);
       const macros = meal.macros || {};
       const tags = [];
       if (meal.isPreWorkout) tags.push("Antrenman Öncesi");
       if (meal.isPostWorkout) tags.push("Antrenman Sonrası");
+
+      // v1.3.4: Foods display — override foods objesi {id, grams} formatinda gelir,
+      // displayLabel "Tavuk göğüs 200g" gibi. Engine'den gelen string foods da
+      // destekleniyor (eski format).
+      const foodsHtml = foods.length
+        ? `<ul class="bsm-nutrition-timeline__foods">${foods.slice(0, 5).map((food) => {
+            if (typeof food === "string") return `<li>${escapeHtml(food)}</li>`;
+            const label = food.displayLabel || (food.name && food.grams ? `${food.name} ${food.grams}g` : food.name || "");
+            return `<li>${escapeHtml(label)}</li>`;
+          }).join("")}</ul>`
+        : "";
+
+      // v1.3.4: Inline editor (Düzenle açıkken)
+      const editorHtml = isEditing ? renderMealEditorHtml(meal, idx) : "";
+
       return `
-        <li class="bsm-nutrition-timeline__item">
+        <li class="bsm-nutrition-timeline__item${isEditing ? " is-editing" : ""}${meal.isOverridden ? " is-overridden" : ""}" data-meal-idx="${idx}">
           <div class="bsm-nutrition-timeline__time">
             <strong>${escapeHtml(String(time))}</strong>
             <span class="bsm-nutrition-timeline__icon" aria-hidden="true">${escapeHtml(mealIcon(meal.name))}</span>
@@ -8588,22 +8859,80 @@ function renderNutritionTimelineView(plan) {
               <strong>${escapeHtml(meal.name || "Öğün")}</strong>
               <span class="bsm-nutrition-timeline__cal">${escapeHtml(String(meal.calories || 0))} kcal</span>
             </header>
-            ${
-              foods.length
-                ? `<ul class="bsm-nutrition-timeline__foods">${foods.slice(0, 5).map((food) => `<li>${escapeHtml(typeof food === "string" ? food : food?.name || "")}</li>`).join("")}</ul>`
-                : ""
-            }
+            ${foodsHtml}
             <footer class="bsm-nutrition-timeline__macros">
               <span>P ${escapeHtml(String(macros.protein || 0))}g</span>
               <span>K ${escapeHtml(String(macros.carbs || 0))}g</span>
               <span>Y ${escapeHtml(String(macros.fat || 0))}g</span>
               ${tags.map((t) => `<span class="bsm-nutrition-timeline__tag">${escapeHtml(t)}</span>`).join("")}
             </footer>
+            <div class="bsm-meal-actions">
+              <button type="button" class="bsm-meal-action" data-meal-action="edit" data-meal-idx="${idx}" title="Düzenle">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                <span>${isEditing ? "Kapat" : "Düzenle"}</span>
+              </button>
+              <button type="button" class="bsm-meal-action" data-meal-action="add-food" data-meal-idx="${idx}" title="Besin Ekle">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Besin Ekle</span>
+              </button>
+              <button type="button" class="bsm-meal-action" data-meal-action="refresh" data-meal-idx="${idx}" title="Öğünü Yenile">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
+                <span>Yenile</span>
+              </button>
+            </div>
+            ${editorHtml}
           </article>
         </li>
       `;
     })
     .join("");
+}
+
+// v1.3.4: Meal editor inline panel — meal.foods her satir icin food dropdown + gramaj input
+function renderMealEditorHtml(meal, idx) {
+  const foods = Array.isArray(meal.foods) ? meal.foods : [];
+  const categories = ["Protein", "Karbonhidrat", "Yağ", "Sebze", "Meyve", "Süt Ürünleri", "Kuruyemiş", "Pratik"];
+  return `
+    <div class="bsm-meal-editor" data-meal-editor="${idx}">
+      <div class="bsm-meal-editor__head">
+        <label class="bsm-meal-editor__field">
+          <span>Öğün adı</span>
+          <input type="text" data-meal-field="name" value="${escapeHtml(meal.name || "")}" />
+        </label>
+        <label class="bsm-meal-editor__field">
+          <span>Saat</span>
+          <input type="time" data-meal-field="time" value="${escapeHtml(meal.scheduledTime || meal.time || "12:00")}" />
+        </label>
+      </div>
+      <div class="bsm-meal-editor__foods">
+        ${foods.length
+          ? foods.map((food, fi) => {
+              const foodId = food.id || "";
+              const grams = food.grams || 100;
+              return `
+                <div class="bsm-meal-food-row" data-food-row="${fi}">
+                  <select class="bsm-meal-food-row__select" data-food-field="id" data-food-row="${fi}">
+                    <option value="">— Seç —</option>
+                    ${categories.map((cat) => `<optgroup label="${escapeHtml(cat)}">${
+                      BSM_FOOD_LIBRARY.filter((f) => f.category === cat)
+                        .map((f) => `<option value="${escapeHtml(f.id)}"${f.id === foodId ? " selected" : ""}>${escapeHtml(f.name)}</option>`)
+                        .join("")
+                    }</optgroup>`).join("")}
+                  </select>
+                  <input type="number" class="bsm-meal-food-row__grams" data-food-field="grams" data-food-row="${fi}" min="1" max="1000" step="5" value="${escapeHtml(String(grams))}" /> <span class="bsm-meal-food-row__unit">g</span>
+                  <button type="button" class="bsm-meal-food-row__remove" data-meal-action="remove-food" data-meal-idx="${idx}" data-food-row="${fi}" aria-label="Sil">×</button>
+                </div>
+              `;
+            }).join("")
+          : `<p class="bsm-meal-editor__empty">Henüz besin yok. Aşağıdaki butondan ekleyin.</p>`
+        }
+      </div>
+      <div class="bsm-meal-editor__foot">
+        <button type="button" class="bsm-meal-editor__btn bsm-meal-editor__btn--add" data-meal-action="add-food" data-meal-idx="${idx}">+ Besin Ekle</button>
+        <button type="button" class="bsm-meal-editor__btn" data-meal-action="close-edit" data-meal-idx="${idx}">Tamam</button>
+      </div>
+    </div>
+  `;
 }
 
 function renderNutritionMacroView(plan) {
@@ -9280,12 +9609,51 @@ function renderNutritionTotalsBar(plan) {
     setText("#bsmNutritionTotalProtein", "— g");
     setText("#bsmNutritionTotalCarbs", "— g");
     setText("#bsmNutritionTotalFat", "— g");
+    // v1.3.4: Target vs Actual delta tag temizle
+    document.querySelectorAll(".bsm-nutrition-totals__delta").forEach((el) => el.remove());
     return;
   }
   setText("#bsmNutritionTotalCalories", `${plan.calories || 0} kcal`);
   setText("#bsmNutritionTotalProtein", `${plan.macros?.protein || 0} g`);
   setText("#bsmNutritionTotalCarbs", `${plan.macros?.carbs || 0} g`);
   setText("#bsmNutritionTotalFat", `${plan.macros?.fat || 0} g`);
+
+  // v1.3.4: Target vs Actual delta tags (Hedef'le farkı gösterir)
+  // plan.targetCalories / plan.targetMacros set edildiyse (applyMealOverrides
+  // sonrasi) fark renkli badge olarak gosterilir.
+  const targetCal = Number(plan.targetCalories) || 0;
+  const actualCal = Number(plan.calories) || 0;
+  const targetMacros = plan.targetMacros || plan.macros || {};
+  const updateDelta = (containerSel, target, actual, unit = "") => {
+    const container = document.querySelector(containerSel);
+    if (!container) return;
+    let delta = container.querySelector(".bsm-nutrition-totals__delta");
+    if (!delta) {
+      delta = document.createElement("span");
+      delta.className = "bsm-nutrition-totals__delta";
+      container.appendChild(delta);
+    }
+    if (!target || target === actual) {
+      delta.textContent = "";
+      delta.className = "bsm-nutrition-totals__delta";
+      return;
+    }
+    const diff = actual - target;
+    const sign = diff > 0 ? "+" : "";
+    delta.textContent = `${sign}${diff}${unit}`;
+    delta.className = "bsm-nutrition-totals__delta " + (
+      Math.abs(diff / Math.max(1, target)) < 0.05 ? "is-ok" :
+      diff > 0 ? "is-over" : "is-under"
+    );
+  };
+  if (targetCal && targetCal !== actualCal) {
+    updateDelta("#bsmNutritionTotalCalories", targetCal, actualCal, " kcal");
+    updateDelta("#bsmNutritionTotalProtein", Number(targetMacros.protein), Number(plan.macros?.protein), "g");
+    updateDelta("#bsmNutritionTotalCarbs", Number(targetMacros.carbs), Number(plan.macros?.carbs), "g");
+    updateDelta("#bsmNutritionTotalFat", Number(targetMacros.fat), Number(plan.macros?.fat), "g");
+  } else {
+    document.querySelectorAll(".bsm-nutrition-totals__delta").forEach((el) => { el.textContent = ""; el.className = "bsm-nutrition-totals__delta"; });
+  }
   // Su hedefi: kilo bazinda (35 mL/kg basit kural)
   const weight = Number(plan?.sourceSummary?.weight) || 0;
   if (weight) setText("#bsmNutritionWaterTarget", `${(weight * 0.035).toFixed(1)} L`);
@@ -9515,6 +9883,147 @@ function setNutritionPdfActivePage(num) {
   });
 }
 
+// v1.3.4: Meal action handler — Düzenle / Besin Ekle / Yenile / Tamam / Sil
+function handleMealAction(btn) {
+  const action = btn.dataset.mealAction;
+  const idx = Number(btn.dataset.mealIdx);
+  const f = state.nutritionFormState;
+  const key = mealOverrideKey(idx);
+  const member = findActiveMember();
+  // Mevcut plan'i al — overrides uygulanmis hali state.activeNutritionPlan'da
+  // saklamiyoruz; her render'da tryAutoGenerate ile yeniden uretiliyor.
+  const livePlan = tryAutoGenerateNutritionPlan(member);
+  const meal = livePlan?.meals?.[idx];
+
+  if (action === "edit") {
+    // Toggle editor
+    f.editingMealKey = f.editingMealKey === key ? null : key;
+    // Eger ilk kez ediliyorsa, mevcut foods'u override'a kopyala
+    if (f.editingMealKey === key && !f.mealOverrides[key] && meal) {
+      f.mealOverrides[key] = {
+        foods: extractMealFoodsForOverride(meal),
+        name: meal.name,
+        time: meal.scheduledTime || meal.time,
+      };
+    }
+    renderNutritionWorkspace();
+    return;
+  }
+
+  if (action === "close-edit") {
+    f.editingMealKey = null;
+    renderNutritionWorkspace();
+    return;
+  }
+
+  if (action === "refresh") {
+    // Sadece bu öğünü diversify et — usedProtein set'i tum diger meals'tan
+    const seed = (Number(f.diversifySeed) || 0) + idx + 1;
+    f.diversifySeed = seed;
+    const usedProteinIds = new Set();
+    if (livePlan?.meals) {
+      livePlan.meals.forEach((m, i) => {
+        if (i !== idx && Array.isArray(m.foods)) {
+          m.foods.forEach((food) => {
+            if (food?.id) {
+              const fObj = findFoodById(food.id);
+              if (fObj && fObj.proteinPer100g >= 10) usedProteinIds.add(food.id);
+            }
+          });
+        }
+      });
+    }
+    const newFoods = diversifyMealFoods(meal, idx, seed, f, usedProteinIds);
+    if (newFoods.length) {
+      f.mealOverrides[key] = {
+        foods: newFoods,
+        name: meal?.name || `Öğün ${idx + 1}`,
+        time: meal?.scheduledTime || meal?.time || "12:00",
+      };
+    }
+    renderNutritionWorkspace();
+    showStatus("Öğün yenilendi.", "success");
+    return;
+  }
+
+  if (action === "add-food") {
+    if (!f.mealOverrides[key]) {
+      f.mealOverrides[key] = {
+        foods: meal ? extractMealFoodsForOverride(meal) : [],
+        name: meal?.name || `Öğün ${idx + 1}`,
+        time: meal?.scheduledTime || meal?.time || "12:00",
+      };
+    }
+    // Default: ilk protein gida + 100g
+    f.mealOverrides[key].foods.push({ id: "yumurta", grams: 100 });
+    f.editingMealKey = key;
+    renderNutritionWorkspace();
+    return;
+  }
+
+  if (action === "remove-food") {
+    const foodRow = Number(btn.dataset.foodRow);
+    const ov = f.mealOverrides[key];
+    if (ov?.foods && ov.foods.length > foodRow) {
+      ov.foods.splice(foodRow, 1);
+      renderNutritionWorkspace();
+    }
+    return;
+  }
+}
+
+// Helper: meal'in foods'unu override formatına çevir (id + grams)
+function extractMealFoodsForOverride(meal) {
+  const foods = Array.isArray(meal?.foods) ? meal.foods : [];
+  return foods.map((food) => {
+    if (typeof food === "string") {
+      // Engine'den gelen "Yumurta 4 adet" gibi free-form text; default 100g + en
+      // yakin library item'a fallback
+      const lower = food.toLocaleLowerCase("tr");
+      const match = BSM_FOOD_LIBRARY.find((lf) => lower.includes(lf.name.toLocaleLowerCase("tr"))) || BSM_FOOD_LIBRARY[0];
+      return { id: match.id, grams: 100 };
+    }
+    return {
+      id: food.id || "yumurta",
+      grams: Number(food.grams) || 100,
+    };
+  }).filter((f) => f.id);
+}
+
+// v1.3.4: Meal editor input change — select/input change degisikligi
+function handleMealEditorInput(e) {
+  const select = e.target.closest("[data-food-field]");
+  if (select) {
+    const row = Number(select.dataset.foodRow);
+    const field = select.dataset.foodField;
+    const editor = select.closest("[data-meal-editor]");
+    if (!editor) return;
+    const idx = Number(editor.dataset.mealEditor);
+    const key = mealOverrideKey(idx);
+    const f = state.nutritionFormState;
+    if (!f.mealOverrides[key]) return;
+    const food = f.mealOverrides[key].foods[row];
+    if (!food) return;
+    if (field === "id") food.id = select.value;
+    if (field === "grams") food.grams = Math.max(1, Math.min(1000, Number(select.value) || 100));
+    renderNutritionWorkspace();
+    return;
+  }
+  // Meal name / time degisikligi
+  const mealField = e.target.closest("[data-meal-field]");
+  if (mealField) {
+    const editor = mealField.closest("[data-meal-editor]");
+    if (!editor) return;
+    const idx = Number(editor.dataset.mealEditor);
+    const key = mealOverrideKey(idx);
+    const f = state.nutritionFormState;
+    if (!f.mealOverrides[key]) f.mealOverrides[key] = { foods: [] };
+    const fieldName = mealField.dataset.mealField;
+    f.mealOverrides[key][fieldName] = mealField.value;
+    // Sadece visual update — full render gereksiz, sadece data update
+  }
+}
+
 // v1.3.2: PDF preview zoom kontrolu (toolbar +/-/reset)
 function handleNutritionPdfZoom(action) {
   const canvas = document.querySelector("#bsmPdfCanvas");
@@ -9564,6 +10073,12 @@ function bindNutritionPremiumHandlers() {
       } else if (act === "email") {
         document.querySelector("#sendNutritionMailButton")?.click();
       }
+      return;
+    }
+    // v1.3.4: Meal action butonlar (Düzenle / Besin Ekle / Yenile / Tamam / Sil)
+    const mealActBtn = e.target.closest("[data-meal-action]");
+    if (mealActBtn) {
+      handleMealAction(mealActBtn);
       return;
     }
     // v1.2.5: Supplement library kategori filtre chip
@@ -9637,6 +10152,25 @@ function bindNutritionPremiumHandlers() {
         } else {
           showStatus("Önce kalori hedefi girin veya plan oluşturun.", "error");
         }
+      } else if (act === "diversify-all") {
+        // v1.3.4: Tüm planı çeşitlendir
+        const member = findActiveMember();
+        const f = state.nutritionFormState;
+        f.diversifySeed = (Number(f.diversifySeed) || 0) + 1;
+        // Mevcut plan'i diversify et + overrides'a yaz
+        try {
+          const preferences = buildPreferencesFromFormState();
+          const activeProgram = state.activeProgram || member?.programs?.[0]?.program || null;
+          let plan = normalizeNutritionPlan(buildNutritionPlan(member, activeProgram, preferences, { makeId }));
+          plan = applyUserOverridesToPlan(plan, f);
+          applyDiversificationToPlan(plan, f);
+          renderNutritionWorkspace();
+          showStatus("Tüm plan çeşitlendirildi.", "success");
+        } catch (err) {
+          showStatus("Çeşitlendirme başarısız: " + (err?.message || ""), "error");
+          console.error(err);
+        }
+        return;
       } else if (act === "smart-suggest") {
         // v1.2.5: Akilli oneri uygula
         const member = findActiveMember();
@@ -9686,6 +10220,11 @@ const debouncedNutritionInputHandler = (() => {
 })();
 
 function handleNutritionFormInputChange(e) {
+  // v1.3.4: Meal editor inputs (food id/grams select-change)
+  if (e.target.closest("[data-food-field]") || e.target.closest("[data-meal-field]")) {
+    handleMealEditorInput(e);
+    return;
+  }
   const input = e.target.closest("[data-nutrition-input]");
   if (!input) {
     // supplementCategoryList icindeki checkbox'lar farkli; kategorileri topla

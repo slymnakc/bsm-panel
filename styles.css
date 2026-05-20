@@ -22256,3 +22256,268 @@ body.bsm-photo-modal-open { overflow: hidden; }
 /* v1.3.3: Toolbar/canvas eski print kurallari kaldirildi — yeni Print Root
    yaklaşımında body > *:not(#nutritionPrintRoot) display:none oldugu icin
    .bsm-pdf-toolbar ve .bsm-pdf-canvas zaten gizli (dashboard alti). */
+
+/* ═════════════════════════════════════════════════════════════════════
+   v1.3.4 — Manuel Meal Editor + Diversification + Target vs Actual UI
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* Tum plani cesitlendir butonu (preview head) */
+.bsm-nutrition-diversify-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--bsm-orange-soft, #fef3ec);
+  color: var(--bsm-orange, #f26c1f);
+  border: 1px solid rgba(242, 108, 31, 0.2);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--bsm-font);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.05s;
+  white-space: nowrap;
+}
+
+.bsm-nutrition-diversify-btn:hover {
+  background: rgba(242, 108, 31, 0.18);
+  transform: translateY(-1px);
+}
+
+/* Meal kart action butonları */
+.bsm-meal-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+.bsm-meal-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: var(--bsm-font);
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.bsm-meal-action:hover {
+  background: var(--bsm-orange-soft, #fef3ec);
+  border-color: rgba(242, 108, 31, 0.2);
+  color: var(--bsm-orange, #f26c1f);
+}
+
+/* Düzenleme aktif olduğunda kart accent */
+.bsm-nutrition-timeline__item.is-editing .bsm-nutrition-timeline__card {
+  border: 1px solid rgba(242, 108, 31, 0.35) !important;
+  box-shadow: 0 0 0 3px rgba(242, 108, 31, 0.08);
+}
+
+.bsm-nutrition-timeline__item.is-overridden .bsm-nutrition-timeline__card::before {
+  content: "Özelleştirildi";
+  position: absolute;
+  top: -8px;
+  right: 8px;
+  background: var(--bsm-orange, #f26c1f);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  z-index: 1;
+}
+
+.bsm-nutrition-timeline__card {
+  position: relative;
+}
+
+/* Meal editor inline panel */
+.bsm-meal-editor {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #fafbfd;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bsm-meal-editor__head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.bsm-meal-editor__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bsm-meal-editor__field span {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+}
+
+.bsm-meal-editor__field input {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  font-family: var(--bsm-font);
+  color: var(--bsm-text-on-light, #111827);
+}
+
+.bsm-meal-editor__field input:focus {
+  border-color: var(--bsm-orange, #f26c1f);
+  box-shadow: 0 0 0 2px rgba(242, 108, 31, 0.12);
+  outline: none;
+}
+
+.bsm-meal-editor__foods {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bsm-meal-food-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 70px auto 28px;
+  gap: 6px;
+  align-items: center;
+}
+
+.bsm-meal-food-row__select {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  font-family: var(--bsm-font);
+  color: var(--bsm-text-on-light, #111827);
+  min-width: 0;
+}
+
+.bsm-meal-food-row__grams {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  font-family: var(--bsm-font);
+  width: 100%;
+  text-align: right;
+}
+
+.bsm-meal-food-row__unit {
+  font-size: 0.72rem;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+  font-weight: 600;
+}
+
+.bsm-meal-food-row__remove {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: rgba(185, 28, 28, 0.08);
+  color: #b91c1c;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.bsm-meal-food-row__remove:hover {
+  background: rgba(185, 28, 28, 0.18);
+}
+
+.bsm-meal-editor__empty {
+  margin: 0;
+  padding: 8px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--bsm-text-on-light-soft, #6b7280);
+}
+
+.bsm-meal-editor__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+.bsm-meal-editor__btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  font-family: var(--bsm-font);
+  color: var(--bsm-text-on-light, #111827);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.bsm-meal-editor__btn--add {
+  background: var(--bsm-orange-soft, #fef3ec);
+  color: var(--bsm-orange, #f26c1f);
+  border-color: rgba(242, 108, 31, 0.18);
+}
+
+.bsm-meal-editor__btn:hover {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.bsm-meal-editor__btn--add:hover {
+  background: rgba(242, 108, 31, 0.15);
+}
+
+/* Target vs Actual delta badge (totals bar) */
+.bsm-nutrition-totals__delta {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+.bsm-nutrition-totals__delta.is-over {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+.bsm-nutrition-totals__delta.is-under {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.bsm-nutrition-totals__delta.is-ok {
+  background: rgba(22, 163, 74, 0.15);
+  color: #15803d;
+}
+
+.bsm-nutrition-totals > div {
+  position: relative;
+}
