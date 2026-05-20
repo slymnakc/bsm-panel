@@ -22537,3 +22537,207 @@ body.bsm-photo-modal-open { overflow: hidden; }
 .bsm-nutrition-totals > div {
   position: relative;
 }
+
+/* ═════════════════════════════════════════════════════════════════════
+   v1.3.6 — PDF compact 2-sayfa: 6-col KPI + supplement özet + küçük chart
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* Compact header tek satır (eski 2-col cover yapısı kaldırıldı) */
+.bsm-pdf-v13__head-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: flex-end;
+  gap: 12px;
+  border-bottom: 2px solid #f97316;
+  padding-bottom: 6px;
+}
+
+.bsm-pdf-v13__head-row .bsm-pdf-v13__title {
+  margin: 1px 0 2px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.bsm-pdf-v13__head-row .bsm-pdf-v13__subtitle {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #475569;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.bsm-pdf-v13__head-row .bsm-pdf-v13__date {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* 6-col KPI satırı (Plan Türü + Öğün Sayısı + P + K + Y + Günlük Kalori) */
+.bsm-pdf-v13__kpi-strip--6col {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.bsm-pdf-v13__kpi-strip--6col .bsm-pdf-v13__kpi {
+  padding: 6px 9px;
+  min-height: 48px;
+  justify-content: center;
+}
+
+.bsm-pdf-v13__kpi-strip--6col .bsm-pdf-v13__kpi small {
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+}
+
+.bsm-pdf-v13__kpi-strip--6col .bsm-pdf-v13__kpi strong {
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* Accent KPI — Günlük Kalori (orange gradient) */
+.bsm-pdf-v13__kpi--accent {
+  background: linear-gradient(135deg, #f26c1f 0%, #e25022 100%) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+}
+
+.bsm-pdf-v13__kpi--accent small,
+.bsm-pdf-v13__kpi--accent strong {
+  color: #fff !important;
+}
+
+.bsm-pdf-v13__kpi--accent small { opacity: 0.85; }
+
+/* Makro chart-row daha kompakt (eski 110px donut -> 80px, water 92 -> 70) */
+.bsm-pdf-v13__chart-row {
+  grid-template-columns: 1.3fr 1fr;
+  gap: 10px;
+}
+
+.bsm-pdf-v13__donut svg {
+  width: 78px !important;
+  height: 78px !important;
+}
+
+.bsm-pdf-water-ring svg {
+  width: 68px !important;
+  height: 68px !important;
+}
+
+.bsm-pdf-v13__donut-block,
+.bsm-pdf-v13__water-block {
+  padding: 7px 10px;
+  gap: 4px;
+  max-height: 110px;
+}
+
+.bsm-pdf-v13__donut-block h3,
+.bsm-pdf-v13__water-block h3 {
+  font-size: 0.66rem;
+}
+
+.bsm-pdf-v13__donut-legend {
+  gap: 3px;
+}
+
+.bsm-pdf-v13__donut-legend li {
+  font-size: 0.7rem;
+}
+
+.bsm-pdf-v13__donut-legend li span {
+  width: 9px;
+  height: 9px;
+}
+
+.bsm-pdf-water-ring__label {
+  font-size: 0.66rem;
+}
+
+.bsm-pdf-v13__if-chip {
+  font-size: 0.66rem;
+  padding: 2px 8px;
+}
+
+/* Supplement özet sayfa 1 sonunda */
+.bsm-pdf-v13__suppl-summary {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 10px;
+  padding: 7px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bsm-pdf-v13__suppl-summary h3 {
+  margin: 0;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.bsm-pdf-v13__suppl-summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.bsm-pdf-v13__suppl-summary-list li {
+  display: grid;
+  grid-template-columns: 44px 22px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px;
+  background: #f8fafc;
+  border-radius: 6px;
+  font-size: 0.74rem;
+}
+
+.bsm-pdf-v13__suppl-summary-time {
+  font-weight: 800;
+  color: #f26c1f;
+  font-size: 0.7rem;
+}
+
+.bsm-pdf-v13__suppl-summary-icon {
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+.bsm-pdf-v13__suppl-summary-list strong {
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.74rem;
+}
+
+.bsm-pdf-v13__suppl-summary-list em {
+  font-style: normal;
+  color: #64748b;
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+
+.bsm-pdf-v13__suppl-summary-more {
+  grid-column: 1 / -1;
+  text-align: center;
+  background: rgba(15, 23, 42, 0.04) !important;
+  color: #94a3b8;
+  font-size: 0.7rem !important;
+  font-weight: 600;
+  font-style: italic;
+  display: block !important;
+  padding: 4px !important;
+}
