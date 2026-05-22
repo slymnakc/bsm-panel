@@ -22793,3 +22793,218 @@ body.bsm-photo-modal-open { overflow: hidden; }
   display: block !important;
   padding: 4px !important;
 }
+
+/* ═════════════════════════════════════════════════════════════════════
+   v1.4.2 — Exercise Video badge + YouTube modal
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* GIF olmayan egzersizler icin buyuk video CTA (eski "GIF yok" placeholder yerine) */
+.exercise-media--video-only {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+}
+
+.exercise-media__video-cta {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #fef3ec 0%, #ffe1cc 100%);
+  border: 1px dashed rgba(242, 108, 31, 0.3);
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 14px 12px;
+  font-family: var(--bsm-font);
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+  text-align: center;
+}
+
+.exercise-media__video-cta:hover {
+  background: linear-gradient(135deg, #ffe1cc 0%, #ffd0b0 100%);
+  border-color: rgba(242, 108, 31, 0.5);
+  transform: translateY(-1px);
+}
+
+.exercise-media__video-play {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f26c1f 0%, #e25022 100%);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 18px rgba(242, 108, 31, 0.3);
+}
+
+.exercise-media__video-play svg {
+  margin-left: 2px; /* play icon visual centering */
+}
+
+.exercise-media__video-cta strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.exercise-media__video-cta em {
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #f26c1f;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* GIF varsa kart ustunde kucuk Video rozeti */
+.library-exercise {
+  position: relative;
+}
+
+.library-exercise__video-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: background 0.15s, transform 0.05s;
+  font-family: var(--bsm-font);
+}
+
+.library-exercise__video-badge:hover {
+  background: linear-gradient(135deg, #f26c1f 0%, #e25022 100%);
+  transform: translateY(-1px);
+}
+
+.library-exercise__video-badge svg {
+  margin-right: 1px;
+}
+
+/* v1.4.3: YouTube Video Modal kaldırıldı (her zaman gizli).
+   Video butonu artık doğrudan YouTube search'i yeni sekmede açıyor. */
+.exercise-video-modal {
+  display: none !important;
+}
+
+.exercise-video-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 12, 18, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.exercise-video-modal__dialog {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  width: min(900px, 92vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+}
+
+.exercise-video-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  background: #fafbfd;
+}
+
+.exercise-video-modal__head h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.exercise-video-modal__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.exercise-video-modal__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--bsm-orange-soft, #fef3ec);
+  color: var(--bsm-orange, #f26c1f);
+  border: 1px solid rgba(242, 108, 31, 0.2);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s;
+  font-family: var(--bsm-font);
+}
+
+.exercise-video-modal__open:hover {
+  background: rgba(242, 108, 31, 0.18);
+}
+
+.exercise-video-modal__close {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.exercise-video-modal__close:hover {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.exercise-video-modal__frame {
+  position: relative;
+  width: 100%;
+  background: #000;
+  aspect-ratio: 16 / 9;
+  max-height: calc(88vh - 60px);
+}
+
+.exercise-video-modal__frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+body.is-video-modal-open {
+  overflow: hidden;
+}

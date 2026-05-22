@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
-    <link rel="stylesheet" href="./styles.css?v=1.4.1" />
+    <link rel="stylesheet" href="./styles.css?v=1.4.3" />
   </head>
   <body class="auth-required">
     <div class="page-backdrop" aria-hidden="true"></div>
@@ -1533,6 +1533,11 @@
       </div>
     </div>
 
+    <!-- v1.4.3: Eski video modal kaldırıldı (listType=search embed YouTube tarafından
+         kısıtlandı). Video butonu artık doğrudan YouTube search sayfasını yeni sekmede
+         açıyor (window.open). Daha temiz, %100 çalışır UX. -->
+    <div id="exerciseVideoModal" class="exercise-video-modal is-hidden" aria-hidden="true" hidden></div>
+
     <!-- ── Auth Gate ──────────────────────────────────────────────── -->
     <!-- body.auth-required sınıfı var olduğu sürece görünür.         -->
     <!-- BSMAuth.init() başarılı session'da sınıfı kaldırır.          -->
@@ -1597,22 +1602,22 @@
     <script src="./data/options.js"></script>
     <script src="./data/labels.js"></script>
     <script src="./data/presets.js"></script>
-    <script src="./data/repetition-presets.js?v=1.4.1"></script>
+    <script src="./data/repetition-presets.js?v=1.4.3"></script>
     <script src="./data/exercises.js"></script>
     <script src="./helpers/core-utils.js"></script>
     <script src="./helpers/label-utils.js"></script>
-    <script src="./data-migrations.js?v=1.4.1"></script>
+    <script src="./data-migrations.js?v=1.4.3"></script>
     <script src="./services/storage-service.js"></script>
-    <script src="./services/supabase-sync-service.js?v=1.4.1"></script>
+    <script src="./services/supabase-sync-service.js?v=1.4.3"></script>
     <script src="./services/member-service.js"></script>
     <script src="./services/tanita-csv-service.js"></script>
-    <script src="./nutrition/nutritionGoals.js?v=1.4.1"></script>
-    <script src="./nutrition/supplementDatabase.js?v=1.4.1"></script>
-    <script src="./nutrition/nutritionPlanEngine.js?v=1.4.1"></script>
-    <script src="./services/pdf-download-service.js?v=1.4.1"></script>
-    <script src="./nutrition/nutritionPdfRenderer.js?v=1.4.1"></script>
-    <script src="./nutrition/nutritionEmailService.js?v=1.4.1"></script>
-    <script src="./services/nutrition-service.js?v=1.4.1"></script>
+    <script src="./nutrition/nutritionGoals.js?v=1.4.3"></script>
+    <script src="./nutrition/supplementDatabase.js?v=1.4.3"></script>
+    <script src="./nutrition/nutritionPlanEngine.js?v=1.4.3"></script>
+    <script src="./services/pdf-download-service.js?v=1.4.3"></script>
+    <script src="./nutrition/nutritionPdfRenderer.js?v=1.4.3"></script>
+    <script src="./nutrition/nutritionEmailService.js?v=1.4.3"></script>
+    <script src="./services/nutrition-service.js?v=1.4.3"></script>
     <script src="./services/exercise-media-service.js"></script>
     <script src="./services/dashboard-service.js"></script>
     <script src="./services/validation-service.js"></script>
@@ -1626,17 +1631,17 @@
     <script src="./services/session-exercise-service.js"></script>
     <script src="./services/session-assembly-service.js"></script>
     <script src="./services/session-support-service.js"></script>
-    <script src="./ui/dashboard-ui.js?v=1.4.1"></script>
+    <script src="./ui/dashboard-ui.js?v=1.4.3"></script>
     <script src="./ui/alerts-ui.js"></script>
-    <script src="./ui/member-ui.js?v=1.4.1"></script>
+    <script src="./ui/member-ui.js?v=1.4.3"></script>
     <script src="./ui/library-ui.js"></script>
     <script src="./ui/output-ui.js"></script>
-    <script src="./ui/nutrition-ui.js?v=1.4.1"></script>
+    <script src="./ui/nutrition-ui.js?v=1.4.3"></script>
     <script src="./handlers/form-handlers.js"></script>
-    <script src="./handlers/navigation-handlers.js?v=1.4.1"></script>
+    <script src="./handlers/navigation-handlers.js?v=1.4.3"></script>
     <script src="./handlers/member-handlers.js"></script>
     <script src="./handlers/output-handlers.js"></script>
-    <script src="./handlers/nutrition-handlers.js?v=1.4.1"></script>
+    <script src="./handlers/nutrition-handlers.js?v=1.4.3"></script>
     <script src="./analysis-engine.js"></script>
     <script src="./program-engine-v2.js"></script>
     <script src="./automation-engine.js"></script>
@@ -1663,14 +1668,14 @@
 
     <!-- ── Feature modules (app.js'den önce) ────────────────── -->
     <script src="./features/measurement-report.js"></script>
-    <script src="./features/builder-wizard.js?v=1.4.1"></script>
+    <script src="./features/builder-wizard.js?v=1.4.3"></script>
     <script src="./features/body-analysis.js"></script>
 
     <!-- ── Ana uygulama ─────────────────────────────────────── -->
-    <script src="./app.js?v=1.4.1"></script>
+    <script src="./app.js?v=1.4.3"></script>
 
     <!-- ── Auth (app.js'den sonra — session kontrolü için) ──── -->
-    <script src="./auth/auth.js?v=1.4.1"></script>
+    <script src="./auth/auth.js?v=1.4.3"></script>
     <script src="./auth/rbac.js"></script>
     <script>
       if (window.BSMAuth) {

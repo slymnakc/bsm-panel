@@ -29,6 +29,7 @@
                   (exercise) => `
                     <div class="library-exercise">
                       ${renderExerciseMedia(exercise.media, escapeHtml)}
+                      ${renderExerciseVideoBadge(exercise, escapeHtml)}
                       <div class="library-exercise__top">
                         <strong>${escapeHtml(exercise.name)}</strong>
                         ${renderLibraryExerciseAction(exercise, escapeHtml)}
@@ -38,7 +39,6 @@
                         <span>${escapeHtml(exercise.kindLabel)}</span>
                         <span>${escapeHtml(exercise.levelLabel)}</span>
                         ${exercise.isCustom ? "<span>Özel hareket</span>" : ""}
-                        <span>GIF alanı hazır</span>
                       </div>
                       <p>${escapeHtml(exercise.cue)}</p>
                     </div>
@@ -90,14 +90,44 @@
   }
 
   function renderMissingExerciseMedia(media, escapeHtml) {
+    // v1.4.2: GIF yoksa direkt YouTube video butonunu prominent goster (placeholder yerine)
+    const name = media?.name || "Hareket";
+    const groupLabel = media?.groupLabel || "";
     return `
-      <div class="exercise-media is-missing" data-exercise-media="" data-exercise-name="${escapeHtml(media.name)}" data-exercise-group="${escapeHtml(media.groupLabel)}" aria-label="${escapeHtml(media.name)} için GIF yok">
-        <div class="exercise-media__placeholder">
-          <strong>${escapeHtml(media.name)}</strong>
-          <span>${escapeHtml(media.groupLabel)}</span>
-          <em>GIF yok</em>
-        </div>
+      <div class="exercise-media exercise-media--video-only" data-exercise-name="${escapeHtml(name)}" data-exercise-group="${escapeHtml(groupLabel)}">
+        <button
+          type="button"
+          class="exercise-media__video-cta"
+          data-exercise-video-open
+          data-exercise-name="${escapeHtml(name)}"
+          aria-label="${escapeHtml(name)} videosunu izle"
+        >
+          <span class="exercise-media__video-play" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </span>
+          <strong>${escapeHtml(name)}</strong>
+          <em>Video İzle</em>
+        </button>
       </div>
+    `;
+  }
+
+  // v1.4.2: YouTube video butonu — her egzersize ek, GIF zaten varsa kart ustunde rozet olarak gosterilir
+  function renderExerciseVideoBadge(exercise, escapeHtml) {
+    if (!exercise?.media?.gifUrl) return ""; // GIF yoksa zaten renderMissingExerciseMedia video CTA gosterir
+    const name = exercise?.name || exercise?.media?.name || "Hareket";
+    return `
+      <button
+        type="button"
+        class="library-exercise__video-badge"
+        data-exercise-video-open
+        data-exercise-name="${escapeHtml(name)}"
+        aria-label="${escapeHtml(name)} videosunu izle"
+        title="YouTube'da video izle"
+      >
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span>Video</span>
+      </button>
     `;
   }
 

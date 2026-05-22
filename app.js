@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.4.1";
+const BSM_BUILD_VERSION = "1.4.3";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -3766,6 +3766,35 @@ function handleExerciseGifModalClick(event) {
   if (event.target.closest("[data-gif-modal-close]")) {
     closeExerciseGifModal();
   }
+
+  // v1.4.2: YouTube video modal — ▶ Video butonu
+  const videoOpenBtn = event.target.closest("[data-exercise-video-open]");
+  if (videoOpenBtn) {
+    openExerciseVideoModal(videoOpenBtn.dataset.exerciseName || "Egzersiz");
+    return;
+  }
+  if (event.target.closest("[data-video-modal-close]")) {
+    closeExerciseVideoModal();
+  }
+}
+
+// v1.4.3: YouTube modal kaldırıldı — listType=search embed YouTube tarafından
+// kısıtlandığı için "Bu video kullanılamıyor" hatası veriyordu. Daha temiz UX:
+// video buton click → doğrudan YouTube search sayfasını yeni sekmede aç.
+// Modal/iframe karmaşası yok, telif/embed sorunları yok, %100 calisir.
+function openExerciseVideoModal(exerciseName) {
+  const safeName = String(exerciseName || "Egzersiz").trim();
+  const query = `${safeName} nasıl yapılır doğru form`;
+  const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  window.open(searchUrl, "_blank", "noopener,noreferrer");
+}
+
+// v1.4.3: closeExerciseVideoModal — backward-compat (event handler hala cagirir
+// ama modal artık aktif degil; sessizce noop).
+function closeExerciseVideoModal() {
+  const modal = document.querySelector("#exerciseVideoModal");
+  if (modal) modal.classList.add("is-hidden");
+  document.body.classList.remove("is-video-modal-open");
 }
 
 function handleExerciseGifError(event) {
@@ -3822,6 +3851,11 @@ function getExerciseGifFallbackUrls(openButton) {
 function handleExerciseGifModalKeydown(event) {
   if (event.key === "Escape" && !exerciseGifModal?.classList.contains("is-hidden")) {
     closeExerciseGifModal();
+  }
+  // v1.4.2: ESC ile video modal kapatma
+  const videoModal = document.querySelector("#exerciseVideoModal");
+  if (event.key === "Escape" && videoModal && !videoModal.classList.contains("is-hidden")) {
+    closeExerciseVideoModal();
   }
 }
 
