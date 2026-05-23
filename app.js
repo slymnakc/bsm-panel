@@ -431,6 +431,9 @@ if (!window.BSMNutritionPdfPipeline) {
 if (!window.BSMNutritionRenderers) {
   throw new Error("BSMNutritionRenderers yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMNutritionPremiumRenderers) {
+  throw new Error("BSMNutritionPremiumRenderers yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -480,6 +483,12 @@ const {
   renderSupplementSelected,
   renderNutritionMetaCard,
 } = window.BSMNutritionRenderers;
+// Premium Renderers destructure (Part 3B1): 2 saf render fonksiyonu
+// (renderNutritionHero DOM-mutate, renderMealEditorHtml HTML string return)
+const {
+  renderNutritionHero,
+  renderMealEditorHtml,
+} = window.BSMNutritionPremiumRenderers;
 
 // Refactor Adım 3: calculateMealMacros, resolveMealMacros, hasNonZeroMacros,
 // mealOverrideKey artık nutrition/nutritionHelpers.js içinde — destructure ile
@@ -1207,6 +1216,15 @@ function initialize() {
       return typeof renderMealEditorHtml === "function" ? renderMealEditorHtml(meal, idx) : "";
     },
     getNutritionPanel: function () { return nutritionPanel; },
+  });
+  // Refactor Adım 3 part 3B1: Premium Renderers'a state + escapeHtml + foodLibrary
+  // + labelMaps + getActiveMeasurementSnapshot injection
+  window.BSMNutritionPremiumRenderers.init({
+    state: state,
+    escapeHtml: escapeHtml,
+    foodLibrary: BSM_FOOD_LIBRARY,
+    labelMaps: labelMaps,
+    getActiveMeasurementSnapshot: getActiveMeasurementSnapshot,
   });
   populateStaticFilters();
   populateProgramStyleOptions();
@@ -8834,60 +8852,7 @@ function buildPreferencesFromFormState() {
 }
 
 // ── HERO ────────────────────────────────────────────────────────────
-function renderNutritionHero(member, plan) {
-  const profile = member?.profile || {};
-  const latestMeasurement = (typeof getActiveMeasurementSnapshot === "function")
-    ? getActiveMeasurementSnapshot(member)
-    : (member?.measurements?.[0] || null);
-
-  // Avatar/initials
-  const initialsEl = document.querySelector("#bsmNutritionAvatarInitials");
-  if (initialsEl) {
-    const name = String(profile.memberName || "").trim();
-    if (name) {
-      const parts = name.split(/\s+/).filter(Boolean);
-      const initials = parts.length >= 2 ? parts[0][0] + parts[parts.length - 1][0] : name.slice(0, 2);
-      initialsEl.textContent = initials.toLocaleUpperCase("tr");
-    } else {
-      initialsEl.textContent = "--";
-    }
-  }
-  const avatarHost = document.querySelector("#bsmNutritionAvatar");
-  if (avatarHost && profile.photo && typeof profile.photo === "string" && profile.photo.startsWith("data:image/")) {
-    avatarHost.innerHTML = `<img src="${escapeHtml(profile.photo)}" alt="" loading="lazy" decoding="async" />`;
-  } else if (avatarHost && !avatarHost.querySelector(".bsm-nutrition-hero__avatar-initials")) {
-    avatarHost.innerHTML = `<span class="bsm-nutrition-hero__avatar-initials" id="bsmNutritionAvatarInitials">${escapeHtml(initialsEl?.textContent || "--")}</span>`;
-  }
-
-  const setText = (sel, text) => { const el = document.querySelector(sel); if (el) el.textContent = text; };
-  setText("#bsmNutritionMemberName", profile.memberName || "Üye seçilmedi");
-  setText("#bsmNutritionHeroCode", profile.memberCode || "Yok");
-  const lvlLabel = labelMaps?.level?.[profile.level] || profile.level || "Seviye yok";
-  setText("#bsmNutritionHeroLevel", lvlLabel);
-  const hasProgram = Array.isArray(member?.programs) && member.programs.length > 0;
-  setText("#bsmNutritionHeroProgram", hasProgram ? "Aktif" : "Bekliyor");
-  setText("#bsmNutritionLastMeasurement", latestMeasurement?.date || "Ölçüm yok");
-
-  const goalChipSpan = document.querySelector("#bsmNutritionGoalChip span");
-  if (goalChipSpan) {
-    const map = { "fat-loss": "Yağ yakımı", "muscle-gain": "Kas kazanımı", "maintenance": "Koruma", "recomposition": "Recomposition" };
-    goalChipSpan.textContent = map[state.nutritionFormState.goal] || "Hedef belirtilmedi";
-  }
-
-  const calories = plan?.calories || state.nutritionFormState.calories || 0;
-  setText("#bsmNutritionDailyCalories", calories ? `${calories} kcal` : "—");
-  const m = plan?.macros;
-  if (m) {
-    setText("#bsmNutritionMacroSummary", `P ${m.protein || 0}g / K ${m.carbs || 0}g / Y ${m.fat || 0}g`);
-  } else {
-    const f = state.nutritionFormState;
-    if (f.protein && f.carbs && f.fat) {
-      setText("#bsmNutritionMacroSummary", `P ${f.protein}g / K ${f.carbs}g / Y ${f.fat}g`);
-    } else {
-      setText("#bsmNutritionMacroSummary", "—");
-    }
-  }
-}
+// Refactor Adım 3 part 3B1: renderNutritionHero → nutrition/nutritionPremiumRenderers.js (destructure)
 
 // ── ACCORDION INPUT SYNC ────────────────────────────────────────────
 function syncNutritionAccordionInputs() {
@@ -8931,51 +8896,7 @@ function syncNutritionAccordionInputs() {
 // Refactor Adım 3 part 3A: renderNutritionTimelineView → nutrition/nutritionRenderers.js (destructure)
 
 // v1.3.4: Meal editor inline panel — meal.foods her satir icin food dropdown + gramaj input
-function renderMealEditorHtml(meal, idx) {
-  const foods = Array.isArray(meal.foods) ? meal.foods : [];
-  const categories = ["Protein", "Karbonhidrat", "Yağ", "Sebze", "Meyve", "Süt Ürünleri", "Kuruyemiş", "Pratik"];
-  return `
-    <div class="bsm-meal-editor" data-meal-editor="${idx}">
-      <div class="bsm-meal-editor__head">
-        <label class="bsm-meal-editor__field">
-          <span>Öğün adı</span>
-          <input type="text" data-meal-field="name" value="${escapeHtml(meal.name || "")}" />
-        </label>
-        <label class="bsm-meal-editor__field">
-          <span>Saat</span>
-          <input type="time" data-meal-field="time" value="${escapeHtml(meal.scheduledTime || meal.time || "12:00")}" />
-        </label>
-      </div>
-      <div class="bsm-meal-editor__foods">
-        ${foods.length
-          ? foods.map((food, fi) => {
-              const foodId = food.id || "";
-              const grams = food.grams || 100;
-              return `
-                <div class="bsm-meal-food-row" data-food-row="${fi}">
-                  <select class="bsm-meal-food-row__select" data-food-field="id" data-food-row="${fi}">
-                    <option value="">— Seç —</option>
-                    ${categories.map((cat) => `<optgroup label="${escapeHtml(cat)}">${
-                      BSM_FOOD_LIBRARY.filter((f) => f.category === cat)
-                        .map((f) => `<option value="${escapeHtml(f.id)}"${f.id === foodId ? " selected" : ""}>${escapeHtml(f.name)}</option>`)
-                        .join("")
-                    }</optgroup>`).join("")}
-                  </select>
-                  <input type="number" class="bsm-meal-food-row__grams" data-food-field="grams" data-food-row="${fi}" min="1" max="1000" step="5" value="${escapeHtml(String(grams))}" /> <span class="bsm-meal-food-row__unit">g</span>
-                  <button type="button" class="bsm-meal-food-row__remove" data-meal-action="remove-food" data-meal-idx="${idx}" data-food-row="${fi}" aria-label="Sil">×</button>
-                </div>
-              `;
-            }).join("")
-          : `<p class="bsm-meal-editor__empty">Henüz besin yok. Aşağıdaki butondan ekleyin.</p>`
-        }
-      </div>
-      <div class="bsm-meal-editor__foot">
-        <button type="button" class="bsm-meal-editor__btn bsm-meal-editor__btn--add" data-meal-action="add-food" data-meal-idx="${idx}">+ Besin Ekle</button>
-        <button type="button" class="bsm-meal-editor__btn" data-meal-action="close-edit" data-meal-idx="${idx}">Tamam</button>
-      </div>
-    </div>
-  `;
-}
+// Refactor Adım 3 part 3B1: renderMealEditorHtml → nutrition/nutritionPremiumRenderers.js (destructure)
 
 // Refactor Adım 3 part 3A: renderNutritionMacroView → nutrition/nutritionRenderers.js (destructure)
 
