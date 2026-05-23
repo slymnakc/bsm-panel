@@ -407,7 +407,6 @@ const BSM_FOOD_LIBRARY = [
 ];
 
 function getFoodLibrary() { return BSM_FOOD_LIBRARY.map((f) => ({ ...f })); }
-function findFoodById(id) { return BSM_FOOD_LIBRARY.find((f) => f.id === id) || null; }
 function searchFoods(query, category) {
   const q = String(query || "").toLocaleLowerCase("tr");
   return BSM_FOOD_LIBRARY.filter((f) => {
@@ -417,93 +416,40 @@ function searchFoods(query, category) {
   });
 }
 
-// Hesaplanmis makro/kcal (gramaj * Per100g/100)
-function calcFoodMacros(foodId, grams) {
-  const food = findFoodById(foodId);
-  if (!food) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  const g = Number(grams) || 0;
-  const f = g / 100;
-  return {
-    calories: Math.round(food.caloriesPer100g * f),
-    protein: Math.round(food.proteinPer100g * f * 10) / 10,
-    carbs: Math.round(food.carbsPer100g * f * 10) / 10,
-    fat: Math.round(food.fatPer100g * f * 10) / 10,
-  };
+// ═══════════════════════════════════════════════════════════════════════════
+// Refactor Adım 3: nutrition pure helpers extract edildi → nutrition/nutritionHelpers.js
+// Library dependency init injection ile geçirilir, eski function tanımları silindi.
+// Eski destructure aliases korunur — app.js'nin geri kalan kodu hiçbir şey
+// değiştirmeden çalışır.
+// ═══════════════════════════════════════════════════════════════════════════
+if (!window.BSMNutritionHelpers) {
+  throw new Error("BSMNutritionHelpers yüklenmedi (script sırası bozuk olabilir)");
 }
+window.BSMNutritionHelpers.init({
+  foodLibrary: BSM_FOOD_LIBRARY,
+  supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
+});
+const {
+  findFoodById,
+  findSupplementById,
+  calcFoodMacros,
+  calculateMealMacros,
+  resolveMealMacros,
+  hasNonZeroMacros,
+  mealOverrideKey,
+  fmtReportMetric,
+  shiftTime,
+  getSupplementScheduleTime,
+  buildReportSparklinePoints,
+  buildPdfSparklinePoints,
+  supplementTimingLabel,
+  normalizeSupplementCategoryKey,
+  buildPlanValidUntilLabel,
+} = window.BSMNutritionHelpers;
 
-// v1.3.7: Meal-level macro aggregate — meal.foods array'inden TUM besinleri
-// dolasarak gramaj * Per100g/100 ile toplam P/K/Y/kcal hesaplar.
-// Spec gereği her meal'in dinamik hesaplanabilir actual macros'u olmali.
-function calculateMealMacros(meal) {
-  if (!meal || !Array.isArray(meal.foods) || !meal.foods.length) {
-    return { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  }
-  const totals = meal.foods.reduce((acc, food) => {
-    // food iki formatta gelebilir:
-    //   - { id: "yumurta", grams: 100 } (manuel override / library match)
-    //   - "yumurta 4 adet" (engine free-form string)
-    if (food && food.id && Number(food.grams) > 0) {
-      const macros = calcFoodMacros(food.id, food.grams);
-      acc.calories += macros.calories;
-      acc.protein += macros.protein;
-      acc.carbs += macros.carbs;
-      acc.fat += macros.fat;
-    }
-    return acc;
-  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-  return {
-    calories: Math.round(totals.calories),
-    protein: Math.round(totals.protein),
-    carbs: Math.round(totals.carbs),
-    fat: Math.round(totals.fat),
-  };
-}
-
-// v1.3.7: Meal makros resolver — 4 katmanli fallback chain.
-// PDF renderer ve timeline view bu helper'i kullanarak her zaman dolu P/K/Y
-// elde eder. Spec gereği siralama:
-//   1) meal.actualMacros (en son hesaplanmis, manuel edit + diversify sonrasi)
-//   2) meal.macros (engine'in original cıktısı veya override)
-//   3) calculateMealMacros(meal) — foods'tan canli hesap
-//   4) 0 fallback (en son care)
-function resolveMealMacros(meal) {
-  if (!meal) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  // 1. actualMacros (v1.3.7: zorunlu field, ensureMealMacrosFallback yazar)
-  if (meal.actualMacros && hasNonZeroMacros(meal.actualMacros)) {
-    return {
-      calories: Math.round(Number(meal.actualCalories) || Number(meal.calories) || 0),
-      protein: Math.round(Number(meal.actualMacros.protein) || 0),
-      carbs: Math.round(Number(meal.actualMacros.carbs) || 0),
-      fat: Math.round(Number(meal.actualMacros.fat) || 0),
-    };
-  }
-  // 2. macros (engine veya manuel override)
-  if (meal.macros && hasNonZeroMacros(meal.macros)) {
-    return {
-      calories: Math.round(Number(meal.calories) || 0),
-      protein: Math.round(Number(meal.macros.protein) || 0),
-      carbs: Math.round(Number(meal.macros.carbs) || 0),
-      fat: Math.round(Number(meal.macros.fat) || 0),
-    };
-  }
-  // 3. Foods'tan dinamik hesap
-  const calc = calculateMealMacros(meal);
-  if (hasNonZeroMacros(calc)) return calc;
-  // 4. 0 fallback (cok nadir; ogun foods bos + macros yok)
-  return { calories: Math.round(Number(meal.calories) || 0), protein: 0, carbs: 0, fat: 0 };
-}
-
-function hasNonZeroMacros(m) {
-  if (!m) return false;
-  const p = Number(m.protein) || 0;
-  const c = Number(m.carbs) || 0;
-  const f = Number(m.fat) || 0;
-  return p > 0 || c > 0 || f > 0;
-}
-
-// v1.3.4: Meal key — plan.meals indexi bazli stable id (engine recreate olsa
-// bile aynı slot icin override saklanir).
-function mealOverrideKey(idx) { return String(idx); }
+// Refactor Adım 3: calculateMealMacros, resolveMealMacros, hasNonZeroMacros,
+// mealOverrideKey artık nutrition/nutritionHelpers.js içinde — destructure ile
+// alındığı için bu konumda fonksiyon tanımlamaya gerek yok.
 
 // v1.3.4: applyMealOverridesToPlan — state.nutritionFormState.mealOverrides
 // plan.meals'e merge eder. Override edilen meal'in foods/name/time'i override'tan
@@ -649,7 +595,7 @@ function applyDiversificationToPlan(plan, formState) {
   });
   formState.mealOverrides = newOverrides;
 }
-function findSupplementById(id) { return BSM_SUPPLEMENT_LIBRARY.find((s) => s.id === id) || null; }
+// Refactor Adım 3: findSupplementById → nutritionHelpers.js (destructure ile alındı)
 
 // v1.2.5: Smart Supplement Engine — hedef + IF + workout time + hassasiyet bazli
 // otomatik 5-7 supplement onerir. Manuel ekleme/cikarma user'in elinde kalir.
@@ -692,55 +638,8 @@ function buildSmartSupplementSuggestions(formState, activeMeasurement) {
     .map((x) => x.supplement.id);
 }
 
-// Kategori filtreleri UI'da kullanilan key'leri library category isimlerine ceviren map
-function normalizeSupplementCategoryKey(category) {
-  const m = {
-    "Protein": "muscle",
-    "Amino Asit": "muscle",
-    "Kreatin": "muscle",
-    "Pre Workout": "performance",
-    "Performans": "performance",
-    "Post Workout": "performance",
-    "Yağ Yakımı": "fat-burn",
-    "Vitamin": "health",
-    "Mineral": "health",
-    "Sağlık": "health",
-    "Uyku / Toparlanma": "recovery",
-    "Eklem Desteği": "recovery",
-    "Hidrasyon": "performance",
-  };
-  return m[category] || "health";
-}
-
-// Supplement timing -> gunluk saate cevirici
-function getSupplementScheduleTime(supplement, formState) {
-  const wake = formState?.wakeTime || "07:30";
-  const firstMeal = "08:30";
-  const workout = formState?.workoutTime || "18:30";
-  const sleep = "23:00";
-  const lastMeal = "21:30";
-  const map = {
-    "morning": wake,
-    "with-meals": firstMeal,
-    "pre-workout": shiftTime(workout, -30),
-    "post-workout": shiftTime(workout, 60),
-    "intra-workout": workout,
-    "before-sleep": shiftTime(sleep, -45),
-    "daily": firstMeal,
-  };
-  return map[supplement.timing] || firstMeal;
-}
-
-// HH:MM saatini delta dakika ile kaydir
-function shiftTime(hhmm, deltaMinutes) {
-  if (!/^\d{2}:\d{2}$/.test(String(hhmm || ""))) return hhmm;
-  const [h, m] = String(hhmm).split(":").map(Number);
-  let total = h * 60 + m + (Number(deltaMinutes) || 0);
-  total = Math.max(0, Math.min(23 * 60 + 59, total));
-  const nh = Math.floor(total / 60);
-  const nm = total % 60;
-  return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
-}
+// Refactor Adım 3: normalizeSupplementCategoryKey, getSupplementScheduleTime,
+// shiftTime artık nutrition/nutritionHelpers.js içinde (destructure).
 
 const {
   turkishAlphabet,
@@ -7404,32 +7303,8 @@ function renderReportCenter() {
   updateReportSectionCounter();
 }
 
-// Yardimci formatter: numeric -> "12.4 kg" / "—"
-function fmtReportMetric(v, unit) {
-  if (v === null || v === undefined || v === "") return "—";
-  const n = Number(v);
-  if (!Number.isFinite(n)) return String(v);
-  const rounded = Math.abs(n) >= 100 ? Math.round(n) : Math.round(n * 10) / 10;
-  return `${rounded}${unit ? " " + unit : ""}`;
-}
-
-// Mini SVG sparkline 0-100 viewBox uretici (degerleri auto-normalize eder)
-function buildReportSparklinePoints(values) {
-  const nums = values.map((v) => Number(v)).filter((n) => Number.isFinite(n));
-  if (nums.length < 2) return null;
-  const min = Math.min(...nums);
-  const max = Math.max(...nums);
-  const range = max - min || 1;
-  const step = 100 / (nums.length - 1);
-  return nums
-    .map((n, i) => {
-      const x = (i * step).toFixed(1);
-      // y: invert (max -> top=4, min -> bottom=28)
-      const y = (28 - ((n - min) / range) * 24).toFixed(1);
-      return `${x},${y}`;
-    })
-    .join(" ");
-}
+// Refactor Adım 3: fmtReportMetric ve buildReportSparklinePoints
+// nutritionHelpers.js içinde (destructure ile alındı).
 
 function renderReportPage1Composition(measurement, recentMeasurements) {
   const metricsHost = document.querySelector('[data-bsm-report-bind="composition-metrics"]');
@@ -9325,19 +9200,7 @@ function buildNutritionRecommendations(plan, formState, activeMeasurement) {
   return recs;
 }
 
-// v1.3.1: Plan geçerlilik tarihi (oluşturma + 30 gün)
-function buildPlanValidUntilLabel(plan) {
-  const iso = plan?.createdAtIso;
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  d.setDate(d.getDate() + 30);
-  try {
-    return d.toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric" });
-  } catch (e) {
-    return d.toISOString().slice(0, 10);
-  }
-}
+// Refactor Adım 3: buildPlanValidUntilLabel → nutritionHelpers.js (destructure)
 
 // v1.3.0: Beslenme Skoru hesaplayici (0-100)
 // Veri kalitesi + protein/kalori uygunlugu + supplement entegrasyonu + su + IF
@@ -9867,16 +9730,7 @@ function renderNutritionPdfThumbnails(plan, member) {
   });
 }
 
-// Mini sparkline points üretici (rapor center'daki gibi)
-function buildPdfSparklinePoints(values) {
-  const nums = values.map((v) => Number(v)).filter((n) => Number.isFinite(n));
-  if (nums.length < 2) return null;
-  const min = Math.min(...nums);
-  const max = Math.max(...nums);
-  const range = max - min || 1;
-  const step = 100 / (nums.length - 1);
-  return nums.map((n, i) => `${(i * step).toFixed(1)},${(28 - ((n - min) / range) * 24).toFixed(1)}`).join(" ");
-}
+// Refactor Adım 3: buildPdfSparklinePoints → nutritionHelpers.js (destructure)
 
 function renderNutritionTotalsBar(plan) {
   const setText = (sel, t) => { const el = document.querySelector(sel); if (el) el.textContent = t; };
@@ -10078,18 +9932,7 @@ function renderSupplementLibrary() {
     .join("");
 }
 
-function supplementTimingLabel(timing) {
-  const m = {
-    "morning": "Sabah",
-    "with-meals": "Öğünle birlikte",
-    "pre-workout": "Antrenman öncesi",
-    "post-workout": "Antrenman sonrası",
-    "intra-workout": "Antrenman sırası",
-    "before-sleep": "Uyku öncesi",
-    "daily": "Günlük",
-  };
-  return m[timing] || "Günlük";
-}
+// Refactor Adım 3: supplementTimingLabel → nutritionHelpers.js (destructure)
 
 // v1.2.5: Aktif eklenen supplements chip listesi
 function renderSupplementSelected() {
