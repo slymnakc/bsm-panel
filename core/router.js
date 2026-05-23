@@ -45,12 +45,14 @@
 
     if (normalized === "output") {
       var loaded = _cfg.loadLatestForOutput ? _cfg.loadLatestForOutput() : true;
-      if (!loaded) {
-        if (userTriggered && !silent && _cfg.showStatus) {
-          _cfg.showStatus("Çıktı ekranı için önce üye programı oluşturun.", "error");
-        }
-        return false;
+      // v1.4.4 fix: Program yoksa bile sayfa AÇILSIN. Eski davranış (early return)
+      // panel'i is-hidden kalıyordu → user "Üye Çıktısı" butonuna bastığında hiçbir
+      // şey olmuyordu (silent mode'da sessiz iptal). Şimdi sayfa açılır, kullanıcı
+      // boş state'i görür ve ne yapması gerektiğini anlar.
+      if (!loaded && userTriggered && !silent && _cfg.showStatus) {
+        _cfg.showStatus("Çıktı için önce üye programı oluşturun.", "error");
       }
+      // Early return KALDIRILDI — panel toggle aşağıda devam etsin.
     }
 
     if (_cfg.state) _cfg.state.activeScreen = normalized;

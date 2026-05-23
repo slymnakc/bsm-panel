@@ -12,8 +12,18 @@ tmp-screenshots/
 # Claude Code worktrees & local config — repository'de takip edilmez.
 # Worktree'ler ayrı git çalışma alanlarıdır; içerik main'e dahil edilmemeli.
 # settings.local.json otomatik güncellenen permission listesi — yerel kalır.
+# scheduled_tasks.lock runtime lock — yerel kalır.
 .claude/worktrees/
 .claude/settings.local.json
+.claude/*.lock
+
+# Playwright test artifacts — her run'da yeniden üretilir.
+test-results/
+playwright-report/
+
+# Diagnostic & screenshot helper script'leri — yerel debug için.
+.diag-helper.js
+.shot-*.js
 
 # Geçici artifact ve build çıktıları — repo'ya commit edilmemeli.
 # tmp-server-out.zip 26 MB olarak yanlışlıkla eklenmişti (v1.1.7 cleanup).

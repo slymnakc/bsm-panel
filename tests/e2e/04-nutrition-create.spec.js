@@ -17,9 +17,8 @@ test("Beslenme sayfasi acilir + hero meta dolu", async ({ page }) => {
     macroSummary: document.querySelector("#bsmNutritionMacroSummary")?.textContent || "",
   }));
 
-  // Member adı boş değil (Supabase sync test seed'i override edebilir; sadece dolu olduğunu doğrula)
-  expect(heroState.memberName.trim().length).toBeGreaterThan(0);
-  expect(heroState.memberName).not.toBe("Üye seçilmedi");
+  // v1.4.4: Test mode aktif — Supabase override edemez, test üye sabit
+  expect(heroState.memberName).toContain("Test Üye");
   expect(heroState.dailyCal).not.toBe("—");
   expect(heroState.macroSummary).not.toBe("—");
 

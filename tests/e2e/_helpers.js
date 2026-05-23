@@ -82,10 +82,13 @@ async function setupPage(page) {
   await page.goto("/", { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
 
-  // 2. localStorage'a test member seed
+  // 2. localStorage'a test member seed + TEST MODE flag (Supabase sync disable)
+  // NOT: activeMemberId JSON-encoded olmali — uygulama loadFromStorage ile
+  // JSON.parse yapiyor. Raw string verirsek SyntaxError + null donus olur.
   await page.evaluate((member) => {
+    localStorage.setItem("bsmTestMode", "true");
     localStorage.setItem("formaplan-studio-members", JSON.stringify([member]));
-    localStorage.setItem("formaplan-studio-active-member-id", member.id);
+    localStorage.setItem("formaplan-studio-active-member-id", JSON.stringify(member.id));
   }, DEFAULT_MEMBER);
 
   // Hata sayaçlarını temizle — reload öncesi auth render'ı sıfırla
