@@ -437,6 +437,9 @@ if (!window.BSMNutritionPremiumRenderers) {
 if (!window.BSMNutritionPremiumWorkspace) {
   throw new Error("BSMNutritionPremiumWorkspace yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMNutritionPremiumHandlers) {
+  throw new Error("BSMNutritionPremiumHandlers yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -496,6 +499,10 @@ const {
 const {
   renderNutritionPremiumWorkspace,
 } = window.BSMNutritionPremiumWorkspace;
+// Premium Handlers destructure (Part 3B3): event delegation + reactive input chain
+const {
+  bindNutritionPremiumHandlers,
+} = window.BSMNutritionPremiumHandlers;
 
 // Refactor Adım 3: calculateMealMacros, resolveMealMacros, hasNonZeroMacros,
 // mealOverrideKey artık nutrition/nutritionHelpers.js içinde — destructure ile
@@ -1256,6 +1263,33 @@ function initialize() {
     renderSupplementSelected: renderSupplementSelected,
     renderNutritionSupplementTimeline: renderNutritionSupplementTimeline,
     renderNutritionMetaCard: renderNutritionMetaCard,
+  });
+  // Refactor Adım 3 part 3B3: Premium Handlers'a state + nutritionPanel + tum local fn'ler
+  // + engine fn'leri + extract edilmis helpers + foodLibrary injection.
+  // App.js'de kalan local fn'ler callback olarak gecirilir; engine fn'leri
+  // BSMNutritionService destructure'undan (top-level) direkt geliyor.
+  window.BSMNutritionPremiumHandlers.init({
+    state: state,
+    getNutritionPanel: function () { return nutritionPanel; },
+    applyNutritionActiveViewClass: function () { return applyNutritionActiveViewClass(); },
+    setNutritionPdfActivePage: function (n) { return setNutritionPdfActivePage(n); },
+    renderNutritionWorkspace: function () { return renderNutritionWorkspace(); },
+    showStatus: function (msg, type) { return showStatus(msg, type); },
+    findActiveMember: function () { return findActiveMember(); },
+    tryAutoGenerateNutritionPlan: function (m) { return tryAutoGenerateNutritionPlan(m); },
+    buildPreferencesFromFormState: function () { return buildPreferencesFromFormState(); },
+    applyDiversificationToPlan: function (p, f) { return applyDiversificationToPlan(p, f); },
+    applyUserOverridesToPlan: function (p, f) { return applyUserOverridesToPlan(p, f); },
+    buildSmartSupplementSuggestions: function (f, am) { return buildSmartSupplementSuggestions(f, am); },
+    getActiveMeasurementSnapshot: getActiveMeasurementSnapshot,
+    diversifyMealFoods: function (m, i, s, f, u) { return diversifyMealFoods(m, i, s, f, u); },
+    normalizeNutritionPlan: normalizeNutritionPlan,
+    buildNutritionPlan: buildNutritionPlan,
+    makeId: makeId,
+    renderSupplementLibrary: renderSupplementLibrary,
+    mealOverrideKey: mealOverrideKey,
+    findFoodById: findFoodById,
+    foodLibrary: BSM_FOOD_LIBRARY,
   });
   populateStaticFilters();
   populateProgramStyleOptions();
@@ -9013,412 +9047,7 @@ function setNutritionPdfActivePage(num) {
   });
 }
 
-// v1.3.4: Meal action handler — Düzenle / Besin Ekle / Yenile / Tamam / Sil
-function handleMealAction(btn) {
-  const action = btn.dataset.mealAction;
-  const idx = Number(btn.dataset.mealIdx);
-  const f = state.nutritionFormState;
-  const key = mealOverrideKey(idx);
-  const member = findActiveMember();
-  // Mevcut plan'i al — overrides uygulanmis hali state.activeNutritionPlan'da
-  // saklamiyoruz; her render'da tryAutoGenerate ile yeniden uretiliyor.
-  const livePlan = tryAutoGenerateNutritionPlan(member);
-  const meal = livePlan?.meals?.[idx];
-
-  if (action === "edit") {
-    // Toggle editor
-    f.editingMealKey = f.editingMealKey === key ? null : key;
-    // Eger ilk kez ediliyorsa, mevcut foods'u override'a kopyala
-    if (f.editingMealKey === key && !f.mealOverrides[key] && meal) {
-      f.mealOverrides[key] = {
-        foods: extractMealFoodsForOverride(meal),
-        name: meal.name,
-        time: meal.scheduledTime || meal.time,
-      };
-    }
-    renderNutritionWorkspace();
-    return;
-  }
-
-  if (action === "close-edit") {
-    f.editingMealKey = null;
-    renderNutritionWorkspace();
-    return;
-  }
-
-  if (action === "refresh") {
-    // Sadece bu öğünü diversify et — usedProtein set'i tum diger meals'tan
-    const seed = (Number(f.diversifySeed) || 0) + idx + 1;
-    f.diversifySeed = seed;
-    const usedProteinIds = new Set();
-    if (livePlan?.meals) {
-      livePlan.meals.forEach((m, i) => {
-        if (i !== idx && Array.isArray(m.foods)) {
-          m.foods.forEach((food) => {
-            if (food?.id) {
-              const fObj = findFoodById(food.id);
-              if (fObj && fObj.proteinPer100g >= 10) usedProteinIds.add(food.id);
-            }
-          });
-        }
-      });
-    }
-    const newFoods = diversifyMealFoods(meal, idx, seed, f, usedProteinIds);
-    if (newFoods.length) {
-      f.mealOverrides[key] = {
-        foods: newFoods,
-        name: meal?.name || `Öğün ${idx + 1}`,
-        time: meal?.scheduledTime || meal?.time || "12:00",
-      };
-    }
-    renderNutritionWorkspace();
-    showStatus("Öğün yenilendi.", "success");
-    return;
-  }
-
-  if (action === "add-food") {
-    if (!f.mealOverrides[key]) {
-      f.mealOverrides[key] = {
-        foods: meal ? extractMealFoodsForOverride(meal) : [],
-        name: meal?.name || `Öğün ${idx + 1}`,
-        time: meal?.scheduledTime || meal?.time || "12:00",
-      };
-    }
-    // Default: ilk protein gida + 100g
-    f.mealOverrides[key].foods.push({ id: "yumurta", grams: 100 });
-    f.editingMealKey = key;
-    renderNutritionWorkspace();
-    return;
-  }
-
-  if (action === "remove-food") {
-    const foodRow = Number(btn.dataset.foodRow);
-    const ov = f.mealOverrides[key];
-    if (ov?.foods && ov.foods.length > foodRow) {
-      ov.foods.splice(foodRow, 1);
-      renderNutritionWorkspace();
-    }
-    return;
-  }
-}
-
-// Helper: meal'in foods'unu override formatına çevir (id + grams)
-function extractMealFoodsForOverride(meal) {
-  const foods = Array.isArray(meal?.foods) ? meal.foods : [];
-  return foods.map((food) => {
-    if (typeof food === "string") {
-      // Engine'den gelen "Yumurta 4 adet" gibi free-form text; default 100g + en
-      // yakin library item'a fallback
-      const lower = food.toLocaleLowerCase("tr");
-      const match = BSM_FOOD_LIBRARY.find((lf) => lower.includes(lf.name.toLocaleLowerCase("tr"))) || BSM_FOOD_LIBRARY[0];
-      return { id: match.id, grams: 100 };
-    }
-    return {
-      id: food.id || "yumurta",
-      grams: Number(food.grams) || 100,
-    };
-  }).filter((f) => f.id);
-}
-
-// v1.3.4: Meal editor input change — select/input change degisikligi
-function handleMealEditorInput(e) {
-  const select = e.target.closest("[data-food-field]");
-  if (select) {
-    const row = Number(select.dataset.foodRow);
-    const field = select.dataset.foodField;
-    const editor = select.closest("[data-meal-editor]");
-    if (!editor) return;
-    const idx = Number(editor.dataset.mealEditor);
-    const key = mealOverrideKey(idx);
-    const f = state.nutritionFormState;
-    if (!f.mealOverrides[key]) return;
-    const food = f.mealOverrides[key].foods[row];
-    if (!food) return;
-    if (field === "id") food.id = select.value;
-    if (field === "grams") food.grams = Math.max(1, Math.min(1000, Number(select.value) || 100));
-    renderNutritionWorkspace();
-    return;
-  }
-  // Meal name / time degisikligi
-  const mealField = e.target.closest("[data-meal-field]");
-  if (mealField) {
-    const editor = mealField.closest("[data-meal-editor]");
-    if (!editor) return;
-    const idx = Number(editor.dataset.mealEditor);
-    const key = mealOverrideKey(idx);
-    const f = state.nutritionFormState;
-    if (!f.mealOverrides[key]) f.mealOverrides[key] = { foods: [] };
-    const fieldName = mealField.dataset.mealField;
-    f.mealOverrides[key][fieldName] = mealField.value;
-    // Sadece visual update — full render gereksiz, sadece data update
-  }
-}
-
-// v1.3.2: PDF preview zoom kontrolu (toolbar +/-/reset)
-function handleNutritionPdfZoom(action) {
-  const canvas = document.querySelector("#bsmPdfCanvas");
-  const label = document.querySelector("#bsmPdfZoomLabel");
-  if (!canvas) return;
-  const current = Number(canvas.dataset.zoom || "100");
-  let next = current;
-  if (action === "in") next = Math.min(150, current + 10);
-  else if (action === "out") next = Math.max(60, current - 10);
-  else if (action === "reset") next = 100;
-  canvas.dataset.zoom = String(next);
-  canvas.style.setProperty("--pdf-zoom", String(next / 100));
-  if (label) label.textContent = `${next}%`;
-}
-
-// ── EVENT DELEGATION ────────────────────────────────────────────────
-function bindNutritionPremiumHandlers() {
-  if (!nutritionPanel || nutritionPanel.dataset.bsmNutritionBound === "true") return;
-  nutritionPanel.dataset.bsmNutritionBound = "true";
-
-  // v1.4.0: Supplement accordion <details toggle> event — open oldugunda
-  // library'i viewport'a getir. User accordion'i acinca otomatik olarak
-  // supplement kartlari ekranda gozukur, scroll etmek zorunda kalmaz.
-  // Bu listener'i 200ms sonra ekliyoruz cunku initial render sirasinda
-  // accordion default open ise gereksiz scroll tetiklemesin.
-  setTimeout(() => {
-    const supplAcc = nutritionPanel.querySelector('.bsm-nutrition-acc[data-acc="supplement"]');
-    if (supplAcc) {
-      supplAcc.addEventListener("toggle", () => {
-        if (supplAcc.open) {
-          // Library kartlarina smooth scroll (sol panel sticky bile olsa
-          // accordion icinden library'i viewport'a getirir)
-          const lib = nutritionPanel.querySelector("#supplementLibrary");
-          (lib || supplAcc).scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
-        }
-      });
-    }
-  }, 200);
-
-  // View tabs (Günlük Akış / Makro / PDF) + supplement library + PDF thumbs
-  nutritionPanel.addEventListener("click", (e) => {
-    const tab = e.target.closest("[data-nutrition-view]");
-    if (tab) {
-      state.nutritionActiveView = tab.dataset.nutritionView;
-      applyNutritionActiveViewClass();
-      return;
-    }
-    // v1.2.5: PDF thumbnail / v1.3.2: PDF toolbar page button click
-    const pdfThumb = e.target.closest("[data-pdf-thumb]");
-    if (pdfThumb) {
-      setNutritionPdfActivePage(pdfThumb.dataset.pdfThumb);
-      return;
-    }
-    // v1.3.2: PDF toolbar zoom kontrolu
-    const zoomBtn = e.target.closest("[data-pdf-zoom]");
-    if (zoomBtn) {
-      handleNutritionPdfZoom(zoomBtn.dataset.pdfZoom);
-      return;
-    }
-    // v1.3.2: PDF toolbar aksiyonlari (print/download/email)
-    const pdfActBtn = e.target.closest("[data-pdf-action]");
-    if (pdfActBtn) {
-      const act = pdfActBtn.dataset.pdfAction;
-      if (act === "print" || act === "download") {
-        document.querySelector("#printNutritionButton")?.click();
-      } else if (act === "email") {
-        document.querySelector("#sendNutritionMailButton")?.click();
-      }
-      return;
-    }
-    // v1.3.4: Meal action butonlar (Düzenle / Besin Ekle / Yenile / Tamam / Sil)
-    const mealActBtn = e.target.closest("[data-meal-action]");
-    if (mealActBtn) {
-      handleMealAction(mealActBtn);
-      return;
-    }
-    // v1.2.5: Supplement library kategori filtre chip
-    const filterBtn = e.target.closest("[data-suppl-filter]");
-    if (filterBtn) {
-      const host = document.querySelector("#supplementLibrary");
-      if (host) host.dataset.activeFilter = filterBtn.dataset.supplFilter;
-      document.querySelectorAll("[data-suppl-filter]").forEach((b) => {
-        b.classList.toggle("is-active", b === filterBtn);
-      });
-      renderSupplementLibrary();
-      return;
-    }
-    // v1.2.5: Supplement add/remove toggle
-    const supplToggle = e.target.closest("[data-suppl-toggle]");
-    if (supplToggle) {
-      const id = supplToggle.dataset.supplToggle;
-      const f = state.nutritionFormState;
-      if (f.selectedSupplements.includes(id)) {
-        f.selectedSupplements = f.selectedSupplements.filter((x) => x !== id);
-      } else {
-        f.selectedSupplements = [...f.selectedSupplements, id];
-        // Ekleme yapildiysa supplement toggle'i da AC
-        if (!f.supplementUse) f.supplementUse = true;
-      }
-      renderNutritionWorkspace();
-      return;
-    }
-    const supplRemove = e.target.closest("[data-suppl-remove]");
-    if (supplRemove) {
-      const id = supplRemove.dataset.supplRemove;
-      const f = state.nutritionFormState;
-      f.selectedSupplements = f.selectedSupplements.filter((x) => x !== id);
-      renderNutritionWorkspace();
-      return;
-    }
-    // Meal count segment
-    const segBtn = e.target.closest('[data-nutrition-input="mealCount"] button');
-    if (segBtn) {
-      state.nutritionFormState.mealCount = Number(segBtn.dataset.value);
-      renderNutritionWorkspace();
-      return;
-    }
-    // Aksiyonlar (reset / auto-macros / smart-suggest)
-    const actBtn = e.target.closest("[data-nutrition-action]");
-    if (actBtn) {
-      const act = actBtn.dataset.nutritionAction;
-      if (act === "reset") {
-        Object.assign(state.nutritionFormState, {
-          goal: "muscle-gain", calories: null, calorieShift: 300,
-          protein: null, carbs: null, fat: null,
-          mealCount: 5, dayType: "balanced",
-          workoutTime: "18:30", cardioTime: "", activityLevel: "moderate",
-          fastingEnabled: false, fastingWindow: "16:8",
-          supplementUse: false, supplementCategories: [],
-          caffeineSensitive: "no", lactoseSensitive: "no",
-          trainerNote: "", avoidList: "", allergies: "",
-          selectedSupplements: [], supplementSearch: "",
-        });
-        renderNutritionWorkspace();
-        showStatus("Plan ayarları sıfırlandı.", "success");
-      } else if (act === "auto-macros") {
-        const cal = (state.activeNutritionPlan?.calories) || state.nutritionFormState.calories;
-        if (cal) {
-          const f = state.nutritionFormState;
-          f.protein = Math.round(cal * 0.30 / 4);
-          f.carbs = Math.round(cal * 0.45 / 4);
-          f.fat = Math.round(cal * 0.25 / 9);
-          renderNutritionWorkspace();
-          showStatus("Makro hedefi otomatik hesaplandı (30/45/25).", "success");
-        } else {
-          showStatus("Önce kalori hedefi girin veya plan oluşturun.", "error");
-        }
-      } else if (act === "enable-supplements") {
-        // v1.3.9: Empty state CTA — toggle aç + accordion aç + smart suggest
-        state.nutritionFormState.supplementUse = true;
-        document.querySelector('.bsm-nutrition-acc[data-acc="supplement"]')?.setAttribute("open", "");
-        // Sync checkbox
-        const cb = document.querySelector("#supplementUseCheckbox");
-        if (cb) cb.checked = true;
-        renderNutritionWorkspace();
-        showStatus("Supplement sistemi açıldı.", "success");
-        // v1.4.0: Library viewport'a otomatik scroll (kullanici kartlari hemen gorsun)
-        setTimeout(() => {
-          document.querySelector("#supplementLibrary")?.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 100);
-        return;
-      } else if (act === "diversify-all") {
-        // v1.3.4: Tüm planı çeşitlendir
-        const member = findActiveMember();
-        const f = state.nutritionFormState;
-        f.diversifySeed = (Number(f.diversifySeed) || 0) + 1;
-        // Mevcut plan'i diversify et + overrides'a yaz
-        try {
-          const preferences = buildPreferencesFromFormState();
-          const activeProgram = state.activeProgram || member?.programs?.[0]?.program || null;
-          let plan = normalizeNutritionPlan(buildNutritionPlan(member, activeProgram, preferences, { makeId }));
-          plan = applyUserOverridesToPlan(plan, f);
-          applyDiversificationToPlan(plan, f);
-          renderNutritionWorkspace();
-          showStatus("Tüm plan çeşitlendirildi.", "success");
-        } catch (err) {
-          showStatus("Çeşitlendirme başarısız: " + (err?.message || ""), "error");
-          console.error(err);
-        }
-        return;
-      } else if (act === "smart-suggest") {
-        // v1.2.5: Akilli oneri uygula
-        const member = findActiveMember();
-        const activeMeasurement = (typeof getActiveMeasurementSnapshot === "function") ? getActiveMeasurementSnapshot(member) : null;
-        const suggested = buildSmartSupplementSuggestions(state.nutritionFormState, activeMeasurement);
-        if (suggested.length) {
-          state.nutritionFormState.supplementUse = true;
-          state.nutritionFormState.selectedSupplements = suggested;
-          renderNutritionWorkspace();
-          showStatus(`${suggested.length} supplement önerildi.`, "success");
-        } else {
-          showStatus("Hedef ve ayarlara göre öneri üretilemedi.", "error");
-        }
-      }
-    }
-  });
-
-  // Form input change — CAPTURE phase ki legacy bindNutritionControlEvents
-  // bubble handler'dan ONCE state'i guncelleyelim. Aksi takdirde syncAccordionInputs
-  // user'in girdigi degeri eski state'le ezer.
-  // v1.3.3: 'input' eventleri debounced (300ms) — number/text yazarken render
-  // patirtisi olmasin. 'change' anlik (select/checkbox/segment).
-  nutritionPanel.addEventListener("input", (e) => debouncedNutritionInputHandler(e), true);
-  nutritionPanel.addEventListener("change", (e) => handleNutritionFormInputChange(e), true);
-}
-
-// v1.3.3: Debounce wrapper — son input'tan 300ms sonra render et.
-// State update INSTANT olur, ama renderNutritionWorkspace cagrisi gecikmeli.
-const debouncedNutritionInputHandler = (() => {
-  let timer = null;
-  return function (e) {
-    // Hemen state'i guncelle (cunku React-like reactivity bekleniyor)
-    const input = e?.target?.closest("[data-nutrition-input]");
-    if (input) {
-      const f = state.nutritionFormState;
-      const key = input.dataset.nutritionInput;
-      if (key === "mealCount") return; // segment ile handle
-      if (input.type === "checkbox") f[key] = !!input.checked;
-      else if (input.type === "number") {
-        const n = Number(input.value);
-        f[key] = Number.isFinite(n) && n > 0 ? n : null;
-      } else f[key] = input.value;
-    }
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => { renderNutritionWorkspace(); }, 300);
-  };
-})();
-
-function handleNutritionFormInputChange(e) {
-  // v1.3.4: Meal editor inputs (food id/grams select-change)
-  if (e.target.closest("[data-food-field]") || e.target.closest("[data-meal-field]")) {
-    handleMealEditorInput(e);
-    return;
-  }
-  const input = e.target.closest("[data-nutrition-input]");
-  if (!input) {
-    // supplementCategoryList icindeki checkbox'lar farkli; kategorileri topla
-    if (e.target.closest("#supplementCategoryList")) {
-      const cats = [...nutritionPanel.querySelectorAll('#supplementCategoryList input[type="checkbox"]')]
-        .filter((c) => c.checked).map((c) => c.value);
-      state.nutritionFormState.supplementCategories = cats.length ? cats : ["basic"];
-      renderNutritionWorkspace();
-    }
-    return;
-  }
-  const f = state.nutritionFormState;
-  const key = input.dataset.nutritionInput;
-
-  // Special: meal count is handled in click (segment button); accordion checkbox group is supplement
-  if (key === "mealCount") return;
-
-  if (input.tagName === "SELECT" || input.tagName === "INPUT" || input.tagName === "TEXTAREA") {
-    if (input.type === "checkbox") {
-      f[key] = !!input.checked;
-    } else if (input.type === "number") {
-      const n = Number(input.value);
-      f[key] = Number.isFinite(n) && n > 0 ? n : null;
-      // Kalori değiştiyse calorieShift'i bağımsızla
-      if (key === "calorieShift") f[key] = Number(input.value);
-    } else {
-      f[key] = input.value;
-    }
-  }
-  renderNutritionWorkspace();
-}
+// Refactor Adim 3 part 3B3: handleMealAction + extractMealFoodsForOverride + handleMealEditorInput + handleNutritionPdfZoom + bindNutritionPremiumHandlers + debouncedNutritionInputHandler + handleNutritionFormInputChange -> nutrition/nutritionPremiumHandlers.js (destructure)
 
 function renderNutritionOutput() {
   const plan = getNutritionPlanForOutput();
