@@ -425,6 +425,9 @@ function searchFoods(query, category) {
 if (!window.BSMNutritionHelpers) {
   throw new Error("BSMNutritionHelpers yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMNutritionPdfPipeline) {
+  throw new Error("BSMNutritionPdfPipeline yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -446,6 +449,23 @@ const {
   normalizeSupplementCategoryKey,
   buildPlanValidUntilLabel,
 } = window.BSMNutritionHelpers;
+// Pipeline destructure: pipeline.init() initialize() içinde state hazır olduğunda
+// çağrılır; render fonksiyonları her zaman runtime'da _state'i okur.
+const {
+  ensureMealMacrosFallback,
+  buildKcalBarChart,
+  buildWaterProgressRing,
+  buildNutritionScoreGauge,
+  buildNutritionFeedback,
+  buildNutritionRecommendations,
+  calculateNutritionScore,
+  renderPdfPage1,
+  renderPdfPage2,
+  renderNutritionPdfPreview,
+  renderNutritionPdfThumbnails,
+  prepareNutritionPrintRoot,
+  cleanupNutritionPrintRoot,
+} = window.BSMNutritionPdfPipeline;
 
 // Refactor Adım 3: calculateMealMacros, resolveMealMacros, hasNonZeroMacros,
 // mealOverrideKey artık nutrition/nutritionHelpers.js içinde — destructure ile
@@ -1155,6 +1175,13 @@ window.addEventListener("bsm:auth:ready", () => {
 initialize();
 
 function initialize() {
+  // Refactor Adım 3 part 2: PDF pipeline'a state + helpers + utility dependencies injection
+  window.BSMNutritionPdfPipeline.init({
+    state: state,
+    escapeHtml: escapeHtml,
+    getActiveMeasurementSnapshot: getActiveMeasurementSnapshot,
+    helpers: window.BSMNutritionHelpers,
+  });
   populateStaticFilters();
   populateProgramStyleOptions();
   prepareRepetitionTemplateControls();
@@ -8685,64 +8712,7 @@ function tryAutoGenerateNutritionPlan(member) {
 //   3) Sonra plan total ratio (engine bos verirse)
 //   4) Sonra 30/45/25 split (en son fallback)
 // Her durumda actualMacros DOLU bir obje olur, P0 K0 Y0 hatasi imkansiz.
-function ensureMealMacrosFallback(plan) {
-  if (!plan || !Array.isArray(plan.meals)) return plan;
-  const totalCal = plan.meals.reduce((s, m) => s + (Number(m.calories) || 0), 0) || 1;
-  const planP = Number(plan.macros?.protein) || 0;
-  const planC = Number(plan.macros?.carbs) || 0;
-  const planF = Number(plan.macros?.fat) || 0;
-
-  plan.meals = plan.meals.map((meal) => {
-    let actualCalories = Math.round(Number(meal.calories) || 0);
-    let actualMacros = null;
-
-    // 1) Foods'tan dinamik hesap (en guvenilir kaynak)
-    const fromFoods = calculateMealMacros(meal);
-    if (hasNonZeroMacros(fromFoods)) {
-      actualMacros = { protein: fromFoods.protein, carbs: fromFoods.carbs, fat: fromFoods.fat };
-      // Foods'tan kalori de geliyorsa ona da guven
-      if (fromFoods.calories > 0) actualCalories = fromFoods.calories;
-    }
-
-    // 2) Engine/override macros
-    if (!actualMacros && meal.macros && hasNonZeroMacros(meal.macros)) {
-      actualMacros = {
-        protein: Math.round(Number(meal.macros.protein) || 0),
-        carbs: Math.round(Number(meal.macros.carbs) || 0),
-        fat: Math.round(Number(meal.macros.fat) || 0),
-      };
-    }
-
-    // 3) Plan total ratio (oranla daĝıt)
-    if (!actualMacros) {
-      const ratio = actualCalories / totalCal;
-      const p = Math.round(planP * ratio);
-      const c = Math.round(planC * ratio);
-      const f = Math.round(planF * ratio);
-      if (p > 0 || c > 0 || f > 0) actualMacros = { protein: p, carbs: c, fat: f };
-    }
-
-    // 4) Son care: kaloriden 30/45/25 split (P 30%, K 45%, Y 25%)
-    if (!actualMacros) {
-      actualMacros = {
-        protein: Math.round((actualCalories * 0.30) / 4),
-        carbs: Math.round((actualCalories * 0.45) / 4),
-        fat: Math.round((actualCalories * 0.25) / 9),
-      };
-    }
-
-    return {
-      ...meal,
-      calories: actualCalories,
-      // v1.3.7 zorunlu fieldlar — renderer bunlari oncelikli okur
-      actualCalories,
-      actualMacros,
-      // Backward compat: macros field'i de actualMacros ile senkron tut
-      macros: meal.macros && hasNonZeroMacros(meal.macros) ? meal.macros : actualMacros,
-    };
-  });
-  return plan;
-}
+// Refactor Adım 3 part 2: ensureMealMacrosFallback → nutrition/nutritionPdfPipeline.js (destructure)
 
 // v1.3.3: User'in custom kalori/makro hedefi engine sonucunu OVERRIDE eder.
 // Engine measurement+goal'a gore plan yapar; user explicit kalori girerse o
@@ -9096,251 +9066,32 @@ function renderNutritionMacroView(plan) {
 // v1.3.0: Rule-based Beslenme Feedback Engine
 // Gercek protein/su/IF/hedef koşullarini analiz ederek doğal yorum üretir.
 // Geri donus: [{ id, icon, severity: "ok"|"warn"|"info", message }]
-function buildNutritionFeedback(plan, formState, activeMeasurement) {
-  if (!plan) return [];
-  const feedback = [];
-  const m = plan.macros || {};
-  const weight = Number(activeMeasurement?.weight || plan?.sourceSummary?.weight || 75);
-  const proteinPerKg = m.protein ? Number(m.protein) / weight : 0;
-  const calories = plan.calories || 0;
-
-  // Hedef bazli yorum
-  const goalMap = {
-    "muscle-gain": { msg: "Kas kazanımı hedefi — antrenman sonrası karbonhidrat arttırıldı, kalori fazlası uygulandı.", severity: "ok", icon: "🎯" },
-    "fat-loss":    { msg: "Yağ yakımı hedefi — kalori açığı uygulandı, protein yüksek tutuldu.", severity: "ok", icon: "🔥" },
-    "maintenance": { msg: "Koruma hedefi — bakım kalorisi, dengeli makro dağılımı.", severity: "ok", icon: "⚖" },
-    "recomposition": { msg: "Recomposition — hafif açık + yüksek protein ile çift yönlü hedef.", severity: "ok", icon: "🔄" },
-  };
-  const goalNote = goalMap[formState?.goal];
-  if (goalNote) feedback.push({ id: "goal", ...goalNote });
-
-  // Protein kontrolu
-  if (proteinPerKg && proteinPerKg < 1.6) {
-    feedback.push({ id: "protein-low", icon: "⚠", severity: "warn", message: `Protein hedefi ${proteinPerKg.toFixed(1)} g/kg — kas onarımı için 1.8-2.2 g/kg önerilir.` });
-  } else if (proteinPerKg >= 2.0) {
-    feedback.push({ id: "protein-high", icon: "💪", severity: "ok", message: `Protein hedefi ${proteinPerKg.toFixed(1)} g/kg — kas senteji için yeterli seviyede.` });
-  } else if (proteinPerKg >= 1.6) {
-    feedback.push({ id: "protein-mid", icon: "✓", severity: "ok", message: `Protein hedefi ${proteinPerKg.toFixed(1)} g/kg — sağlıklı aralıkta.` });
-  }
-
-  // Kalori kontrolu
-  if (calories && calories < 1400) {
-    feedback.push({ id: "cal-low", icon: "⚠", severity: "warn", message: "Kalori hedefi çok düşük; metabolik yavaşlama riski. Açık aşamalı artırılmalı." });
-  } else if (calories > 3800) {
-    feedback.push({ id: "cal-high", icon: "ℹ", severity: "info", message: "Yüksek kalori hedefi — bulking aşaması için uygun, vücut yağ takibi önemli." });
-  }
-
-  // Su (kilo*0.035 L hedef) — 2.5L altında uyarı
-  const waterTarget = weight * 0.035;
-  if (waterTarget < 2.5) {
-    feedback.push({ id: "water-low", icon: "💧", severity: "warn", message: "Günlük hidrasyon yetersiz; en az 2.5 L su tüketilmeli." });
-  } else {
-    feedback.push({ id: "water-ok", icon: "💧", severity: "ok", message: `Günlük su hedefi ${waterTarget.toFixed(1)} L — vücut ağırlığına göre optimize edildi.` });
-  }
-
-  // IF yorumu
-  if (formState?.fastingEnabled) {
-    feedback.push({ id: "if-on", icon: "⏱", severity: "info", message: `Intermittent Fasting (${formState.fastingWindow || "16:8"}) — beslenme penceresi optimize edildi.` });
-  }
-
-  // Antrenman saati ile ogun eslesmesi
-  if (formState?.workoutTime) {
-    feedback.push({ id: "workout-meal", icon: "🏋", severity: "ok", message: `Antrenman saati ${formState.workoutTime} — pre/post workout öğünleri otomatik düzenlendi.` });
-  }
-
-  // Supplement yorumu
-  if (formState?.supplementUse && Array.isArray(formState.selectedSupplements) && formState.selectedSupplements.length) {
-    feedback.push({ id: "suppl", icon: "💊", severity: "ok", message: `${formState.selectedSupplements.length} supplement zaman çizgisine entegre edildi.` });
-  }
-
-  // Olcum baglilik
-  if (activeMeasurement) {
-    const visc = Number(activeMeasurement.visceralFat || 0);
-    if (visc >= 12) {
-      feedback.push({ id: "visc-high", icon: "⚠", severity: "warn", message: "Visceral yağ yüksek; düşük yoğunluklu kardiyo + 8 haftalık açık önerilir." });
-    }
-    const fat = Number(activeMeasurement.fat || 0);
-    if (fat >= 28) {
-      feedback.push({ id: "fat-high", icon: "ℹ", severity: "info", message: "Yağ oranı %28+ — protein yüksek, kalori açığı kontrollü tutuldu." });
-    }
-  } else {
-    feedback.push({ id: "no-measurement", icon: "ℹ", severity: "info", message: "Ölçüm verisi yok; plan tahmini hesaplama ile oluşturuldu, ölçüm sonrası güncellenir." });
-  }
-
-  return feedback;
-}
+// Refactor Adım 3 part 2: buildNutritionFeedback → nutrition/nutritionPdfPipeline.js (destructure)
 
 // v1.3.1: Genel tavsiye listesi — hedef bazli kisa, eyleme yonelik 5 madde
-function buildNutritionRecommendations(plan, formState, activeMeasurement) {
-  const goal = formState?.goal || "maintenance";
-  const recs = [];
-  // Hedef bazli ilk 2 tavsiye
-  if (goal === "muscle-gain") {
-    recs.push({ icon: "💪", text: "Antrenman sonrası 30-60 dk içinde 30g protein + 50g karbonhidrat alın." });
-    recs.push({ icon: "🛌", text: "Günde 7-8 saat uyku — testosteron ve büyüme hormonu için kritik." });
-  } else if (goal === "fat-loss") {
-    recs.push({ icon: "🚶", text: "Günlük 8-10 bin adım hedefleyin; kardiyo açığı destekler." });
-    recs.push({ icon: "🥗", text: "Yüksek hacimli lifli besinleri öğünlere ekleyin (sebze, salata)." });
-  } else if (goal === "recomposition") {
-    recs.push({ icon: "🔄", text: "Antrenman günü kalori artır, dinlenme günü açığa düş." });
-    recs.push({ icon: "💪", text: "Direnç antrenmanı haftada en az 3 kez, ilerleyici yükle." });
-  } else {
-    recs.push({ icon: "⚖", text: "Haftalık tartı ortalaması ±0.3 kg aralığında tutun." });
-    recs.push({ icon: "🥗", text: "Tabağın yarısını sebze ile doldurun; mikrobesinleri çeşitlendirin." });
-  }
-  // Su ve uyku
-  recs.push({ icon: "💧", text: "Sabah ilk iş 500ml su; öğünler arası küçük yudumlarla hedefe ulaşın." });
-  recs.push({ icon: "🥚", text: "Her öğünde 25-40g protein hedefleyin; kahvaltıyı atlamayın." });
-  // Olcum varsa
-  if (activeMeasurement?.visceralFat && Number(activeMeasurement.visceralFat) >= 10) {
-    recs.push({ icon: "🔥", text: "Visceral yağ takibi için haftada 2 kez 30 dk düşük-orta yoğunlukta kardiyo." });
-  } else {
-    recs.push({ icon: "📊", text: "2 haftada bir ölçüm tekrarı plan ilerlemesini takip eder." });
-  }
-  return recs;
-}
+// Refactor Adım 3 part 2: buildNutritionRecommendations → nutrition/nutritionPdfPipeline.js (destructure)
 
 // Refactor Adım 3: buildPlanValidUntilLabel → nutritionHelpers.js (destructure)
 
 // v1.3.0: Beslenme Skoru hesaplayici (0-100)
 // Veri kalitesi + protein/kalori uygunlugu + supplement entegrasyonu + su + IF
-function calculateNutritionScore(plan, formState, activeMeasurement) {
-  if (!plan) return { score: 0, breakdown: {} };
-  let score = 50; // Baz skor
-  const breakdown = { base: 50 };
-  const m = plan.macros || {};
-  const weight = Number(activeMeasurement?.weight || plan?.sourceSummary?.weight || 75);
-  const proteinPerKg = m.protein ? Number(m.protein) / weight : 0;
-
-  // Protein yeterli (+15)
-  if (proteinPerKg >= 1.8 && proteinPerKg <= 2.5) { score += 15; breakdown.protein = 15; }
-  else if (proteinPerKg >= 1.4) { score += 8; breakdown.protein = 8; }
-  else { breakdown.protein = 0; }
-
-  // Kalori uygun aralikta (+10)
-  if (plan.calories >= 1500 && plan.calories <= 3500) { score += 10; breakdown.calories = 10; }
-  else { breakdown.calories = 0; }
-
-  // Ogun sayisi uygun 3-6 (+5)
-  if ((plan.meals?.length || 0) >= 3 && (plan.meals?.length || 0) <= 6) { score += 5; breakdown.mealCount = 5; }
-
-  // Olcum verisi var (+10)
-  if (activeMeasurement && activeMeasurement.weight) { score += 10; breakdown.measurement = 10; }
-  else { breakdown.measurement = 0; }
-
-  // Supplement entegrasyonu (+5)
-  if (formState?.supplementUse && (formState.selectedSupplements?.length || 0) >= 3) { score += 5; breakdown.supplements = 5; }
-
-  // Workout integration (+5)
-  if (formState?.workoutTime) { score += 5; breakdown.workout = 5; }
-
-  return { score: Math.min(100, Math.max(0, score)), breakdown };
-}
+// Refactor Adım 3 part 2: calculateNutritionScore → nutrition/nutritionPdfPipeline.js (destructure)
 
 // v1.3.0: Kalori bar chart (ogun-bazli SVG)
-function buildKcalBarChart(meals) {
-  const items = (Array.isArray(meals) ? meals : []).filter((m) => Number(m?.calories) > 0);
-  if (!items.length) return `<p class="bsm-nutrition-pdf-page__empty">Öğün verisi yok.</p>`;
-  const maxCal = Math.max(...items.map((m) => Number(m.calories) || 0)) || 1;
-  const barWidth = Math.max(20, Math.floor(280 / items.length) - 8);
-  return `
-    <div class="bsm-pdf-bar-chart">
-      <svg viewBox="0 0 320 110" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        ${items
-          .map((meal, i) => {
-            const cal = Number(meal.calories) || 0;
-            const h = Math.max(4, (cal / maxCal) * 70);
-            const x = i * (barWidth + 8) + 10;
-            const y = 85 - h;
-            const isPre = meal.isPreWorkout;
-            const isPost = meal.isPostWorkout;
-            const color = isPre || isPost ? "#f26c1f" : "#2563eb";
-            return `<g>
-              <rect x="${x}" y="${y}" width="${barWidth}" height="${h}" rx="4" fill="${color}" opacity="0.85"/>
-              <text x="${x + barWidth / 2}" y="${y - 4}" text-anchor="middle" font-size="8" font-weight="700" fill="#111827">${cal}</text>
-              <text x="${x + barWidth / 2}" y="98" text-anchor="middle" font-size="7" fill="#6b7280">${escapeHtml(meal.scheduledTime || meal.time || "—")}</text>
-              <text x="${x + barWidth / 2}" y="107" text-anchor="middle" font-size="6" fill="#9ca3af">${escapeHtml((meal.name || "").slice(0, 8))}</text>
-            </g>`;
-          })
-          .join("")}
-        <line x1="6" y1="85" x2="320" y2="85" stroke="rgba(17,24,39,0.12)" stroke-width="0.5"/>
-      </svg>
-    </div>
-  `;
-}
+// Refactor Adım 3 part 2: buildKcalBarChart → nutrition/nutritionPdfPipeline.js (destructure)
 
 // v1.3.0: Su hedef progress ring (vucut ag x 0.035 L)
-function buildWaterProgressRing(weight) {
-  const target = weight ? (weight * 0.035).toFixed(1) : "2.5";
-  const tNum = Number(target) || 2.5;
-  // Filled portion: target / 4L max
-  const pct = Math.min(1, tNum / 4);
-  const C = 251.3;
-  const dash = pct * C;
-  return `
-    <div class="bsm-pdf-water-ring" aria-label="Su hedefi ${target} L">
-      <svg viewBox="0 0 100 100" width="92" height="92" aria-hidden="true">
-        <circle cx="50" cy="50" r="40" fill="none" stroke="#e0f2fe" stroke-width="11"/>
-        <circle cx="50" cy="50" r="40" fill="none" stroke="#0ea5e9" stroke-width="11" stroke-dasharray="${dash.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="0" transform="rotate(-90 50 50)" stroke-linecap="round"/>
-        <text x="50" y="48" text-anchor="middle" font-size="16" font-weight="800" fill="#0c4a6e">${target}</text>
-        <text x="50" y="62" text-anchor="middle" font-size="7" fill="#0369a1" font-weight="600">LITRE</text>
-      </svg>
-      <span class="bsm-pdf-water-ring__label">Günlük su hedefi</span>
-    </div>
-  `;
-}
+// Refactor Adım 3 part 2: buildWaterProgressRing → nutrition/nutritionPdfPipeline.js (destructure)
 
 // v1.3.0: Beslenme skoru gauge (180deg arc)
-function buildNutritionScoreGauge(score) {
-  // Yarım daire: r=42, length=π*r=131.94
-  const arcLen = 131.94;
-  const pct = Math.min(1, Math.max(0, score / 100));
-  const dash = pct * arcLen;
-  // Renk skor degerine gore
-  const color = score >= 80 ? "#16a34a" : score >= 60 ? "#f59e0b" : "#b91c1c";
-  const label = score >= 80 ? "Mükemmel" : score >= 60 ? "İyi" : score >= 40 ? "Orta" : "Geliştirilebilir";
-  return `
-    <div class="bsm-pdf-score-gauge" aria-label="Beslenme skoru ${score}/100">
-      <svg viewBox="0 0 100 60" width="120" height="72" aria-hidden="true">
-        <path d="M 8 52 A 42 42 0 0 1 92 52" fill="none" stroke="#f3f4f6" stroke-width="9" stroke-linecap="round"/>
-        <path d="M 8 52 A 42 42 0 0 1 92 52" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="round"
-              stroke-dasharray="${dash.toFixed(2)} ${arcLen.toFixed(2)}"/>
-        <text x="50" y="42" text-anchor="middle" font-size="20" font-weight="800" fill="#111827">${score}</text>
-        <text x="50" y="54" text-anchor="middle" font-size="7" fill="#6b7280" font-weight="600">/100</text>
-      </svg>
-      <span class="bsm-pdf-score-gauge__label" style="color:${color}">${label}</span>
-    </div>
-  `;
-}
+// Refactor Adım 3 part 2: buildNutritionScoreGauge → nutrition/nutritionPdfPipeline.js (destructure)
 
 // v1.3.0: 2 sayfa A4 premium PDF preview (eski 4 sayfadan 2 sayfaya birlestirildi).
 // Sayfa 1: Hero + makro + donut + öğün timeline + su hedefi + altta makro strip
 // Sayfa 2: Supplement timeline + kalori bar chart + makro pie + skor gauge +
 //         AI rule-based feedback + antrenör notu + tavsiyeler + QR/imza alani
 // PDF export = bu preview (window.print + print CSS).
-function renderNutritionPdfPreview(member, plan) {
-  const host = document.querySelector("#bsmNutritionPdfPages");
-  if (!host) return;
-  if (!plan) {
-    host.innerHTML = `<p class="bsm-nutrition-empty">Plan oluşturulunca PDF önizleme burada görünür.</p>`;
-    renderNutritionPdfThumbnails(null, null);
-    return;
-  }
-  const profile = member?.profile || {};
-  const activeMeasurement = (typeof getActiveMeasurementSnapshot === "function") ? getActiveMeasurementSnapshot(member) : null;
-  const activePage = String(Math.min(2, state.nutritionPdfPage || 1));
-  const f = state.nutritionFormState;
-
-  const goalLabelMap = { "fat-loss": "Yağ yakımı", "muscle-gain": "Kas kazanımı", "maintenance": "Koruma", "recomposition": "Recomposition" };
-  const goalLabel = goalLabelMap[f.goal] || plan.nutritionGoalLabel || "Hedef belirtilmedi";
-
-  // 2-sayfa premium PDF — eski 4-sayfa yapidan birlestirildi.
-  host.innerHTML = renderPdfPage1(member, plan, profile, goalLabel, activeMeasurement, activePage) +
-                   renderPdfPage2(member, plan, profile, activeMeasurement, activePage);
-  renderNutritionPdfThumbnails(plan, member);
-  return;
-
-}
+// Refactor Adım 3 part 2: renderNutritionPdfPreview → nutrition/nutritionPdfPipeline.js (destructure)
 
 // v1.3.3: Print Root yaklaşımı — body altında temiz <div id="nutritionPrintRoot">
 // clone container oluşturup print sırasında SADECE bu container'ı render eder.
@@ -9348,387 +9099,21 @@ function renderNutritionPdfPreview(member, plan) {
 // boş ilk sayfa, page-break-before:always tetiklenmesi ve overflow kesimi gibi
 // sorunlar kaldırılır. Preview ve export aynı renderPdfPage1/2 componentlerini
 // kullanır — sadece konum farklı (preview canvas içinde, export body altında).
-function prepareNutritionPrintRoot(member, plan) {
-  // Onceki kalintilari sil
-  cleanupNutritionPrintRoot();
-  const profile = member?.profile || {};
-  const activeMeasurement = (typeof getActiveMeasurementSnapshot === "function")
-    ? getActiveMeasurementSnapshot(member)
-    : null;
-  const goalLabelMap = { "fat-loss": "Yağ yakımı", "muscle-gain": "Kas kazanımı", "maintenance": "Koruma", "recomposition": "Recomposition" };
-  const goalLabel = goalLabelMap[state.nutritionFormState.goal] || plan.nutritionGoalLabel || "Hedef belirtilmedi";
+// Refactor Adım 3 part 2: prepareNutritionPrintRoot → nutrition/nutritionPdfPipeline.js (destructure)
 
-  // 2 sayfa article HTML uret (preview ile birebir ayni renderer)
-  const page1Html = renderPdfPage1(member, plan, profile, goalLabel, activeMeasurement, "1");
-  const page2Html = renderPdfPage2(member, plan, profile, activeMeasurement, "2");
-
-  // Print root'u olustur ve body'nin ILK cocugu olarak ekle (parent ata-zinciri
-  // dashboard degil dogrudan body olsun).
-  const root = document.createElement("div");
-  root.id = "nutritionPrintRoot";
-  root.className = "nutrition-print-root";
-  root.innerHTML = `
-    <section class="nutrition-print-page nutrition-print-page--1">${page1Html}</section>
-    <section class="nutrition-print-page nutrition-print-page--2">${page2Html}</section>
-  `;
-  // Body'nin EN BASINA ekle ki dashboard sibling'i olarak kalsin, icinde kalmasin.
-  // Boylece transform/sticky/overflow zinciri etkilemez.
-  if (document.body.firstChild) {
-    document.body.insertBefore(root, document.body.firstChild);
-  } else {
-    document.body.appendChild(root);
-  }
-}
-
-function cleanupNutritionPrintRoot() {
-  const existing = document.getElementById("nutritionPrintRoot");
-  if (existing && existing.parentNode) {
-    existing.parentNode.removeChild(existing);
-  }
-}
+// Refactor Adım 3 part 2: cleanupNutritionPrintRoot → nutrition/nutritionPdfPipeline.js (destructure)
 
 // v1.3.0: Premium 2-sayfa PDF preview — Page 1 (hero + makro + öğün timeline)
-function renderPdfPage1(member, plan, profile, goalLabel, activeMeasurement, activePage) {
-  const f = state.nutritionFormState;
-  const meals = Array.isArray(plan.meals) ? plan.meals : [];
-  const m = plan.macros || {};
-  const weight = Number(activeMeasurement?.weight || plan?.sourceSummary?.weight || 0);
-  // Donut için makro yüzdeleri
-  const proteinKcal = (m.protein || 0) * 4;
-  const carbsKcal = (m.carbs || 0) * 4;
-  const fatKcal = (m.fat || 0) * 9;
-  const total = proteinKcal + carbsKcal + fatKcal || 1;
-  const C = 251.3;
-  const dP = (proteinKcal / total) * C;
-  const dC = (carbsKcal / total) * C;
-  const dF = (fatKcal / total) * C;
-
-  // v1.3.6: Daha kompakt header — eski kcal-hero yan kart kaldirildi,
-  // Gunluk Kalori artik 6-col KPI satırının bir parcasi.
-  const dailyKcal = plan.calories || plan.targetCalories || state.nutritionFormState.calories || 0;
-  const planTypeLabel = plan.dayType === "training" ? "Antrenman günü" : plan.dayType === "rest" ? "Dinlenme günü" : "Dengeli gün";
-
-  // v1.3.6: Supplement özeti (sayfa 1 sonunda, max 4)
-  const supplArr = state.nutritionFormState.supplementUse && Array.isArray(state.nutritionFormState.selectedSupplements)
-    ? state.nutritionFormState.selectedSupplements.map((id) => findSupplementById(id)).filter(Boolean)
-    : [];
-
-  return `
-    <article class="bsm-pdf-v13" data-pdf-page="1"${activePage === "1" ? ' data-active="true"' : ""}>
-      <!-- v1.3.6: Compact header (eski 2-col cover yapisi 1-row'a indirildi) -->
-      <header class="bsm-pdf-v13__head-row">
-        <div>
-          <span class="bsm-pdf-v13__brand">Bahçeşehir Spor Merkezi</span>
-          <h1 class="bsm-pdf-v13__title">BESLENME PERFORMANS RAPORU</h1>
-          <p class="bsm-pdf-v13__subtitle">${escapeHtml(profile.memberName || "Üye")} · ${escapeHtml(goalLabel)}${profile.memberCode ? ` · Üye No ${escapeHtml(profile.memberCode)}` : ""}${activeMeasurement?.date ? ` · Son Ölçüm ${escapeHtml(activeMeasurement.date)}` : ""}</p>
-        </div>
-        <div class="bsm-pdf-v13__date">${escapeHtml((plan.createdAt || "").split(" ").slice(0, 3).join(" "))}</div>
-      </header>
-
-      <!-- v1.3.6: 6-col KPI satırı (Plan Türü / Öğün Sayısı / P / K / Y / Günlük Kalori) -->
-      <section class="bsm-pdf-v13__kpi-strip bsm-pdf-v13__kpi-strip--6col">
-        <div class="bsm-pdf-v13__kpi"><small>Plan Türü</small><strong>${escapeHtml(planTypeLabel)}</strong></div>
-        <div class="bsm-pdf-v13__kpi"><small>Öğün Sayısı</small><strong>${escapeHtml(String(plan.mealCount || meals.length || 0))}</strong></div>
-        <div class="bsm-pdf-v13__kpi"><small>Protein</small><strong>${escapeHtml(String(m.protein || 0))}g</strong></div>
-        <div class="bsm-pdf-v13__kpi"><small>Karbonhidrat</small><strong>${escapeHtml(String(m.carbs || 0))}g</strong></div>
-        <div class="bsm-pdf-v13__kpi"><small>Yağ</small><strong>${escapeHtml(String(m.fat || 0))}g</strong></div>
-        <div class="bsm-pdf-v13__kpi bsm-pdf-v13__kpi--accent"><small>Günlük Kalori</small><strong>${escapeHtml(String(dailyKcal))} kcal</strong></div>
-      </section>
-
-      <!-- Donut + water ring iki kolon -->
-      <section class="bsm-pdf-v13__chart-row">
-        <div class="bsm-pdf-v13__donut-block">
-          <h3>Makro Dağılımı</h3>
-          <div class="bsm-pdf-v13__donut">
-            <svg viewBox="0 0 100 100" width="110" height="110" aria-hidden="true">
-              <circle cx="50" cy="50" r="40" fill="none" stroke="#f3f4f6" stroke-width="14"/>
-              <circle cx="50" cy="50" r="40" fill="none" stroke="#16a34a" stroke-width="14" stroke-dasharray="${dP.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="0" transform="rotate(-90 50 50)"/>
-              <circle cx="50" cy="50" r="40" fill="none" stroke="#2563eb" stroke-width="14" stroke-dasharray="${dC.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-dP).toFixed(2)}" transform="rotate(-90 50 50)"/>
-              <circle cx="50" cy="50" r="40" fill="none" stroke="#f59e0b" stroke-width="14" stroke-dasharray="${dF.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-(dP + dC)).toFixed(2)}" transform="rotate(-90 50 50)"/>
-              <text x="50" y="50" text-anchor="middle" font-size="12" font-weight="800" fill="#0f172a">${plan.calories || 0}</text>
-              <text x="50" y="62" text-anchor="middle" font-size="6" fill="#6b7280">kcal</text>
-            </svg>
-            <ul class="bsm-pdf-v13__donut-legend">
-              <li><span style="background:#16a34a"></span>Protein <em>${Math.round((proteinKcal / total) * 100)}%</em></li>
-              <li><span style="background:#2563eb"></span>Karb <em>${Math.round((carbsKcal / total) * 100)}%</em></li>
-              <li><span style="background:#f59e0b"></span>Yağ <em>${Math.round((fatKcal / total) * 100)}%</em></li>
-            </ul>
-          </div>
-        </div>
-        <div class="bsm-pdf-v13__water-block">
-          <h3>Hidrasyon</h3>
-          ${buildWaterProgressRing(weight)}
-          ${f.fastingEnabled ? `<div class="bsm-pdf-v13__if-chip">IF ${escapeHtml(f.fastingWindow || "16:8")}</div>` : ""}
-        </div>
-      </section>
-
-      <!-- v1.3.5: PDF compact öğün timeline — TUM ogunler (3-6) sayfa 1'de.
-           foods tek satir (line-clamp:1), 2'den fazla varsa "+N" ozet inline. -->
-      <section class="bsm-pdf-v13__meals">
-        <h3>Günlük Öğün Akışı</h3>
-        <ul class="bsm-pdf-v13__meal-list">
-          ${meals
-            .slice(0, 6)
-            .map((meal) => {
-              const time = meal.scheduledTime || meal.time || "—";
-              const allFoods = Array.isArray(meal.foods)
-                ? meal.foods.map((it) => {
-                    if (typeof it === "string") return it;
-                    if (it?.displayLabel) return it.displayLabel;
-                    if (it?.name && it?.grams) return `${it.name} ${it.grams}g`;
-                    return it?.name || "";
-                  }).filter(Boolean)
-                : (typeof meal.foods === "string" ? meal.foods.split(/[,·•]/).map((s) => s.trim()).filter(Boolean) : []);
-              const displayFoods = allFoods.slice(0, 2).join(" • ");
-              const extra = allFoods.length > 2 ? ` +${allFoods.length - 2}` : "";
-              // v1.3.7: resolveMealMacros 4-katmanli fallback — P0 K0 Y0 imkansiz
-              const resolved = resolveMealMacros(meal);
-              const tag = meal.isPreWorkout ? "Pre" : meal.isPostWorkout ? "Post" : "";
-              return `<li class="bsm-pdf-v13__meal-item${tag ? " is-workout" : ""}">
-                <div class="bsm-pdf-v13__meal-time">${escapeHtml(String(time))}</div>
-                <div class="bsm-pdf-v13__meal-body">
-                  <div class="bsm-pdf-v13__meal-head">
-                    <strong>${escapeHtml(meal.name || "Öğün")}${tag ? ` <span class="bsm-pdf-v13__meal-tag">${tag}</span>` : ""}</strong>
-                    <span class="bsm-pdf-v13__meal-cal-inline">${escapeHtml(String(resolved.calories))} kcal · P${escapeHtml(String(resolved.protein))} K${escapeHtml(String(resolved.carbs))} Y${escapeHtml(String(resolved.fat))}</span>
-                  </div>
-                  ${displayFoods ? `<small class="bsm-pdf-v13__meal-foods">${escapeHtml(displayFoods)}${escapeHtml(extra)}</small>` : ""}
-                </div>
-              </li>`;
-            })
-            .join("")}
-        </ul>
-        ${meals.length > 6 ? `<div class="bsm-pdf-v13__meal-overflow">+${meals.length - 6} ek öğün — detay üyeye iletilir</div>` : ""}
-      </section>
-
-      <!-- v1.3.6: Supplement ozeti sayfa 1 sonunda (max 4 + "+N ek destek") -->
-      ${
-        supplArr.length
-          ? `<section class="bsm-pdf-v13__suppl-summary">
-              <h3>Supplement Özeti</h3>
-              <ul class="bsm-pdf-v13__suppl-summary-list">
-                ${supplArr.slice(0, 4).map((s) => `
-                  <li>
-                    <span class="bsm-pdf-v13__suppl-summary-time">${escapeHtml(getSupplementScheduleTime(s, state.nutritionFormState))}</span>
-                    <span class="bsm-pdf-v13__suppl-summary-icon" aria-hidden="true">${escapeHtml(s.icon || "💊")}</span>
-                    <strong>${escapeHtml(s.name)}</strong>
-                    <em>${escapeHtml(s.dosage || "")}</em>
-                  </li>
-                `).join("")}
-                ${supplArr.length > 4 ? `<li class="bsm-pdf-v13__suppl-summary-more">+${supplArr.length - 4} ek destek (detay sayfa 2)</li>` : ""}
-              </ul>
-            </section>`
-          : ""
-      }
-
-      <footer class="bsm-pdf-v13__footer">
-        <span>Bahçeşehir Spor Merkezi · Beslenme Performans Raporu</span>
-        <span class="bsm-pdf-v13__page-num">1 / 2</span>
-      </footer>
-    </article>
-  `;
-}
+// Refactor Adım 3 part 2: renderPdfPage1 → nutrition/nutritionPdfPipeline.js (destructure)
 
 // v1.3.1: Premium 2-sayfa PDF preview — Page 2.
 // Compact: supplement max 6, antrenor notu line-clamp 4, makro hedef progress, genel tavsiyeler.
-function renderPdfPage2(member, plan, profile, activeMeasurement, activePage) {
-  const f = state.nutritionFormState;
-  const meals = Array.isArray(plan.meals) ? plan.meals : [];
-  const m = plan.macros || {};
-  const scoreObj = calculateNutritionScore(plan, f, activeMeasurement);
-  const feedback = buildNutritionFeedback(plan, f, activeMeasurement);
-  const recommendations = buildNutritionRecommendations(plan, f, activeMeasurement);
-
-  // Supplement timeline max 6 + overflow özet
-  const supplements = f.supplementUse && Array.isArray(f.selectedSupplements)
-    ? f.selectedSupplements.map((id) => findSupplementById(id)).filter(Boolean)
-    : [];
-  const supplementVisible = supplements.slice(0, 6);
-  const supplementOverflow = supplements.length - supplementVisible.length;
-  const supplementHtml = supplementVisible.length
-    ? supplementVisible
-        .map((s) => `<li>
-          <span class="bsm-pdf-v13__suppl-time">${escapeHtml(getSupplementScheduleTime(s, f))}</span>
-          <span class="bsm-pdf-v13__suppl-icon">${escapeHtml(s.icon || "💊")}</span>
-          <div class="bsm-pdf-v13__suppl-info">
-            <strong>${escapeHtml(s.name)}</strong>
-            <em>${escapeHtml(s.dosage || "")} · ${escapeHtml(supplementTimingLabel(s.timing))}</em>
-          </div>
-        </li>`)
-        .join("") + (supplementOverflow > 0 ? `<li class="bsm-pdf-v13__suppl-overflow">+${supplementOverflow} ek destek</li>` : "")
-    : `<li class="bsm-pdf-v13__suppl-empty">Supplement planı kapalı.</li>`;
-
-  // Makro hedef uyumu progress bar (hedeflerden gercek tukketim oranı; placeholder olarak %100 göster)
-  const weight = Number(activeMeasurement?.weight || plan?.sourceSummary?.weight || 75);
-  const proteinTarget = Math.round(weight * 1.8); // 1.8 g/kg ideal
-  const carbsTarget = Math.round(weight * 4);     // 4 g/kg ideal
-  const fatTarget = Math.round(weight * 0.9);     // 0.9 g/kg ideal
-  const pctP = Math.min(100, Math.round(((m.protein || 0) / Math.max(1, proteinTarget)) * 100));
-  const pctC = Math.min(100, Math.round(((m.carbs || 0) / Math.max(1, carbsTarget)) * 100));
-  const pctF = Math.min(100, Math.round(((m.fat || 0) / Math.max(1, fatTarget)) * 100));
-
-  const validUntil = plan.createdAt ? buildPlanValidUntilLabel(plan) : "";
-
-  return `
-    <article class="bsm-pdf-v13" data-pdf-page="2"${activePage === "2" ? ' data-active="true"' : ""}>
-      <header class="bsm-pdf-v13__sub-header">
-        <div>
-          <span class="bsm-pdf-v13__brand">Bahçeşehir Spor Merkezi</span>
-          <h2 class="bsm-pdf-v13__sub-title">ANALİZ · SUPPLEMENT · TAVSİYELER</h2>
-          <p>${escapeHtml(profile.memberName || "Üye")}</p>
-        </div>
-        ${buildNutritionScoreGauge(scoreObj.score)}
-      </header>
-
-      <!-- v1.3.1: Iki kolon (supplement + kalori bar) -->
-      <section class="bsm-pdf-v13__row">
-        <div class="bsm-pdf-v13__suppl">
-          <h3>Supplement Zaman Çizgisi</h3>
-          <ul class="bsm-pdf-v13__suppl-list">${supplementHtml}</ul>
-        </div>
-        <div class="bsm-pdf-v13__kcal-dist">
-          <h3>Öğün Kalori Dağılımı</h3>
-          ${buildKcalBarChart(meals)}
-        </div>
-      </section>
-
-      <!-- v1.3.1: Makro hedef uyumu progress barlari -->
-      <section class="bsm-pdf-v13__macro-target">
-        <h3>Makro Hedef Uyumu</h3>
-        <div class="bsm-pdf-v13__macro-bars">
-          <div class="bsm-pdf-v13__macro-bar bsm-pdf-v13__macro-bar--protein">
-            <div class="bsm-pdf-v13__macro-bar-label"><span>Protein</span><em>${m.protein || 0}g / ${proteinTarget}g</em></div>
-            <div class="bsm-pdf-v13__macro-bar-track"><div class="bsm-pdf-v13__macro-bar-fill" style="width:${pctP}%"></div></div>
-          </div>
-          <div class="bsm-pdf-v13__macro-bar bsm-pdf-v13__macro-bar--carbs">
-            <div class="bsm-pdf-v13__macro-bar-label"><span>Karbonhidrat</span><em>${m.carbs || 0}g / ${carbsTarget}g</em></div>
-            <div class="bsm-pdf-v13__macro-bar-track"><div class="bsm-pdf-v13__macro-bar-fill" style="width:${pctC}%"></div></div>
-          </div>
-          <div class="bsm-pdf-v13__macro-bar bsm-pdf-v13__macro-bar--fat">
-            <div class="bsm-pdf-v13__macro-bar-label"><span>Yağ</span><em>${m.fat || 0}g / ${fatTarget}g</em></div>
-            <div class="bsm-pdf-v13__macro-bar-track"><div class="bsm-pdf-v13__macro-bar-fill" style="width:${pctF}%"></div></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- v1.3.1: Iki kolon: AI feedback (sol) + Genel tavsiyeler (sag) -->
-      <section class="bsm-pdf-v13__analysis-row">
-        <div class="bsm-pdf-v13__feedback">
-          <h3>Akıllı Analiz</h3>
-          <ul class="bsm-pdf-v13__feedback-list">
-            ${feedback
-              .slice(0, 4)
-              .map((fb) => `<li class="bsm-pdf-v13__feedback-item bsm-pdf-v13__feedback-item--${escapeHtml(fb.severity || "info")}">
-                <span class="bsm-pdf-v13__feedback-icon" aria-hidden="true">${escapeHtml(fb.icon || "ℹ")}</span>
-                <span>${escapeHtml(fb.message)}</span>
-              </li>`)
-              .join("")}
-          </ul>
-        </div>
-        <div class="bsm-pdf-v13__recommendations">
-          <h3>Genel Tavsiyeler</h3>
-          <ul class="bsm-pdf-v13__rec-list">
-            ${recommendations
-              .slice(0, 5)
-              .map((r) => `<li><span aria-hidden="true">${escapeHtml(r.icon)}</span>${escapeHtml(r.text)}</li>`)
-              .join("")}
-          </ul>
-        </div>
-      </section>
-
-      <!-- v1.3.1: Antrenör notu — line-clamp 4 satir -->
-      ${
-        f.trainerNote || plan.trainerNote
-          ? `<section class="bsm-pdf-v13__note">
-              <h3>Antrenör Notu</h3>
-              <p class="bsm-pdf-v13__note-text">${escapeHtml(f.trainerNote || plan.trainerNote)}</p>
-            </section>`
-          : ""
-      }
-
-      <!-- v1.3.1: Footer: plan geçerlilik + hazırlayan + QR -->
-      <section class="bsm-pdf-v13__signature">
-        <div class="bsm-pdf-v13__qr" aria-hidden="true">
-          <!-- Basit fake QR: 7x7 grid -->
-          <svg viewBox="0 0 49 49" width="56" height="56">
-            ${[
-              "1111111010001011111111","1000001011010001000001","1011101010110001011101",
-              "1011101001110001011101","1011101010001001011101","1000001011010001000001",
-              "1111111010101011111111","0000000010000000000000","1110011110001011001011",
-              "0001100101100110110010","1101110001011001001111","0010001110010110100100",
-              "1110011001001010011110","0000000000110001110100","1111111010001010001011",
-              "1000001000100000110010","1011101010111000111000","1011101001010001011100",
-              "1011101010001001000111","1000001011010010111011","1111111000110001111000",
-            ]
-              .map((row, y) =>
-                [...row]
-                  .map((c, x) =>
-                    c === "1" ? `<rect x="${x * 2}" y="${y * 2}" width="2" height="2" fill="#0f172a"/>` : "",
-                  )
-                  .join(""),
-              )
-              .join("")}
-          </svg>
-        </div>
-        <div class="bsm-pdf-v13__sig">
-          <div class="bsm-pdf-v13__sig-line">
-            <span>Hazırlayan</span>
-            <em>${escapeHtml(profile.trainerName || "—")}</em>
-          </div>
-          <div class="bsm-pdf-v13__sig-line">
-            <span>Plan Tarihi</span>
-            <em>${escapeHtml((plan.createdAt || "").split(" ").slice(0, 3).join(" "))}</em>
-          </div>
-          ${validUntil ? `<div class="bsm-pdf-v13__sig-line"><span>Geçerlilik</span><em>${escapeHtml(validUntil)}</em></div>` : ""}
-        </div>
-      </section>
-
-      <footer class="bsm-pdf-v13__footer">
-        <span>Bahçeşehir Spor Merkezi · Performans Beslenme Sistemi</span>
-        <span class="bsm-pdf-v13__page-num">2 / 2</span>
-      </footer>
-    </article>
-  `;
-}
+// Refactor Adım 3 part 2: renderPdfPage2 → nutrition/nutritionPdfPipeline.js (destructure)
 
 // v1.3.0: PDF thumbnail mini icerikleri — 2 sayfa (eski 4 thumb -> 2 thumb)
 // Thumb 1: hero + makro mini (donut + 4 KPI satir)
 // Thumb 2: supplement + skor mini (cizgiler + mini gauge)
-function renderNutritionPdfThumbnails(plan, member) {
-  const setHtml = (sel, html) => { const el = document.querySelector(sel); if (el) el.innerHTML = html; };
-  if (!plan) {
-    [1, 2].forEach((n) => setHtml(`[data-bsm-nutrition-thumb="${n}"]`, ""));
-    return;
-  }
-  // Thumb 1: mini pie + 3 satir KPI
-  const m = plan.macros || {};
-  const total = (m.protein || 1) * 4 + (m.carbs || 1) * 4 + (m.fat || 1) * 9 || 1;
-  const pP = ((m.protein || 0) * 4 / total) * 100;
-  const pC = ((m.carbs || 0) * 4 / total) * 100;
-  setHtml('[data-bsm-nutrition-thumb="1"]', `
-    <div class="bsm-nutrition-pdf-thumb__mix">
-      <div class="bsm-nutrition-pdf-thumb__pie bsm-nutrition-pdf-thumb__pie--sm" style="background: conic-gradient(#16a34a 0 ${pP.toFixed(1)}%, #2563eb ${pP.toFixed(1)}% ${(pP + pC).toFixed(1)}%, #f59e0b ${(pP + pC).toFixed(1)}% 100%);"></div>
-      <div class="bsm-nutrition-pdf-thumb__bars">
-        <span></span><span></span><span></span>
-      </div>
-    </div>
-  `);
-  // Thumb 2: supplement satir cizgi + mini gauge
-  const f = state.nutritionFormState;
-  const supplActive = f?.supplementUse && (f?.selectedSupplements?.length || 0) > 0;
-  setHtml('[data-bsm-nutrition-thumb="2"]', `
-    <div class="bsm-nutrition-pdf-thumb__mix">
-      <div class="bsm-nutrition-pdf-thumb__rows">
-        <span></span><span class="${supplActive ? "is-on" : ""}"></span><span class="${supplActive ? "is-on" : ""}"></span>
-      </div>
-      <div class="bsm-nutrition-pdf-thumb__gauge"></div>
-    </div>
-  `);
-  // Aktif thumb is-active class'i (sadece 1-2)
-  const active = String(Math.min(2, state.nutritionPdfPage || 1));
-  document.querySelectorAll("[data-pdf-thumb]").forEach((t) => {
-    t.classList.toggle("is-active", String(t.dataset.pdfThumb) === active);
-  });
-}
+// Refactor Adım 3 part 2: renderNutritionPdfThumbnails → nutrition/nutritionPdfPipeline.js (destructure)
 
 // Refactor Adım 3: buildPdfSparklinePoints → nutritionHelpers.js (destructure)
 
