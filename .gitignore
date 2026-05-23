@@ -18,8 +18,10 @@ tmp-screenshots/
 .claude/*.lock
 
 # Playwright test artifacts — her run'da yeniden üretilir.
+# tests/_report/ playwright.config.js outputFolder ayarına karşılık gelir.
 test-results/
 playwright-report/
+tests/_report/
 
 # Diagnostic & screenshot helper script'leri — yerel debug için.
 .diag-*.js
