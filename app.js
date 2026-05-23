@@ -434,6 +434,9 @@ if (!window.BSMNutritionRenderers) {
 if (!window.BSMNutritionPremiumRenderers) {
   throw new Error("BSMNutritionPremiumRenderers yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMNutritionPremiumWorkspace) {
+  throw new Error("BSMNutritionPremiumWorkspace yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -489,6 +492,10 @@ const {
   renderNutritionHero,
   renderMealEditorHtml,
 } = window.BSMNutritionPremiumRenderers;
+// Premium Workspace destructure (Part 3B2): orkestrasyon fonksiyonu
+const {
+  renderNutritionPremiumWorkspace,
+} = window.BSMNutritionPremiumWorkspace;
 
 // Refactor Adım 3: calculateMealMacros, resolveMealMacros, hasNonZeroMacros,
 // mealOverrideKey artık nutrition/nutritionHelpers.js içinde — destructure ile
@@ -1225,6 +1232,30 @@ function initialize() {
     foodLibrary: BSM_FOOD_LIBRARY,
     labelMaps: labelMaps,
     getActiveMeasurementSnapshot: getActiveMeasurementSnapshot,
+  });
+  // Refactor Adım 3 part 3B2: Premium Workspace'e state + nutritionPanel +
+  // app.js local fonksiyonlari + extract edilmis render fonksiyonlari injection.
+  // App.js'de kalan local fn'ler (seedNutritionFormFromMember, syncNutritionAccordionInputs,
+  // tryAutoGenerateNutritionPlan, updateNutritionGenerateButtonLabel,
+  // applyNutritionActiveViewClass) callback olarak gecirilir.
+  window.BSMNutritionPremiumWorkspace.init({
+    state: state,
+    getNutritionPanel: function () { return nutritionPanel; },
+    seedNutritionFormFromMember: function (m, p) { return seedNutritionFormFromMember(m, p); },
+    tryAutoGenerateNutritionPlan: function (m) { return tryAutoGenerateNutritionPlan(m); },
+    syncNutritionAccordionInputs: function () { return syncNutritionAccordionInputs(); },
+    updateNutritionGenerateButtonLabel: function (sp) { return updateNutritionGenerateButtonLabel(sp); },
+    applyNutritionActiveViewClass: function () { return applyNutritionActiveViewClass(); },
+    renderNutritionHero: renderNutritionHero,
+    renderNutritionTimelineView: renderNutritionTimelineView,
+    renderNutritionMacroView: renderNutritionMacroView,
+    renderNutritionPdfPreview: renderNutritionPdfPreview,
+    renderNutritionTotalsBar: renderNutritionTotalsBar,
+    renderNutritionMacroChart: renderNutritionMacroChart,
+    renderSupplementLibrary: renderSupplementLibrary,
+    renderSupplementSelected: renderSupplementSelected,
+    renderNutritionSupplementTimeline: renderNutritionSupplementTimeline,
+    renderNutritionMetaCard: renderNutritionMetaCard,
   });
   populateStaticFilters();
   populateProgramStyleOptions();
@@ -8659,39 +8690,7 @@ function renderNutritionWorkspace() {
 // Bu library hardcoded ama "smart engine"in karari icin gerekli kapsami sunar.
 // icon: emoji veya kisa string (UI swatch ile birlikte gozukur).
 
-function renderNutritionPremiumWorkspace(member, savedPlan) {
-  if (!nutritionPanel) return;
-
-  // Eger uye degistiyse formu uyenin profilinden default'a sifirla
-  if (member?.id && member.id !== state.nutritionFormMemberId) {
-    state.nutritionFormMemberId = member.id;
-    seedNutritionFormFromMember(member, savedPlan);
-  } else if (!member?.id && state.nutritionFormMemberId) {
-    state.nutritionFormMemberId = null;
-  }
-
-  // v1.2.4: LIVE PREVIEW her render'da form state'inden yeniden uretilir.
-  // savedPlan = state.activeNutritionPlan (Save butonu sonrasi). livePreview
-  // form ayarlari degisince anlik guncellenir; meta status livePreview vs savedPlan
-  // karsilastirmasi ile "Taslak" / "Aktif" gosterir.
-  const livePreview = tryAutoGenerateNutritionPlan(member) || savedPlan || null;
-
-  renderNutritionHero(member, livePreview);
-  syncNutritionAccordionInputs();
-  renderNutritionTimelineView(livePreview);
-  renderNutritionMacroView(livePreview);
-  // v1.2.5: PDF preview artik 4 sayfa, member + livePreview + activeMeasurement bazli
-  renderNutritionPdfPreview(member, livePreview);
-  renderNutritionTotalsBar(livePreview);
-  renderNutritionMacroChart(livePreview);
-  // v1.2.5: Yeni supplement UI — library kartlari + selected chips + timeline
-  renderSupplementLibrary();
-  renderSupplementSelected();
-  renderNutritionSupplementTimeline(livePreview);
-  renderNutritionMetaCard(member, savedPlan, livePreview);
-  updateNutritionGenerateButtonLabel(savedPlan);
-  applyNutritionActiveViewClass();
-}
+// Refactor Adım 3 part 3B2: renderNutritionPremiumWorkspace → nutrition/nutritionPremiumWorkspace.js (destructure)
 
 // Form state'i uyenin profilinden + son olcumden + mevcut plandan doldur
 function seedNutritionFormFromMember(member, plan) {
