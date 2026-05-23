@@ -160,6 +160,58 @@ const {
   buildTanitaPreviewModel,
 } = window.BSMTanitaCsvService || {};
 
+// v1.4.4: Test mode helper — Playwright regression suite icin Supabase
+// sync/realtime'i bypass eder. Iki yolla aktif edilebilir:
+//   1) localStorage.bsmTestMode = "true"
+//   2) URL ?test=1
+// Normal kullanicida etkisiz; production davranisi tamamen korunur.
+function isTestMode() {
+  try {
+    if (typeof localStorage !== "undefined" && localStorage.getItem("bsmTestMode") === "true") {
+      return true;
+    }
+    if (typeof window !== "undefined" && window.location?.search) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("test") === "1") return true;
+    }
+  } catch (e) { /* localStorage yok / SSR */ }
+  return false;
+}
+
+// v1.4.4: Test/debug API — window.BSMTestApi
+// Sadece state observable; setter yok (production davranisi degismez).
+// Test izolasyonu icin _helpers.js ve diagnostic scriptler bunu kullanir.
+window.BSMTestApi = {
+  isTestMode: isTestMode,
+  // state objesi closure'da; getter sarmali ile expose ediyoruz
+  getStateSnapshot: function () {
+    try {
+      return {
+        activeMemberId: state.activeMemberId,
+        activeScreen: state.activeScreen,
+        membersCount: Array.isArray(state.members) ? state.members.length : 0,
+        activeNutritionPlanId: state.activeNutritionPlan?.id || null,
+        activeNutritionPlanCalories: state.activeNutritionPlan?.calories || 0,
+        nutritionFormState: {
+          goal: state.nutritionFormState?.goal,
+          mealCount: state.nutritionFormState?.mealCount,
+          supplementUse: state.nutritionFormState?.supplementUse,
+          selectedSupplementsCount: state.nutritionFormState?.selectedSupplements?.length || 0,
+          mealOverridesCount: Object.keys(state.nutritionFormState?.mealOverrides || {}).length,
+          diversifySeed: state.nutritionFormState?.diversifySeed || 0,
+        },
+        supabaseStatus: state.supabaseStatus,
+      };
+    } catch (e) { return null; }
+  },
+  getActiveMemberId: function () {
+    try { return state.activeMemberId; } catch (e) { return null; }
+  },
+  getMembersCount: function () {
+    try { return Array.isArray(state.members) ? state.members.length : 0; } catch (e) { return 0; }
+  },
+};
+
 const state = {
   _members: [],
   get members() {
@@ -3124,6 +3176,12 @@ function renderMeasurementReport() {
 }
 
 function syncMembersFromSupabase(options = {}) {
+  // v1.4.4: Test mode aktifse Supabase sync'i bypass et — localStorage seed
+  // member'lari Supabase realtime override'indan korunsun.
+  if (isTestMode()) {
+    state.supabaseStatus = "Test modu";
+    return;
+  }
   state.supabaseStatus = window.supabaseClient?.from ? "Kontrol ediliyor" : "Kapalı";
   renderDashboard();
 
@@ -3168,6 +3226,8 @@ function syncMembersFromSupabase(options = {}) {
 }
 
 function setupSupabaseRealtimeSync() {
+  // v1.4.4: Test mode'da realtime subscription kurma — test seed'i korunsun
+  if (isTestMode()) return;
   if (state.supabaseRealtimeSubscription || !window.BSMSupabaseSyncService?.subscribeToChanges) {
     return;
   }

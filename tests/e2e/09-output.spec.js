@@ -2,11 +2,10 @@
 const { test, expect } = require("@playwright/test");
 const { setupPage, navigate, assertNoErrors } = require("./_helpers");
 
-// NOT: Bu test mevcut sistemde BASELINE FAIL veriyor — #resultsSection router
-// navigate("output") sonrası is-hidden + display:none kalıyor. Bu refactor öncesi
-// var olan bir bug; test bunu kaydediyor. Refactor'da fix edilecek.
-// Şu an .skip ile baseline'a alındı.
-test.skip("Uye Ciktisi sayfasi acilir [BASELINE BUG]", async ({ page }) => {
+// v1.4.4: Baseline bug fix — router.js'de output route'unda early return
+// kaldırıldı. Artık panel her zaman görünür açılır (program yoksa user
+// boş state görür ve ne yapması gerektiğini anlar).
+test("Uye Ciktisi sayfasi acilir", async ({ page }) => {
   const { errors } = await setupPage(page);
   await navigate(page, "output");
   await page.waitForTimeout(600);

@@ -2,19 +2,17 @@
 const { test, expect } = require("@playwright/test");
 const { setupPage, navigate, assertNoErrors } = require("./_helpers");
 
-// Gerçek panel selector'ları (index.html'den): bazıları id, bazıları data-screen
-// NOT: "output" route refactor öncesi baseline bug — router navigate edince
-// #resultsSection görünmüyor. Bu test 5 sayfayı kontrol ediyor; output ayrı
-// 09-output.spec.js'de SKIP olarak işaretlendi.
+// v1.4.4: 6 ana sayfa — output route fix sonrası tekrar dahil edildi.
 const ROUTES = [
   { id: "members",     selector: "#membersPanel",                  label: "Üyeler" },
   { id: "builder",     selector: '[data-screen="builder"]',        label: "Program Oluştur" },
   { id: "measurements", selector: "#measurementsPanel",            label: "Ölçüm & Tanita" },
   { id: "nutrition",   selector: "#nutritionPanel",                label: "Beslenme" },
   { id: "library",     selector: "#libraryPanel",                  label: "Hareket Kütüphanesi" },
+  { id: "output",      selector: "#resultsSection",                label: "Üye Çıktısı" },
 ];
 
-test("5 ana sayfa router uzerinden acilir + panel goruluyor (output skipped)", async ({ page }) => {
+test("6 ana sayfa router uzerinden acilir + panel goruluyor", async ({ page }) => {
   const { errors } = await setupPage(page);
 
   for (const route of ROUTES) {
