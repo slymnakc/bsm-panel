@@ -440,6 +440,9 @@ if (!window.BSMNutritionPremiumWorkspace) {
 if (!window.BSMNutritionPremiumHandlers) {
   throw new Error("BSMNutritionPremiumHandlers yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMNutritionPersistence) {
+  throw new Error("BSMNutritionPersistence yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -503,6 +506,14 @@ const {
 const {
   bindNutritionPremiumHandlers,
 } = window.BSMNutritionPremiumHandlers;
+// Persistence destructure (Part 3C): save/print handlers + form/plan mutation helpers
+const {
+  seedNutritionFormFromMember,
+  buildPreferencesFromFormState,
+  applyUserOverridesToPlan,
+  applyMealOverridesToPlan,
+  bindNutritionPersistenceHandlers,
+} = window.BSMNutritionPersistence;
 
 // Refactor Adım 3: calculateMealMacros, resolveMealMacros, hasNonZeroMacros,
 // mealOverrideKey artık nutrition/nutritionHelpers.js içinde — destructure ile
@@ -513,62 +524,7 @@ const {
 // alinir, kcal/macros food library'den yeniden hesaplanir.
 // Sonra plan.calories ve plan.macros TUM meals'in toplaminden TURETILIR
 // (eski engine degerlerini override eder ki manuel duzenleme totals'a yansisin).
-function applyMealOverridesToPlan(plan, formState) {
-  if (!plan || !Array.isArray(plan.meals)) return plan;
-  const overrides = formState?.mealOverrides || {};
-  if (!Object.keys(overrides).length) return plan;
-
-  plan.meals = plan.meals.map((meal, idx) => {
-    const key = mealOverrideKey(idx);
-    const ov = overrides[key];
-    if (!ov) return meal;
-    // Override foods: her food {id, grams} -> macros hesapla
-    const foods = Array.isArray(ov.foods) ? ov.foods.filter((f) => f && f.id) : [];
-    if (foods.length) {
-      const totals = foods.reduce((acc, f) => {
-        const macros = calcFoodMacros(f.id, f.grams);
-        acc.calories += macros.calories;
-        acc.protein += macros.protein;
-        acc.carbs += macros.carbs;
-        acc.fat += macros.fat;
-        return acc;
-      }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-      return {
-        ...meal,
-        name: ov.name || meal.name,
-        time: ov.time || meal.time,
-        scheduledTime: ov.time || meal.scheduledTime || meal.time,
-        foods: foods.map((f) => {
-          const food = findFoodById(f.id);
-          return { ...f, name: food?.name || f.id, displayLabel: `${food?.name || f.id} ${Math.round(f.grams)}g` };
-        }),
-        calories: totals.calories,
-        macros: {
-          protein: Math.round(totals.protein),
-          carbs: Math.round(totals.carbs),
-          fat: Math.round(totals.fat),
-        },
-        isOverridden: true,
-      };
-    }
-    return { ...meal, name: ov.name || meal.name, time: ov.time || meal.time };
-  });
-
-  // Plan.calories ve plan.macros'u meal toplamlarindan TURETIR (manuel edit yansisin)
-  const planTotal = plan.meals.reduce((acc, m) => {
-    acc.calories += Number(m.calories) || 0;
-    acc.protein += Number(m.macros?.protein) || 0;
-    acc.carbs += Number(m.macros?.carbs) || 0;
-    acc.fat += Number(m.macros?.fat) || 0;
-    return acc;
-  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-  // Engine'in original hedeflerini sakla (target vs actual gosterimi icin)
-  plan.targetCalories = plan.targetCalories || plan.calories;
-  plan.targetMacros = plan.targetMacros || { ...plan.macros };
-  plan.calories = planTotal.calories;
-  plan.macros = { protein: Math.round(planTotal.protein), carbs: Math.round(planTotal.carbs), fat: Math.round(planTotal.fat) };
-  return plan;
-}
+// Refactor Adim 3 part 3C: applyMealOverridesToPlan -> nutrition/nutritionPersistence.js (destructure)
 
 // v1.3.4: Diversification engine — bir meal'in foods'larini library'den
 // alternatif besinlerle değiştirir. Hedef makrolardan gramaj türetilir.
@@ -1290,6 +1246,24 @@ function initialize() {
     mealOverrideKey: mealOverrideKey,
     findFoodById: findFoodById,
     foodLibrary: BSM_FOOD_LIBRARY,
+  });
+  // Refactor Adım 3 part 3C: Persistence'a state + showStatus + member helpers
+  // + render callbacks + PDF print pipeline + helper fn'ler injection.
+  // tryAutoGenerateNutritionPlan + persistMembers + renderMemberWorkspace +
+  // renderNutritionWorkspace app.js'de kaldıklari icin callback olarak gecirilir.
+  window.BSMNutritionPersistence.init({
+    state: state,
+    showStatus: function (msg, type) { return showStatus(msg, type); },
+    findActiveMember: function () { return findActiveMember(); },
+    tryAutoGenerateNutritionPlan: function (m) { return tryAutoGenerateNutritionPlan(m); },
+    persistMembers: function () { return persistMembers(); },
+    renderMemberWorkspace: function () { return renderMemberWorkspace(); },
+    renderNutritionWorkspace: function () { return renderNutritionWorkspace(); },
+    prepareNutritionPrintRoot: prepareNutritionPrintRoot,
+    cleanupNutritionPrintRoot: cleanupNutritionPrintRoot,
+    mealOverrideKey: mealOverrideKey,
+    calcFoodMacros: calcFoodMacros,
+    findFoodById: findFoodById,
   });
   populateStaticFilters();
   populateProgramStyleOptions();
@@ -3513,79 +3487,9 @@ function bindApplicationHandlers() {
     true,
   );
 
-  // Legacy save handler "collectNutritionPlanEdits(nutritionPlanEditor, ...)" cagiriyor —
-  // bizim layout'ta editor yok, ama plan state.activeNutritionPlan'da hazir. Direkt persist.
-  saveNutritionButton?.addEventListener(
-    "click",
-    (e) => {
-      const member = findActiveMember();
-      // v1.3.8 FIX: SAVE da livePreview snapshot al — eski state.activeNutritionPlan
-      // user'in son duzenlemelerini icermiyordu. Artik Save = ekrandaki canli plan.
-      const plan = tryAutoGenerateNutritionPlan(member) || state.activeNutritionPlan;
-      if (!member || !plan) {
-        showStatus("Kaydedilecek beslenme planı yok. Önce plan oluşturun.", "error");
-        e.stopImmediatePropagation();
-        return;
-      }
-      // v1.3.8: state.activeNutritionPlan'i da livePreview'a sync et
-      state.activeNutritionPlan = plan;
-      state.activeNutritionMemberId = member.id;
-      member.nutritionPlan = plan;
-      member.nutritionPlans = [plan, ...(member.nutritionPlans || []).filter((it) => it.id !== plan.id)].slice(0, 12);
-      member.updatedAt = new Date().toISOString();
-      persistMembers();
-      renderMemberWorkspace();
-      renderNutritionWorkspace();
-      showStatus("Beslenme planı üye dosyasına kaydedildi.", "success");
-      e.stopImmediatePropagation();
-    },
-    true,
-  );
-
-  // v1.3.3: PDF/Yazdir butonu -> body altinda temiz Print Root clone uret + window.print + cleanup.
-  // Onceki v1.3.0/1/2 yaklaşımı (dashboard container icinde visibility:hidden) bos ilk sayfa
-  // ve nested transform/sticky parent overflow problemleri yaratti. Yeni yaklaşım: body'ye
-  // direkt <div id="nutritionPrintRoot"> append edilir, dashboard ile arasinda hicbir
-  // ata-wrapper kalmaz, print sonrasi root temizlenir.
-  printNutritionButton?.addEventListener(
-    "click",
-    (e) => {
-      const member = findActiveMember();
-      // v1.3.8 FIX: livePreview ONCELIK — eski "savedPlan ?? livePreview"
-      // sirasında user Save sonrası meal/form duzenlerse preview canli ama
-      // PDF eski savedPlan'i basıyordu. Artik renderNutritionPremiumWorkspace
-      // ile AYNI veri kaynagi: tryAutoGenerateNutritionPlan(member).
-      const plan = tryAutoGenerateNutritionPlan(member) || state.activeNutritionPlan;
-      if (!plan) {
-        showStatus("PDF için önce plan oluşturun.", "error");
-        e.stopImmediatePropagation();
-        return;
-      }
-      try {
-        prepareNutritionPrintRoot(member, plan);
-        document.body.classList.add("is-printing-nutrition");
-        window.setTimeout(() => {
-          window.print();
-          // Cleanup print sonrasi; bazi tarayicilarda afterprint event guvenilir degil,
-          // bu yuzden hem afterprint hem fallback timeout kullaniyoruz.
-          const cleanup = () => {
-            cleanupNutritionPrintRoot();
-            document.body.classList.remove("is-printing-nutrition");
-            window.removeEventListener("afterprint", cleanup);
-          };
-          window.addEventListener("afterprint", cleanup, { once: true });
-          window.setTimeout(cleanup, 1500);
-        }, 80);
-      } catch (err) {
-        cleanupNutritionPrintRoot();
-        document.body.classList.remove("is-printing-nutrition");
-        showStatus("PDF üretilemedi: " + (err?.message || ""), "error");
-        console.error(err);
-      }
-      e.stopImmediatePropagation();
-    },
-    true,
-  );
+  // Refactor Adım 3 part 3C: saveNutritionButton + printNutritionButton handlers →
+  // nutrition/nutritionPersistence.js (idempotent guard'li bind)
+  bindNutritionPersistenceHandlers();
   addCustomExerciseButton?.addEventListener("click", handleAddCustomExercise);
   resetCustomExerciseFormButton?.addEventListener("click", clearCustomExerciseForm);
   restoreHiddenExercisesButton?.addEventListener("click", handleRestoreHiddenExercises);
@@ -8727,38 +8631,7 @@ function renderNutritionWorkspace() {
 // Refactor Adım 3 part 3B2: renderNutritionPremiumWorkspace → nutrition/nutritionPremiumWorkspace.js (destructure)
 
 // Form state'i uyenin profilinden + son olcumden + mevcut plandan doldur
-function seedNutritionFormFromMember(member, plan) {
-  const profile = member?.profile || {};
-  const f = state.nutritionFormState;
-
-  // Goal: profile goal'unden map
-  if (profile.goal === "fat-loss" || profile.goal === "weight-loss") f.goal = "fat-loss";
-  else if (profile.goal === "muscle-gain") f.goal = "muscle-gain";
-  else if (profile.goal === "recomposition") f.goal = "recomposition";
-  else if (profile.goal === "maintenance" || profile.goal === "preservation") f.goal = "maintenance";
-
-  // Plan varsa onun degerleri form'a yansisin
-  if (plan) {
-    if (plan.calories) f.calories = plan.calories;
-    if (plan.macros?.protein) f.protein = plan.macros.protein;
-    if (plan.macros?.carbs) f.carbs = plan.macros.carbs;
-    if (plan.macros?.fat) f.fat = plan.macros.fat;
-    if (plan.mealCount) f.mealCount = plan.mealCount;
-    if (plan.dayType) f.dayType = plan.dayType;
-    const prefs = plan.supplementPreferences || {};
-    if (prefs.workoutTime) f.workoutTime = prefs.workoutTime;
-    if (prefs.cardioTime !== undefined) f.cardioTime = prefs.cardioTime;
-    if (prefs.fastingEnabled === "yes") f.fastingEnabled = true;
-    if (prefs.fastingWindow) f.fastingWindow = prefs.fastingWindow;
-    if (prefs.useSupplements === "yes") f.supplementUse = true;
-    if (Array.isArray(prefs.supplementCategories) && prefs.supplementCategories.length) {
-      f.supplementCategories = prefs.supplementCategories;
-    }
-    if (prefs.caffeineSensitive) f.caffeineSensitive = prefs.caffeineSensitive;
-    if (prefs.lactoseSensitive) f.lactoseSensitive = prefs.lactoseSensitive;
-    if (plan.trainerNote) f.trainerNote = plan.trainerNote;
-  }
-}
+// Refactor Adim 3 part 3C: seedNutritionFormFromMember -> nutrition/nutritionPersistence.js (destructure)
 
 // Live preview icin auto-generate (canli ayardan plan uret, kaydetme)
 function tryAutoGenerateNutritionPlan(member) {
@@ -8795,94 +8668,10 @@ function tryAutoGenerateNutritionPlan(member) {
 // Engine measurement+goal'a gore plan yapar; user explicit kalori girerse o
 // degerle plan.calories override + meals orantili olcekle + macros yeniden dagit.
 // Meal macros redistribute: protein/carb/fat g'lari toplama gore scale.
-function applyUserOverridesToPlan(plan, formState) {
-  if (!plan || !formState) return plan;
-  const userCal = Number(formState.calories);
-  const userP = Number(formState.protein);
-  const userC = Number(formState.carbs);
-  const userF = Number(formState.fat);
-  const hasUserCal = Number.isFinite(userCal) && userCal > 0;
-  // v1.3.3: Her makro BAGIMSIZ override edilebilir. Onceki "all-or-none" yaklaşımı
-  // spec'in "protein gramaji degisince ogunlerdeki gramajlar degissin" kuralini
-  // kirinca tekil override'lar etkisiz kaliyordu.
-  const hasUserP = Number.isFinite(userP) && userP > 0;
-  const hasUserC = Number.isFinite(userC) && userC > 0;
-  const hasUserF = Number.isFinite(userF) && userF > 0;
-
-  const oldCal = plan.calories || 1;
-  const oldP = plan.macros?.protein || 1;
-  const oldC = plan.macros?.carbs || 1;
-  const oldF = plan.macros?.fat || 1;
-  // Hedef kalori: user girdise o, yoksa engine + (eger user macros girdiyse) makro
-  // toplamindan turetilen yeni kalori.
-  const calScale = (hasUserCal ? userCal : oldCal) / oldCal;
-  const targetP = hasUserP ? userP : Math.round(oldP * calScale);
-  const targetC = hasUserC ? userC : Math.round(oldC * calScale);
-  const targetF = hasUserF ? userF : Math.round(oldF * calScale);
-  // Kalori bagimsiz hesabi: user kalori vermediyse + bir veya daha cok makro
-  // override ettiyse, yeni kalori makrolardan hesaplanir.
-  const macroDerivedKcal = targetP * 4 + targetC * 4 + targetF * 9;
-  const targetCal = hasUserCal
-    ? userCal
-    : (hasUserP || hasUserC || hasUserF ? macroDerivedKcal : oldCal);
-  const targetTotalKcal = macroDerivedKcal || targetCal;
-
-  plan.calories = targetCal;
-  plan.macros = { protein: targetP, carbs: targetC, fat: targetF };
-
-  // v1.3.3: Meals'i orantili scale et + macro fallback.
-  // Engine meals'inin macros'u eksik gelirse meal.calories oraniyla
-  // hedef makrolar uzerinden tahmini macros set edilir.
-  if (Array.isArray(plan.meals) && plan.meals.length) {
-    const mealOldTotal = plan.meals.reduce((s, m) => s + (Number(m.calories) || 0), 0) || 1;
-    plan.meals = plan.meals.map((meal) => {
-      const ratio = (Number(meal.calories) || 0) / mealOldTotal;
-      const mCal = Math.round(targetCal * ratio);
-      const oldMP = Number(meal.macros?.protein) || 0;
-      const oldMC = Number(meal.macros?.carbs) || 0;
-      const oldMF = Number(meal.macros?.fat) || 0;
-      // Engine macros varsa scale et; yoksa kalori oranindan turet
-      const newMP = oldMP > 0 ? Math.round((oldMP / oldP) * targetP) : Math.round(targetP * ratio);
-      const newMC = oldMC > 0 ? Math.round((oldMC / oldC) * targetC) : Math.round(targetC * ratio);
-      const newMF = oldMF > 0 ? Math.round((oldMF / oldF) * targetF) : Math.round(targetF * ratio);
-      return {
-        ...meal,
-        calories: mCal,
-        macros: { protein: newMP, carbs: newMC, fat: newMF },
-      };
-    });
-  }
-
-  return plan;
-}
+// Refactor Adim 3 part 3C: applyUserOverridesToPlan -> nutrition/nutritionPersistence.js (destructure)
 
 // nutritionFormState -> buildNutritionPlan preferences formati
-function buildPreferencesFromFormState() {
-  const f = state.nutritionFormState;
-  const goalIdMap = {
-    "fat-loss": "fat-loss-classic",
-    "muscle-gain": "muscle-gain-lean",
-    "maintenance": "maintenance",
-    "recomposition": "recomposition",
-  };
-  return {
-    nutritionGoalId: goalIdMap[f.goal] || "maintenance",
-    mealCount: f.mealCount,
-    dayType: f.dayType,
-    wakeTime: "07:30",
-    firstMealTime: "08:30",
-    workoutTime: f.workoutTime || "18:30",
-    cardioTime: f.cardioTime || "",
-    sleepTime: "23:30",
-    fastingEnabled: f.fastingEnabled ? "yes" : "no",
-    fastingWindow: f.fastingWindow || "16:8",
-    useSupplements: f.supplementUse ? "yes" : "no",
-    supplementCategories: f.supplementCategories,
-    caffeineSensitive: f.caffeineSensitive,
-    lactoseSensitive: f.lactoseSensitive,
-    budget: "medium",
-  };
-}
+// Refactor Adim 3 part 3C: buildPreferencesFromFormState -> nutrition/nutritionPersistence.js (destructure)
 
 // ── HERO ────────────────────────────────────────────────────────────
 // Refactor Adım 3 part 3B1: renderNutritionHero → nutrition/nutritionPremiumRenderers.js (destructure)
