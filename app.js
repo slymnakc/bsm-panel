@@ -455,6 +455,9 @@ if (!window.BSMNutritionGenerateHandlers) {
 if (!window.BSMLibraryVideoModal) {
   throw new Error("BSMLibraryVideoModal yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMLibraryRenderers) {
+  throw new Error("BSMLibraryRenderers yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -544,6 +547,11 @@ const {
 const {
   bindLibraryVideoModalHandlers,
 } = window.BSMLibraryVideoModal;
+// Library Renderers destructure (Part 4A.1.2): renderLibrary + renderCustomExerciseList
+const {
+  renderLibrary,
+  renderCustomExerciseList,
+} = window.BSMLibraryRenderers;
 
 // Refactor Adım 3: calculateMealMacros, resolveMealMacros, hasNonZeroMacros,
 // mealOverrideKey artık nutrition/nutritionHelpers.js içinde — destructure ile
@@ -1212,6 +1220,36 @@ function initialize() {
   // document-level click + keydown delegation kurar (idempotent guard'li).
   window.BSMLibraryVideoModal.init({});
   bindLibraryVideoModalHandlers();
+  // Refactor Adım 4A.1.2: Library Renderers'a state + lazy exerciseLibrary getter +
+  // option data (muscleGroups, equipmentLabels, turkishAlphabet) + util fn'leri +
+  // UI service adapter'lari (syncLibraryTabsUi, renderLibraryResultsUi) +
+  // getExerciseMedia callback + DOM ref'leri injection.
+  // ZORUNLU: getExerciseLibrary lazy getter — exerciseLibrary mutable runtime cache.
+  window.BSMLibraryRenderers.init({
+    state: state,
+    getExerciseLibrary: function () { return exerciseLibrary; },
+    muscleGroups: muscleGroups,
+    equipmentLabels: equipmentLabels,
+    escapeHtml: escapeHtml,
+    normalizeText: normalizeText,
+    getMuscleLabel: getMuscleLabel,
+    labelExerciseKind: labelExerciseKind,
+    labelExerciseLevel: labelExerciseLevel,
+    syncLibraryTabsUi: syncLibraryTabsUi,
+    renderLibraryResultsUi: renderLibraryResultsUi,
+    getExerciseMedia: function (ex) { return getExerciseMedia(ex); },
+    turkishAlphabet: turkishAlphabet,
+    domRefs: {
+      exerciseSearch: exerciseSearch,
+      libraryGroupFilter: libraryGroupFilter,
+      libraryEquipmentFilter: libraryEquipmentFilter,
+      muscleGroupTabs: muscleGroupTabs,
+      alphabetTabs: alphabetTabs,
+      exerciseLibraryEl: exerciseLibraryEl,
+      libraryCount: libraryCount,
+      customExerciseList: customExerciseList,
+    },
+  });
   populateStaticFilters();
   populateProgramStyleOptions();
   prepareRepetitionTemplateControls();
@@ -9192,120 +9230,7 @@ function getCurrentProgramFromEditor() {
   return cloneData(normalizePlanPayload(state.activeProgram));
 }
 
-function renderLibrary() {
-  const searchText = normalizeText(exerciseSearch.value);
-  const groupFilter = libraryGroupFilter.value;
-  const equipmentFilter = libraryEquipmentFilter.value;
-  const letterFilter = state.activeAlphabetLetter;
-
-  const filtered = exerciseLibrary
-    .filter((exercise) => {
-      const matchesSearch =
-        !searchText ||
-        normalizeText(exercise.name).includes(searchText) ||
-        normalizeText(getMuscleLabel(exercise.group)).includes(searchText) ||
-        normalizeText(equipmentLabels[exercise.equipment]).includes(searchText) ||
-        normalizeText(labelExerciseKind(exercise.kind)).includes(searchText) ||
-        normalizeText(labelExerciseLevel(exercise.level)).includes(searchText) ||
-        normalizeText(exercise.cue).includes(searchText);
-      const matchesGroup = groupFilter === "all" || exercise.group === groupFilter;
-      const matchesEquipment = equipmentFilter === "all" || exercise.equipment === equipmentFilter;
-      const matchesLetter = letterFilter === "all" || getFirstLetter(exercise.name) === letterFilter;
-
-      return matchesSearch && matchesGroup && matchesEquipment && matchesLetter;
-    })
-    .sort((a, b) => a.name.localeCompare(b.name, "tr"));
-
-  renderCustomExerciseList();
-
-  const groups = muscleGroups
-    .map((group) => {
-      const exercises = filtered.filter((exercise) => exercise.group === group.id).sort((a, b) => a.name.localeCompare(b.name, "tr"));
-
-      if (!exercises.length) {
-        return null;
-      }
-
-      return {
-        id: group.id,
-        label: group.label,
-        description: group.description,
-        exerciseCount: exercises.length,
-        exercises: exercises.map((exercise) => ({
-          name: exercise.name,
-          id: exercise.id,
-          isCustom: Boolean(exercise.isCustom),
-          media: getExerciseMedia(exercise),
-          equipmentLabel: equipmentLabels[exercise.equipment] || exercise.equipment || "Ekipman",
-          kindLabel: labelExerciseKind(exercise.kind),
-          levelLabel: labelExerciseLevel(exercise.level),
-          cue: exercise.cue,
-        })),
-      };
-    })
-    .filter(Boolean);
-
-  syncLibraryTabsUi(
-    {
-      muscleGroupTabs,
-      alphabetTabs,
-    },
-    {
-      activeGroup: groupFilter,
-      activeLetter: letterFilter,
-    },
-  );
-  renderLibraryResultsUi(
-    {
-      exerciseLibraryEl,
-      libraryCount,
-    },
-    {
-      filteredCount: filtered.length,
-      groups,
-    },
-    escapeHtml,
-  );
-}
-
-function renderCustomExerciseList() {
-  if (!customExerciseList) {
-    return;
-  }
-
-  const customItemsHtml = state.customExercises
-    .map(
-      (exercise) => `
-        <div class="custom-exercise-item">
-          <div>
-            <strong>${escapeHtml(exercise.name)}</strong>
-            <span>${escapeHtml(getMuscleLabel(exercise.group))} • ${escapeHtml(equipmentLabels[exercise.equipment] || exercise.equipment)}</span>
-          </div>
-          <button
-            type="button"
-            class="library-exercise__action"
-            data-exercise-library-action="remove-custom"
-            data-exercise-id="${escapeHtml(exercise.id)}"
-          >Sil</button>
-        </div>
-      `,
-    )
-    .join("");
-
-  const hiddenInfo = state.hiddenExerciseIds.length
-    ? `<p class="custom-exercise-list__hint">${state.hiddenExerciseIds.length} hazır hareket gizlendi. İstersen "Gizlenenleri Geri Getir" ile tamamını açabilirsin.</p>`
-    : "";
-
-  customExerciseList.innerHTML =
-    customItemsHtml || hiddenInfo
-      ? `${customItemsHtml}${hiddenInfo}`
-      : `<p class="custom-exercise-list__hint">Henüz özel hareket eklenmedi. Eklediğin hareketler burada listelenecek.</p>`;
-}
-
-function getFirstLetter(value) {
-  const first = String(value || "").trim().charAt(0).toLocaleUpperCase("tr-TR");
-  return turkishAlphabet.includes(first) ? first : first.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
+// Refactor Adim 4A.1.2: renderLibrary + renderCustomExerciseList + getFirstLetter -> library/libraryRenderers.js (destructure)
 
 function convertProgramToText(program) {
   return convertMemberProgramToSimpleText(program);
