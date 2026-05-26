@@ -452,6 +452,9 @@ if (!window.BSMNutritionPlanFactory) {
 if (!window.BSMNutritionGenerateHandlers) {
   throw new Error("BSMNutritionGenerateHandlers yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMLibraryVideoModal) {
+  throw new Error("BSMLibraryVideoModal yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -537,6 +540,10 @@ const {
 const {
   bindNutritionGenerateHandler,
 } = window.BSMNutritionGenerateHandlers;
+// Library Video Modal destructure (Part 4A.1.1): self-contained event delegation
+const {
+  bindLibraryVideoModalHandlers,
+} = window.BSMLibraryVideoModal;
 
 // Refactor Adım 3: calculateMealMacros, resolveMealMacros, hasNonZeroMacros,
 // mealOverrideKey artık nutrition/nutritionHelpers.js içinde — destructure ile
@@ -1200,6 +1207,11 @@ function initialize() {
     normalizeNutritionPlan: normalizeNutritionPlan,
     makeId: makeId,
   });
+  // Refactor Adım 4A.1.1: Library Video Modal — dependency-less self-contained
+  // event delegation. init({}) bos cagrilir, sonra bindLibraryVideoModalHandlers
+  // document-level click + keydown delegation kurar (idempotent guard'li).
+  window.BSMLibraryVideoModal.init({});
+  bindLibraryVideoModalHandlers();
   populateStaticFilters();
   populateProgramStyleOptions();
   prepareRepetitionTemplateControls();
@@ -3675,35 +3687,11 @@ function handleExerciseGifModalClick(event) {
     closeExerciseGifModal();
   }
 
-  // v1.4.2: YouTube video modal — ▶ Video butonu
-  const videoOpenBtn = event.target.closest("[data-exercise-video-open]");
-  if (videoOpenBtn) {
-    openExerciseVideoModal(videoOpenBtn.dataset.exerciseName || "Egzersiz");
-    return;
-  }
-  if (event.target.closest("[data-video-modal-close]")) {
-    closeExerciseVideoModal();
-  }
+  // Refactor Adim 4A.1.1: [data-exercise-video-open] + [data-video-modal-close]
+  // click handler'lari -> library/libraryVideoModal.js (document-level delegation)
 }
 
-// v1.4.3: YouTube modal kaldırıldı — listType=search embed YouTube tarafından
-// kısıtlandığı için "Bu video kullanılamıyor" hatası veriyordu. Daha temiz UX:
-// video buton click → doğrudan YouTube search sayfasını yeni sekmede aç.
-// Modal/iframe karmaşası yok, telif/embed sorunları yok, %100 calisir.
-function openExerciseVideoModal(exerciseName) {
-  const safeName = String(exerciseName || "Egzersiz").trim();
-  const query = `${safeName} nasıl yapılır doğru form`;
-  const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-  window.open(searchUrl, "_blank", "noopener,noreferrer");
-}
-
-// v1.4.3: closeExerciseVideoModal — backward-compat (event handler hala cagirir
-// ama modal artık aktif degil; sessizce noop).
-function closeExerciseVideoModal() {
-  const modal = document.querySelector("#exerciseVideoModal");
-  if (modal) modal.classList.add("is-hidden");
-  document.body.classList.remove("is-video-modal-open");
-}
+// Refactor Adim 4A.1.1: openExerciseVideoModal + closeExerciseVideoModal -> library/libraryVideoModal.js
 
 function handleExerciseGifError(event) {
   const image = event.target;
@@ -3760,11 +3748,7 @@ function handleExerciseGifModalKeydown(event) {
   if (event.key === "Escape" && !exerciseGifModal?.classList.contains("is-hidden")) {
     closeExerciseGifModal();
   }
-  // v1.4.2: ESC ile video modal kapatma
-  const videoModal = document.querySelector("#exerciseVideoModal");
-  if (event.key === "Escape" && videoModal && !videoModal.classList.contains("is-hidden")) {
-    closeExerciseVideoModal();
-  }
+  // Refactor Adim 4A.1.1: ESC ile video modal kapatma -> library/libraryVideoModal.js
 }
 
 function openExerciseGifModal({ gifUrl, name, group }) {
