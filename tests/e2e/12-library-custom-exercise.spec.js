@@ -16,6 +16,12 @@ const { setupPage, navigate, assertNoErrors } = require("./_helpers");
 const STORAGE_KEY_CUSTOM = "formaplan-studio-custom-exercises";
 
 test("Library custom exercise CRUD + persistence", async ({ page }) => {
+  // Spec inherently yavas: cleanup + 2 reload + 6 aksiyon zinciri.
+  // Solo 27s, full suite icinde browser warm-up + serial overhead ile 40-50s.
+  // Default 30s yetmiyor — 90s tutuyoruz (4.x sprintlerinde daha az reload ile
+  // optimize edilebilir, ama baseline icin guvenli sinir).
+  test.setTimeout(90000);
+
   const { errors } = await setupPage(page);
 
   // Test isolation: önceki run'lardan kalan QA/Persist Test exercise'lerini ve
