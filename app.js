@@ -446,6 +446,9 @@ if (!window.BSMNutritionPersistence) {
 if (!window.BSMNutritionDiversification) {
   throw new Error("BSMNutritionDiversification yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMNutritionPlanFactory) {
+  throw new Error("BSMNutritionPlanFactory yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -523,6 +526,10 @@ const {
   applyDiversificationToPlan,
   buildSmartSupplementSuggestions,
 } = window.BSMNutritionDiversification;
+// Plan Factory destructure (Part 3E1): livePreview engine adapter
+const {
+  tryAutoGenerateNutritionPlan,
+} = window.BSMNutritionPlanFactory;
 
 // Refactor Adım 3: calculateMealMacros, resolveMealMacros, hasNonZeroMacros,
 // mealOverrideKey artık nutrition/nutritionHelpers.js içinde — destructure ile
@@ -1158,6 +1165,19 @@ function initialize() {
     supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
     mealOverrideKey: mealOverrideKey,
     normalizeSupplementCategoryKey: normalizeSupplementCategoryKey,
+  });
+  // Refactor Adım 3 part 3E1: Plan Factory'ye state + engine fn'leri +
+  // override chain fn'leri injection. typeof guard'i korumak icin
+  // buildNutritionPlan default null.
+  window.BSMNutritionPlanFactory.init({
+    state: state,
+    buildNutritionPlan: buildNutritionPlan,
+    normalizeNutritionPlan: normalizeNutritionPlan,
+    buildPreferencesFromFormState: buildPreferencesFromFormState,
+    applyUserOverridesToPlan: applyUserOverridesToPlan,
+    applyMealOverridesToPlan: applyMealOverridesToPlan,
+    ensureMealMacrosFallback: ensureMealMacrosFallback,
+    makeId: makeId,
   });
   populateStaticFilters();
   populateProgramStyleOptions();
@@ -8527,25 +8547,7 @@ function renderNutritionWorkspace() {
 // Form state'i uyenin profilinden + son olcumden + mevcut plandan doldur
 // Refactor Adim 3 part 3C: seedNutritionFormFromMember -> nutrition/nutritionPersistence.js (destructure)
 
-// Live preview icin auto-generate (canli ayardan plan uret, kaydetme)
-function tryAutoGenerateNutritionPlan(member) {
-  if (!member || typeof buildNutritionPlan !== "function") return null;
-  try {
-    const preferences = buildPreferencesFromFormState();
-    const activeProgram = state.activeProgram || member.programs?.[0]?.program || null;
-    let plan = normalizeNutritionPlan(buildNutritionPlan(member, activeProgram, preferences, { makeId }));
-    // v1.3.3: User override (kalori/makro) engine sonucunu basar + meals orantili scale
-    plan = applyUserOverridesToPlan(plan, state.nutritionFormState);
-    // v1.3.4: Manuel meal overrides + diversification post-process
-    plan = applyMealOverridesToPlan(plan, state.nutritionFormState);
-    // v1.3.6: P0 K0 Y0 fallback — engine meal macros bos/0 ise kaloriden 30/45/25 split
-    plan = ensureMealMacrosFallback(plan);
-    return plan;
-  } catch (e) {
-    console.warn("Nutrition auto-generate skipped:", e?.message);
-    return null;
-  }
-}
+// Refactor Adim 3 part 3E1: tryAutoGenerateNutritionPlan -> nutrition/nutritionPlanFactory.js (destructure)
 
 // v1.3.7: ensureMealMacrosFallback REWRITE — her meal'e actualCalories +
 // actualMacros field'larini ZORUNLU yazar. Spec gereği renderer 4-katmanli
