@@ -1,105 +1,166 @@
 # Nutrition Architecture — Technical Debt
 
-> **Snapshot:** Refactor ADIM 3B3 sonrası (commit `59a712c`, 2026-05-23).
-> app.js: 9927 satır · nutrition/*.js: 3793 satır (11 modül) · e2e: 16/16 pass.
+> **Snapshot:** Refactor ADIM 3E2 sonrası (commit `8610d16`, 2026-05-24).
+> app.js: 9607 satır · nutrition/*.js: 4548 satır (15 modül) · e2e: 18/18 pass.
 
-Bu doküman 3B serisinden sonra **app.js'de hala duran** nutrition kodunu, çıkartılması zor olan kalıntıları, ve gelecek refactor sıralamasını listeler. Yeni feature için **referans değil** — sadece bilinen borçların envanteri.
-
----
-
-## 1. Kalan app.js Nutrition Blokları (~600 satır)
-
-Modüllerden bağımsız hala app.js'de duran nutrition-ilgili kod:
-
-| Fonksiyon / Blok | ~Satır | Sebep |
-|---|---|---|
-| `seedNutritionFormFromMember` | 30 | Workspace callback'i, DI yükü ekstra |
-| `tryAutoGenerateNutritionPlan` | 20 | Engine adapter (build + apply chain) |
-| `applyUserOverridesToPlan` | 60 | User override scale + macro redistribute |
-| `applyMealOverridesToPlan` | 50 | Meal override merge + macro recalc |
-| `applyDiversificationToPlan` | 30 | Diversification post-process |
-| `diversifyMealFoods` | 60 | Meal-level food shuffle, usedProteinIds tracking |
-| `buildSmartSupplementSuggestions` | 40 | Smart-suggest logic |
-| `buildPreferencesFromFormState` | 25 | Form state → engine preferences mapping |
-| `renderNutritionWorkspace` wrapper | 10 | Top-level alias, Premium'a delege |
-| `syncNutritionAccordionInputs` | 35 | DOM input sync (set value) |
-| `updateNutritionGenerateButtonLabel` | 10 | Generate vs Update button label toggle |
-| `applyNutritionActiveViewClass` | 10 | View tab class toggle |
-| `setNutritionPdfActivePage` | 15 | PDF page nav + scroll |
-| **`saveNutritionButton` handler** | 50+ | **Yüksek değer extract** — Supabase + localStorage |
-| **`printNutritionButton` handler** | 30+ | **Yüksek değer extract** — PDF print flow |
-| `nutritionPanel` const + DOM refs | — | Module-level DOM bindings |
-| Misc bind glue + adapters | 100+ | Top-level init blokları arasında |
-
-**Tahmini extract potansiyeli:** ~600 satır (iki yeni modülle).
+Bu doküman nutrition domain refactor'unun **mevcut durumunu**, app.js'de **hala duran** nutrition kalıntılarını ve 4.x domain split öncesi son resmi yansıtır. Yeni feature için referans değil — sadece bilinen borçların envanteri.
 
 ---
 
-## 2. Persistence Extract Adayları
+## 1. Refactor 3 Serisi — Tamamlanma Durumu
 
-Hedef modül: `nutrition/nutritionPersistence.js`
+### ✅ Tamamlanan Modüller (10 modül, 2853 satır extract)
 
-| Aday Fonksiyon | Konum | Risk |
-|---|---|---|
-| `saveNutritionButton` click handler | app.js ~3484 | 🟡 Orta — Supabase race condition'a açık |
-| `printNutritionButton` click handler | app.js | 🟢 Düşük — DOM-only flow |
-| `seedNutritionFormFromMember` | app.js (Premium callback) | 🟢 Düşük — pure form fill |
-| `buildPreferencesFromFormState` | app.js (Handlers/Workspace) | 🟢 Düşük — pure mapping |
+| Part | Modül | LOC | Tamamlandı |
+|---|---|---|---|
+| 1 | `nutritionHelpers.js` | 241 | Pure helpers (calcFoodMacros, resolveMealMacros, mealOverrideKey, shiftTime, …) |
+| 2 | `nutritionPdfPipeline.js` | 658 | PDF render + Print Root (renderPdfPage1/2, buildKcalBar, prepareNutritionPrintRoot) |
+| 3A | `nutritionRenderers.js` | 401 | 8 saf render fn (timeline, macroView, supplementLibrary, …) |
+| 3B1 | `nutritionPremiumRenderers.js` | 148 | renderNutritionHero, renderMealEditorHtml |
+| 3B2 | `nutritionPremiumWorkspace.js` | 132 | renderNutritionPremiumWorkspace (orchestrator) |
+| 3B3 | `nutritionPremiumHandlers.js` | 518 | bindNutritionPremiumHandlers + reactive input chain |
+| 3C | `nutritionPersistence.js` | 355 | Save/Print handlers + seed/preferences/override mutations |
+| 3D | `nutritionDiversification.js` | 177 | diversifyMealFoods + applyDiversificationToPlan + smartSupplements |
+| 3E1 | `nutritionPlanFactory.js` | 96 | tryAutoGenerateNutritionPlan (livePreview adapter) |
+| 3E2 | `nutritionGenerateHandlers.js` | 127 | generateNutritionButton handler (raw plan write, capture phase) |
 
-**Bağımlılıklar:** `BSMSupabaseSync`, `localStorage`, `state.activeNutritionPlan`, `findActiveMember`.
-**Gerekli ek:** Yeni e2e spec — save flow (henüz test edilmiyor).
-
----
-
-## 3. Diversification Extract Adayları
-
-Hedef modül: `nutrition/nutritionDiversification.js`
-
-| Aday Fonksiyon | Konum | Risk |
-|---|---|---|
-| `diversifyMealFoods` | app.js:569 | 🟡 Orta — seed mantığı + usedProteinIds set |
-| `applyDiversificationToPlan` | app.js:631 | 🟡 Orta — plan mutate post-process |
-| `buildSmartSupplementSuggestions` | app.js:652 | 🟢 Düşük — pure logic |
-| `applyUserOverridesToPlan` | app.js | 🔴 Yüksek — meal macro scale chain, P0K0Y0 fix bağımlı |
-| `applyMealOverridesToPlan` | app.js | 🔴 Yüksek — calcFoodMacros chain, meal override format |
-
-Override fn'leri "Diversification" değil ama benzer kategori — ayrı modül (`nutritionPlanMutations.js`) tercih edilebilir.
-
----
-
-## 4. Reducer / State Riskleri
-
-`state.nutritionFormState` mutation yüzeyi **dağınık**:
+### 📊 Kümülatif Sonuçlar
 
 ```
-state.nutritionFormState.X = Y    pattern'i şu yerlerde:
-  app.js                   → 8 yerde (override, seed, post-process)
-  premiumHandlers.js       → 11 yerde (click/input handlers)
-  premiumWorkspace.js      → 1 yerde (memberId reset)
+app.js:        11456 → 9607 satır  (−1849, −16.1%)
+Extract:       2853 satır
+Overhead:      ~90 satır (destructure + init blokları)
+Tamamlanma:    ~%93-95
 ```
-
-**Sorunlar:**
-- Hangi action hangi field'ı değiştirir trace edilemez
-- Race: Workspace render sırasında handler tetiklenirse stale read
-- Undo/redo imkansız (mutation tracking yok)
-
-**Çözüm önerisi (uzun vade):**
-- `BSMNutritionState.dispatch({ type, payload })` reducer pattern
-- Tüm mutation'lar reducer üzerinden geçer
-- Action log audit trail için kullanılabilir
-
-**Kısa vadeli adım:** `setNutritionFormField(key, value)` helper'ı tek noktadan mutate eder, log için hook.
 
 ---
 
-## 5. Test Coverage Boşlukları
+## 2. Kalan app.js Nutrition Alanları (~103 satır)
 
-E2E suite (16 test) reactive + PDF testler iyi kapsıyor, ama eksikler:
+Modüllerden bağımsız hala app.js'de duran nutrition kodu:
+
+### DOM Sync (~35 satır)
+
+| Fonksiyon | Satır | Sebep |
+|---|---|---|
+| `syncNutritionAccordionInputs` | 35 | Form input value sync — premiumWorkspace içinden callback ile çağrılıyor; reactive chain'le coupling |
+
+### View State (~35 satır)
+
+| Fonksiyon | Satır | Sebep |
+|---|---|---|
+| `updateNutritionGenerateButtonLabel` | 10 | "Plan Oluştur" / "Planı Güncelle" toggle + save button class |
+| `applyNutritionActiveViewClass` | 10 | View tab (timeline/macro/pdf) class toggle |
+| `setNutritionPdfActivePage` | 15 | PDF page nav + smooth scroll |
+
+### Wrapper Fn'leri (~25 satır)
+
+| Fonksiyon | Satır | Sebep |
+|---|---|---|
+| `renderNutritionWorkspace` | 10 | Premium'a delege eden top-level alias |
+| `renderNutritionOutput` + `getNutritionPlanForOutput` | 15 | Output panel render glue (Üye Çıktısı'na) |
+
+### Bind Glue (~8 satır)
+
+| Kod | Satır | Sebep |
+|---|---|---|
+| `nutritionPanel.addEventListener("click", ...)` → sendMailButton | 3 | 1 satır click delegation |
+| Top-level DOM ref const'ları (`nutritionPanel`, `saveNutritionButton`, `printNutritionButton`, `generateNutritionButton`, `nutritionPlanEditor`) | 5 | Bootstrap DOM bindings |
+
+### Overhead (~90 satır)
+
+| Blok | Satır | Sebep |
+|---|---|---|
+| 10 modül guard check'leri | ~20 | `if (!window.BSMNutrition*) throw ...` |
+| 10 modül destructure block'ları | ~50 | `const { x, y, z } = window.BSMNutrition*;` |
+| `initialize()` içindeki 10 init call | ~70 | Her modüle DI parametreleri |
+
+**Toplam (fonksiyonel + overhead): ~193 satır**
+
+---
+
+## 3. Refactor 3F (DOM Sync + View State) — Opsiyonel
+
+### 3F1 — `nutritionFormSync.js` Adayı
+- `syncNutritionAccordionInputs` (~35 satır)
+- **Risk:** 🟢 Düşük (DOM input sync)
+- **Faydası:** Marginal — premiumWorkspace içinden callback ile çağrılıyor, modüle taşımak ekstra DI overhead getirir
+
+### 3F2 — `nutritionViewState.js` Adayı
+- `updateNutritionGenerateButtonLabel`, `applyNutritionActiveViewClass`, `setNutritionPdfActivePage` (~35 satır)
+- **Risk:** 🟢 Düşük (DOM class toggle)
+- **Faydası:** Marginal — küçük helper'lar, modüle taşımak ekstra overhead
+
+### Neden 3F Opsiyonel?
+
+1. **Kalan kod küçük** (~103 fonksiyonel satır, major sorumluluk yok)
+2. **Mantıksal grupları belirsiz** — 4.x domain split sırasında bu helper'lar ait oldukları domain'e organic şekilde dağılır
+3. **3F ekstra overhead getirir** (~20 satır × 2 modül = 40 satır init/destructure)
+4. **4.x sırasında daha temiz** — domain split sırasında nutrition/ klasörü altında doğru yerine yerleşir
+5. **app.js'in bootstrap rolü gerektirir** — bazı helper'lar (renderNutritionWorkspace wrapper) muhtemelen 4.x'de silinir veya birleştirilir
+
+### Önerilen Yol: **3F'i atla, doğrudan 4.x'e geç**
+
+Kalan ~103 satır 4.x domain split sırasında `nutrition/` klasörüne dağılır:
+- `syncNutritionAccordionInputs` → `nutrition/nutritionFormSync.js` (4.x ile birlikte)
+- View state helpers → `nutrition/nutritionViewState.js` (4.x ile birlikte)
+- Wrapper'lar muhtemelen silinir (direkt Premium çağrı veya output domain'inde)
+
+---
+
+## 4. 4.x Öncesi Stabilization Status
+
+### ✅ Yeşil (Geçiş Güvenli)
+
+| Gate | Durum |
+|---|---|
+| E2E regression suite | 18/18 pass |
+| Console / page / network error | 0 / 0 / 0 |
+| Nutrition major sorumlulukları modüler | ✅ 10 modül |
+| Generate raw plan ↔ livePreview distinction | ✅ Spec #18 kilitli |
+| Save/Print/PDF preview parity | ✅ Spec #11, #12, #17 |
+| Reactive form chain | ✅ Spec #8, #9 |
+| Idempotent bind koruması | ✅ generate + save + print + premium hepsi guard'lı |
+| Cross-module callback chain | ✅ Lazy callback pattern sağlam |
+| Engine bridge (planFactory) izole | ✅ |
+| Working tree clean | ✅ |
+
+### 🟡 Sarı (4.x Sırasında Dikkat)
+
+| Konu | Etki |
+|---|---|
+| Kalan ~103 satır nutrition glue | 4.x sırasında nutrition/ altında organize edilecek — minor |
+| Supabase race manuel QA | Test mode izole, production manuel doğrulama önerilir |
+| 6 e2e action gap | handleMealAction CRUD, smart-suggest, reset, enable-supplements henüz test edilmiyor |
+| TECH-DEBT.md yeni domain split planı | DOMAIN-SPLIT-PLAN.md'ye taşındı (3E2 sonrası) |
+
+### ❌ Kırmızı (Gerçek Blocker): **HİÇBİR ŞEY**
+
+---
+
+## 5. Reducer/State Riskleri (Uzun Vade)
+
+`state.nutritionFormState` mutation yüzeyi **artık daha izole**:
+
+```
+Refactor 3 öncesi:               Refactor 3 sonrası:
+  app.js → ~20 yerde mutate         app.js → 0 (sadece destructure)
+                                    nutritionPersistence → 4 yerde (seed/save)
+                                    nutritionPremiumHandlers → 11 yerde (handlers)
+                                    nutritionDiversification → 1 yerde (mealOverrides)
+                                    nutritionGenerateHandlers → 2 yerde (activeNutritionPlan)
+                                    nutritionPlanFactory → 0 (read-only)
+```
+
+**4.x öncesi durum:** Mutation hala dağınık ama her modülün sorumluluk alanı net. Reducer pattern (uzun vade) hala değerli ama **acil değil** — 4.x'den sonraki sprintlere bırakılabilir.
+
+---
+
+## 6. Test Coverage Boşlukları
 
 | Akış | Test var mı? |
 |---|---|
-| Plan oluştur button click → save | ❌ |
-| Plan güncelle button click | ❌ |
+| Plan oluştur button → save | ✅ Spec #18 (3E2 sonrası) |
 | `handleMealAction("edit")` toggle | ❌ |
 | `handleMealAction("add-food")` | ❌ |
 | `handleMealAction("remove-food")` | ❌ |
@@ -112,63 +173,53 @@ E2E suite (16 test) reactive + PDF testler iyi kapsıyor, ama eksikler:
 | `reset` action | ❌ |
 | Supplement filter chip click | ❌ |
 | Supplement add/remove toggle | ❌ |
-| `printNutritionButton` click → PDF print | ❌ |
+| `printNutritionButton` click → PDF print | ✅ Spec #17 (3C sonrası) |
 | Email button → send mail | ❌ |
+| Generate flow (duplicate click + raw vs livePreview) | ✅ Spec #18 (3E2 sonrası) |
 
-**Önerilen:** Tek dosya `10-nutrition-handlers.spec.js` ile ~10 ek test (~1 saat iş).
+**Önerilen (4.x öncesi DEĞİL, 4.x sonrası):** Tek dosya `12-nutrition-handlers.spec.js` ile ~10 ek test. 4.x sırasında test ağı genişletilebilir.
 
 ---
 
-## 6. Bilinen Code Smell'ler
+## 7. Bilinen Code Smell'ler (Refactor Sonrası)
 
 | Kod Kokusu | Konum | Etki |
 |---|---|---|
-| `renderNutritionWorkspace` ikinci wrapper | app.js (calls renderNutritionPremiumWorkspace) | Gereksiz indirection, legacy aliasing |
-| `debouncedNutritionInputHandler` IIFE `_state` lazy access | premiumHandlers.js | Init order'a güvenir — pre-init crash riski |
-| Print Root + preview canvas duplicate render | pdfPipeline.js | Bellekte iki DOM kopya; preview = export gerekçesiyle kasıtlı ama dikkat |
-| 20 dependency'li init() — premiumHandlers | premiumHandlers.js | DI surface çok geniş, refactor parametre değişikliklerinde brittle |
-| Engine fn'leri (buildNutritionPlan, makeId) direct inject | premiumHandlers.js | Engine değişimi handler'ı kırar — adapter yok |
-| `nutritionPanel` const lazy getter inconsistent | bazı modüllerde getter, bazılarında değil | Hijyen meselesi, runtime'da fark yok |
+| `renderNutritionWorkspace` ikinci wrapper | app.js (calls renderNutritionPremiumWorkspace) | Gereksiz indirection, legacy aliasing. 4.x sırasında silinmesi muhtemel |
+| `debouncedNutritionInputHandler` IIFE `_state` lazy access | premiumHandlers.js | Init order'a güvenir — pre-init crash riski (test'lerde tetiklenmiyor) |
+| Print Root + preview canvas duplicate render | pdfPipeline.js | Bellekte iki DOM kopya; preview = export gerekçesiyle kasıtlı |
+| 20 dependency'li init() — premiumHandlers | premiumHandlers.js | DI surface çok geniş — parametre değişikliklerinde brittle |
+| Engine fn'leri (buildNutritionPlan, makeId) direct inject | generateHandlers.js + planFactory.js | Engine adapter pattern yok — engine değişimi 2 yerde değişiklik |
+| Yetimsiz top-level DOM refs (`generateNutritionButton`, `saveNutritionButton`) | app.js:910-915 | Modüller artık `document.querySelector` ile alıyor; const'lar muhtemelen kaldırılabilir |
 
 ---
 
-## 7. Önerilen Sıralama
+## 8. Önerilen Sıralama (4.x Sonrası)
 
-### 🥇 Adım 3C — Persistence + Form State Extract
-- `nutritionPersistence.js` yeni modülü
-- saveNutritionButton + printNutritionButton handlers
-- seedNutritionFormFromMember + buildPreferencesFromFormState
-- **Tahmini app.js azalma:** ~250 satır
-- **Risk:** 🟢 Düşük (Supabase sync test mode izole)
-- **Gerekli ek:** save flow e2e spec
+### 🥇 4.x — Domain Split (Sonraki büyük adım)
+- Member / Program / Measurement / Output / Nutrition domain klasörleri
+- app.js → 4 ana entry point + bootstrap glue
+- **Risk:** 🔴 Yüksek (4000+ satır nutrition dışı kod hareket)
+- **Yaklaşım:** [DOMAIN-SPLIT-PLAN.md](./DOMAIN-SPLIT-PLAN.md)
 
-### 🥈 Adım 3D — Diversification + Plan Mutations Extract
-- `nutritionDiversification.js` veya `nutritionPlanMutations.js`
-- diversifyMealFoods + applyDiversificationToPlan + buildSmartSupplementSuggestions
-- (Opsiyonel) applyUserOverridesToPlan + applyMealOverridesToPlan
-- **Tahmini app.js azalma:** ~150-250 satır
-- **Risk:** 🟡 Orta — plan mutate chain, P0K0Y0 fix bağımlı
-
-### 🥉 Adım 4 — Domain Bootstrap Modülleri
-9927 satır app.js'i domain'lere böl:
-- `member/` (~1500 satır)
-- `program/` (~2000 satır)
-- `measurement/` (~1500 satır)
-- `output/` (~600 satır)
-- Bootstrap glue (~500 satır)
-
-### 🏅 Adım 5 — Reducer Pattern (Uzun Vade)
-- `BSMNutritionState.dispatch` action handler
-- State mutation tek noktadan
+### 🥈 5.x — Reducer Pattern (Uzun Vade)
+- `BSMState.dispatch({ type, payload })` merkezi action handler
 - Audit trail + undo/redo zemini
+- **Risk:** 🔴 Yüksek (tüm modüllerde mutation site değişikliği)
+
+### 🥉 6.x — Test Coverage Genişletme
+- `12-nutrition-handlers.spec.js` (10 ek test)
+- `13-program-builder.spec.js`
+- `14-measurement-flow.spec.js`
+- **Risk:** 🟢 Düşük (sadece test ekleme)
 
 ### Hızlı Kazançlar (refactor dışı, < 1 saat)
-- ✅ `tests/_report/` gitignore — Done (bu sprint)
-- ⏳ `10-nutrition-handlers.spec.js` — 10 ek test
-- ⏳ `renderNutritionWorkspace` wrapper sil — call site'ları audit
+- ✅ `tests/_report/` gitignore — DONE (stabilization sprint, 2026-05-23)
+- ⏳ TECH-DEBT.md güncelleme — Bu sprint
+- ⏳ `renderNutritionWorkspace` wrapper'ı sil — 4.x içinde
 
 ---
 
 ## Versiyon Notu
 
-Bu doküman Refactor 3B3 commit `59a712c` durumunu yansıtır. Sıradaki refactor adımları başlatıldığında bu dosya güncellenmeli (her adım sonrası ilgili satırlar struck-out edilir).
+Bu doküman Refactor 3E2 commit `8610d16` durumunu yansıtır. 4.x domain split başlatıldığında bu dosya **DOMAIN-SPLIT-PLAN.md** ile birlikte güncellenmeli (her adım sonrası ilgili satırlar struck-out edilir veya yeni bölümler eklenir).
