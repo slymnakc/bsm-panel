@@ -449,6 +449,9 @@ if (!window.BSMNutritionDiversification) {
 if (!window.BSMNutritionPlanFactory) {
   throw new Error("BSMNutritionPlanFactory yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMNutritionGenerateHandlers) {
+  throw new Error("BSMNutritionGenerateHandlers yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -530,6 +533,10 @@ const {
 const {
   tryAutoGenerateNutritionPlan,
 } = window.BSMNutritionPlanFactory;
+// Generate Handlers destructure (Part 3E2): generateNutritionButton bind
+const {
+  bindNutritionGenerateHandler,
+} = window.BSMNutritionGenerateHandlers;
 
 // Refactor Adım 3: calculateMealMacros, resolveMealMacros, hasNonZeroMacros,
 // mealOverrideKey artık nutrition/nutritionHelpers.js içinde — destructure ile
@@ -1177,6 +1184,20 @@ function initialize() {
     applyUserOverridesToPlan: applyUserOverridesToPlan,
     applyMealOverridesToPlan: applyMealOverridesToPlan,
     ensureMealMacrosFallback: ensureMealMacrosFallback,
+    makeId: makeId,
+  });
+  // Refactor Adım 3 part 3E2: Generate Handlers'a state + 4 callback (showStatus,
+  // findActiveMember, renderNutritionWorkspace) + buildPreferencesFromFormState
+  // + 3 engine fn (buildNutritionPlan, normalizeNutritionPlan, makeId) injection.
+  // Generate handler RAW engine plan write yapar — override chain UYGULANMAZ.
+  window.BSMNutritionGenerateHandlers.init({
+    state: state,
+    showStatus: function (msg, type) { return showStatus(msg, type); },
+    findActiveMember: function () { return findActiveMember(); },
+    renderNutritionWorkspace: function () { return renderNutritionWorkspace(); },
+    buildPreferencesFromFormState: buildPreferencesFromFormState,
+    buildNutritionPlan: buildNutritionPlan,
+    normalizeNutritionPlan: normalizeNutritionPlan,
     makeId: makeId,
   });
   populateStaticFilters();
@@ -3372,34 +3393,8 @@ function bindApplicationHandlers() {
   // bu ekstra premium UI etkilesimlerini ekler.
   try { bindNutritionPremiumHandlers(); } catch (e) { console.warn("Nutrition premium bind error:", e); }
 
-  // v1.2.4: Legacy generate handler eski #nutritionMealCount/#nutritionDayType input'larini
-  // okuyor; premium UI bunlari segment/farkli ID kullaniyor. Bu yuzden generate butonuna
-  // capture-phase ile bir on-handler ekliyoruz: nutritionFormState'ten direkt build yapsin.
-  generateNutritionButton?.addEventListener(
-    "click",
-    (e) => {
-      const member = findActiveMember();
-      if (!member) {
-        showStatus("Beslenme planı için önce bir üye seçin.", "error");
-        e.stopImmediatePropagation();
-        return;
-      }
-      try {
-        const preferences = buildPreferencesFromFormState();
-        const activeProgram = state.activeProgram || member.programs?.[0]?.program || null;
-        state.activeNutritionPlan = normalizeNutritionPlan(buildNutritionPlan(member, activeProgram, preferences, { makeId }));
-        state.activeNutritionMemberId = member.id;
-        renderNutritionWorkspace();
-        showStatus("Beslenme planı oluşturuldu.", "success");
-      } catch (err) {
-        showStatus("Beslenme planı üretilemedi: " + (err?.message || ""), "error");
-        console.error(err);
-      }
-      // Legacy handleGenerateNutritionPlan'in tekrar build etmemesi icin durdur
-      e.stopImmediatePropagation();
-    },
-    true,
-  );
+  // Refactor Adim 3 part 3E2: generateNutritionButton handler -> nutrition/nutritionGenerateHandlers.js (idempotent guard, capture phase, stopImmediatePropagation korundu)
+  bindNutritionGenerateHandler();
 
   // Refactor Adım 3 part 3C: saveNutritionButton + printNutritionButton handlers →
   // nutrition/nutritionPersistence.js (idempotent guard'li bind)
