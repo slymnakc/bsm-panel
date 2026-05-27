@@ -33,7 +33,7 @@ test("Library custom exercise CRUD + persistence", async ({ page }) => {
     const cleaned = all.filter((e) => !/^QA Test Hareket|^Persist Test/.test(e.name || ""));
     localStorage.setItem("formaplan-studio-custom-exercises", JSON.stringify(cleaned));
     // Tüm hidden exercise'leri temizle (test izolasyonu için)
-    localStorage.removeItem("formaplan-studio-hidden-exercises");
+    localStorage.removeItem("formaplan-studio-hidden-exercise-ids");
   });
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForTimeout(800);
@@ -187,7 +187,7 @@ test("Library custom exercise CRUD + persistence", async ({ page }) => {
 
   const afterHide = await page.evaluate((targetId) => {
     const items = [...document.querySelectorAll("#exerciseLibrary [data-exercise-id]")];
-    const hiddenLs = JSON.parse(localStorage.getItem("formaplan-studio-hidden-exercises") || "[]");
+    const hiddenLs = JSON.parse(localStorage.getItem("formaplan-studio-hidden-exercise-ids") || "[]");
     const statusText = (document.querySelector("#customExerciseStatus")?.textContent || "").trim();
     const hintEl = document.querySelector("#customExerciseList .custom-exercise-list__hint");
     return {
@@ -201,6 +201,7 @@ test("Library custom exercise CRUD + persistence", async ({ page }) => {
 
   expect(afterHide.itemCount, "Hide sonrası library exercise count azaldı").toBe(hideResult.beforeCount - 1);
   expect(afterHide.targetStillVisible, "Hide edilen exercise library'de yok").toBe(false);
+  expect(afterHide.hiddenLsHasTarget, "Hide sonrası localStorage hidden-exercise-ids içinde target id var").toBe(true);
   expect(/gizlen|hidden|kaldır/i.test(afterHide.statusText), `Hide status mesajı (gerçek: "${afterHide.statusText}")`).toBe(true);
 
   // ─── DOĞRULAMA 6: Restore hidden ──────────────────────────────────────
