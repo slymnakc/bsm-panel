@@ -458,6 +458,9 @@ if (!window.BSMLibraryVideoModal) {
 if (!window.BSMLibraryRenderers) {
   throw new Error("BSMLibraryRenderers yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMLibraryCustomExercise) {
+  throw new Error("BSMLibraryCustomExercise yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -1250,6 +1253,39 @@ function initialize() {
       customExerciseList: customExerciseList,
     },
   });
+  // Refactor Adım 4A.1.3: Custom Exercise CRUD → library/libraryCustomExercise.js
+  // refreshExerciseLibrary CALLBACK olarak inject — mutable cache (exerciseLibrary)
+  // app.js'de kaliyor. getExerciseLibrary lazy getter pattern renderers ile ayni.
+  window.BSMLibraryCustomExercise.init({
+    state: state,
+    domRefs: {
+      customExerciseName: customExerciseName,
+      customExerciseGroup: customExerciseGroup,
+      customExerciseEquipment: customExerciseEquipment,
+      customExerciseKind: customExerciseKind,
+      customExerciseLevel: customExerciseLevel,
+      customExerciseGifUrl: customExerciseGifUrl,
+      customExerciseCue: customExerciseCue,
+      customExerciseStatus: customExerciseStatus,
+      customExerciseList: customExerciseList,
+      exerciseLibraryEl: exerciseLibraryEl,
+      addCustomExerciseButton: addCustomExerciseButton,
+      resetCustomExerciseFormButton: resetCustomExerciseFormButton,
+      restoreHiddenExercisesButton: restoreHiddenExercisesButton,
+    },
+    storageKeys: storageKeys,
+    saveToStorage: saveToStorage,
+    loadFromStorage: loadFromStorage,
+    persistSupabaseAppSetting: function (key, payload) { return persistSupabaseAppSetting(key, payload); },
+    refreshExerciseLibrary: function () { return refreshExerciseLibrary(); },
+    renderLibrary: function () { return renderLibrary(); },
+    getExerciseLibrary: function () { return exerciseLibrary; },
+    normalizeText: normalizeText,
+    makeId: makeId,
+    muscleGroups: muscleGroups,
+    equipmentLabels: equipmentLabels,
+    baseExerciseLibrary: baseExerciseLibrary,
+  });
   populateStaticFilters();
   populateProgramStyleOptions();
   prepareRepetitionTemplateControls();
@@ -1274,8 +1310,8 @@ function initializeStateFromStorage() {
   state.activeMemberId = loadActiveMemberId();
   syncActiveMemberState();
   state.activeMemberSort = normalizeMemberSort(loadMemberSort());
-  state.customExercises = loadCustomExercises();
-  state.hiddenExerciseIds = loadHiddenExerciseIds();
+  state.customExercises = window.BSMLibraryCustomExercise.loadCustomExercises();
+  state.hiddenExerciseIds = window.BSMLibraryCustomExercise.loadHiddenExerciseIds();
   refreshExerciseLibrary();
 
   if (state.members.length && !loadBackupHistory().length) {
@@ -1285,95 +1321,11 @@ function initializeStateFromStorage() {
   saveMemberSort(state.activeMemberSort);
 }
 
-function loadCustomExercises() {
-  return normalizeCustomExercises(loadFromStorage(storageKeys.customExercises));
-}
-
-function loadHiddenExerciseIds() {
-  const ids = loadFromStorage(storageKeys.hiddenExerciseIds);
-  return Array.isArray(ids) ? [...new Set(ids.map(String).filter(Boolean))] : [];
-}
-
-function normalizeCustomExercises(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map(normalizeCustomExercise)
-    .filter(Boolean);
-}
-
-function normalizeCustomExercise(exercise) {
-  if (!exercise || typeof exercise !== "object") {
-    return null;
-  }
-
-  const name = String(exercise.name || "").trim();
-  const group = normalizeExerciseGroup(exercise.group);
-  const equipment = normalizeExerciseEquipment(exercise.equipment);
-
-  if (!name || !group) {
-    return null;
-  }
-
-  return {
-    id: String(exercise.id || makeCustomExerciseId(name, group)),
-    group,
-    name,
-    equipment,
-    kind: normalizeCustomExerciseKind(exercise.kind),
-    level: normalizeCustomExerciseLevel(exercise.level),
-    tags: Array.isArray(exercise.tags) ? exercise.tags : ["custom"],
-    cue: String(exercise.cue || "Kontrollü formda uygula.").trim(),
-    gifUrl: String(exercise.gifUrl || "").trim(),
-    isCustom: true,
-  };
-}
-
 function refreshExerciseLibrary() {
   const hiddenIds = new Set(state.hiddenExerciseIds);
   const mergedExercises = [...baseExerciseLibrary, ...state.customExercises].filter((exercise) => !hiddenIds.has(exercise.id));
 
   exerciseLibrary.splice(0, exerciseLibrary.length, ...mergedExercises);
-}
-
-function persistCustomExercises() {
-  saveToStorage(storageKeys.customExercises, state.customExercises);
-  persistSupabaseAppSetting("customExercises", state.customExercises);
-}
-
-function persistHiddenExerciseIds() {
-  saveToStorage(storageKeys.hiddenExerciseIds, state.hiddenExerciseIds);
-  persistSupabaseAppSetting("hiddenExerciseIds", state.hiddenExerciseIds);
-}
-
-function makeCustomExerciseId(name, group) {
-  const slug = normalizeText(`${group}-${name}`)
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return `custom-${slug || makeId("exercise")}`;
-}
-
-function normalizeExerciseGroup(value) {
-  const group = String(value || "").trim();
-  return muscleGroups.some((item) => item.id === group) ? group : muscleGroups[0]?.id || "";
-}
-
-function normalizeExerciseEquipment(value) {
-  const equipment = String(value || "").trim();
-  return equipmentLabels[equipment] ? equipment : "bodyweight";
-}
-
-function normalizeCustomExerciseKind(value) {
-  const kind = String(value || "").trim();
-  return ["compound", "accessory", "cardio", "conditioning", "mobility", "core"].includes(kind) ? kind : "accessory";
-}
-
-function normalizeCustomExerciseLevel(value) {
-  const level = String(value || "").trim();
-  return ["beginner", "intermediate", "advanced"].includes(level) ? level : "intermediate";
 }
 
 function syncStartupUi() {
@@ -3262,12 +3214,12 @@ function syncAppSettingsFromSupabase() {
       const hasRemoteHiddenExerciseIds = Array.isArray(settings.hiddenExerciseIds);
 
       if (hasRemoteCustomExercises) {
-        state.customExercises = normalizeCustomExercises(settings.customExercises);
+        state.customExercises = window.BSMLibraryCustomExercise.normalizeCustomExercises(settings.customExercises);
         saveToStorage(storageKeys.customExercises, state.customExercises);
       }
 
       if (hasRemoteHiddenExerciseIds) {
-        state.hiddenExerciseIds = normalizeHiddenExerciseIds(settings.hiddenExerciseIds);
+        state.hiddenExerciseIds = window.BSMLibraryCustomExercise.normalizeHiddenExerciseIds(settings.hiddenExerciseIds);
         saveToStorage(storageKeys.hiddenExerciseIds, state.hiddenExerciseIds);
       }
 
@@ -3294,10 +3246,6 @@ function persistSupabaseAppSetting(key, payload) {
   }
 
   window.BSMSupabaseSyncService.persistAppSetting(key, payload);
-}
-
-function normalizeHiddenExerciseIds(value) {
-  return Array.isArray(value) ? [...new Set(value.map(String).filter(Boolean))] : [];
 }
 
 function handleWorkflowAssistantAction(event) {
@@ -3449,11 +3397,9 @@ function bindApplicationHandlers() {
   // Refactor Adım 3 part 3C: saveNutritionButton + printNutritionButton handlers →
   // nutrition/nutritionPersistence.js (idempotent guard'li bind)
   bindNutritionPersistenceHandlers();
-  addCustomExerciseButton?.addEventListener("click", handleAddCustomExercise);
-  resetCustomExerciseFormButton?.addEventListener("click", clearCustomExerciseForm);
-  restoreHiddenExercisesButton?.addEventListener("click", handleRestoreHiddenExercises);
-  exerciseLibraryEl?.addEventListener("click", handleLibraryExerciseAction);
-  customExerciseList?.addEventListener("click", handleLibraryExerciseAction);
+  // Refactor Adım 4A.1.3: Custom exercise CRUD button + delegated click bind'lari
+  // library/libraryCustomExercise.js'e tasindi. Idempotent guard (dataset.bsmLibraryCustomExerciseBound) icinde aktif.
+  window.BSMLibraryCustomExercise.bindLibraryCustomExerciseHandlers();
   activeMemberProfile?.addEventListener("click", handleWorkflowAssistantAction);
 buildMeasurementReportButton?.addEventListener("click", handleBuildMeasurementReport);
 measurementTabPdfButton?.addEventListener("click", handlePrintMeasurementReport);
@@ -3555,152 +3501,6 @@ function syncSidebarActive() {
   document.querySelectorAll(".app-sidebar__item[data-screen-target]").forEach((btn) => {
     btn.classList.toggle("is-active", btn.dataset.screenTarget === activeScreen);
   });
-}
-
-function handleAddCustomExercise() {
-  const exercise = collectCustomExerciseForm();
-  const validationError = validateCustomExercise(exercise);
-
-  if (validationError) {
-    setCustomExerciseStatus(validationError, "error");
-    return;
-  }
-
-  state.customExercises = [...state.customExercises, exercise];
-  persistCustomExercises();
-  refreshExerciseLibrary();
-  clearCustomExerciseForm();
-  setCustomExerciseStatus(`${exercise.name} kütüphaneye eklendi.`, "success");
-  renderLibrary();
-}
-
-function handleLibraryExerciseAction(event) {
-  const button = event.target.closest("[data-exercise-library-action]");
-
-  if (!button) {
-    return;
-  }
-
-  const exerciseId = button.dataset.exerciseId;
-  const action = button.dataset.exerciseLibraryAction;
-
-  if (action === "remove-custom") {
-    removeCustomExercise(exerciseId);
-    return;
-  }
-
-  if (action === "hide") {
-    hideLibraryExercise(exerciseId);
-  }
-}
-
-function handleRestoreHiddenExercises() {
-  if (!state.hiddenExerciseIds.length) {
-    setCustomExerciseStatus("Geri getirilecek gizlenmiş hareket yok.", "neutral");
-    return;
-  }
-
-  state.hiddenExerciseIds = [];
-  persistHiddenExerciseIds();
-  refreshExerciseLibrary();
-  setCustomExerciseStatus("Gizlenen hazır hareketler tekrar kütüphaneye eklendi.", "success");
-  renderLibrary();
-}
-
-function collectCustomExerciseForm() {
-  const name = String(customExerciseName?.value || "").trim();
-  const group = normalizeExerciseGroup(customExerciseGroup?.value);
-
-  return normalizeCustomExercise({
-    id: makeUniqueCustomExerciseId(name, group),
-    name,
-    group,
-    equipment: customExerciseEquipment?.value,
-    kind: customExerciseKind?.value,
-    level: customExerciseLevel?.value,
-    cue: customExerciseCue?.value,
-    gifUrl: customExerciseGifUrl?.value,
-    tags: ["custom"],
-  });
-}
-
-function validateCustomExercise(exercise) {
-  if (!exercise?.name) {
-    return "Hareket adı boş olamaz.";
-  }
-
-  const duplicate = [...baseExerciseLibrary, ...state.customExercises].some(
-    (item) => item.group === exercise.group && normalizeText(item.name) === normalizeText(exercise.name),
-  );
-
-  if (duplicate) {
-    return "Bu kas grubunda aynı isimle bir hareket zaten var.";
-  }
-
-  return "";
-}
-
-function makeUniqueCustomExerciseId(name, group) {
-  const baseId = makeCustomExerciseId(name, group);
-  const existingIds = new Set([...baseExerciseLibrary, ...state.customExercises].map((exercise) => exercise.id));
-
-  if (!existingIds.has(baseId)) {
-    return baseId;
-  }
-
-  return `${baseId}-${Date.now().toString(36)}`;
-}
-
-function removeCustomExercise(exerciseId) {
-  const exercise = state.customExercises.find((item) => item.id === exerciseId);
-
-  if (!exercise) {
-    setCustomExerciseStatus("Silinecek özel hareket bulunamadı.", "error");
-    return;
-  }
-
-  state.customExercises = state.customExercises.filter((item) => item.id !== exerciseId);
-  persistCustomExercises();
-  refreshExerciseLibrary();
-  setCustomExerciseStatus(`${exercise.name} özel hareketlerden silindi.`, "success");
-  renderLibrary();
-}
-
-function hideLibraryExercise(exerciseId) {
-  const exercise = exerciseLibrary.find((item) => item.id === exerciseId);
-
-  if (!exercise) {
-    setCustomExerciseStatus("Gizlenecek hareket bulunamadı.", "error");
-    return;
-  }
-
-  if (exercise.isCustom) {
-    removeCustomExercise(exerciseId);
-    return;
-  }
-
-  state.hiddenExerciseIds = [...new Set([...state.hiddenExerciseIds, exerciseId])];
-  persistHiddenExerciseIds();
-  refreshExerciseLibrary();
-  setCustomExerciseStatus(`${exercise.name} hazır kütüphaneden gizlendi.`, "success");
-  renderLibrary();
-}
-
-function clearCustomExerciseForm() {
-  if (customExerciseName) customExerciseName.value = "";
-  if (customExerciseGifUrl) customExerciseGifUrl.value = "";
-  if (customExerciseCue) customExerciseCue.value = "";
-  if (customExerciseKind) customExerciseKind.value = "compound";
-  if (customExerciseLevel) customExerciseLevel.value = "intermediate";
-}
-
-function setCustomExerciseStatus(message, type = "neutral") {
-  if (!customExerciseStatus) {
-    return;
-  }
-
-  customExerciseStatus.textContent = message;
-  customExerciseStatus.dataset.state = type;
 }
 
 function handleExerciseGifModalClick(event) {
