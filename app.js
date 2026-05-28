@@ -464,6 +464,9 @@ if (!window.BSMLibraryCustomExercise) {
 if (!window.BSMOutputRenderers) {
   throw new Error("BSMOutputRenderers yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMOutputActions) {
+  throw new Error("BSMOutputActions yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -1321,6 +1324,30 @@ function initialize() {
     findActiveMember: function () { return findActiveMember(); },
     labelMaps: labelMaps,
     escapeHtml: escapeHtml,
+  });
+  // Refactor Adım 4A.2.2: Output action katmani (PDF/HTML/Print/Copy + export pipeline +
+  // shared PDF payload) → output/outputActions.js. handlers/output-handlers.js'deki mail
+  // flow bu modulun buildLiveProgramHtml/buildProgramPdfPayload/setProgramDeliveryStatus/
+  // slugifyFilePart fn'lerini cross-module reference ile kullanir.
+  window.BSMOutputActions.init({
+    state: state,
+    domRefs: {
+      resultsSection: resultsSection,
+      programDeliveryStatus: programDeliveryStatus,
+    },
+    showStatus: function (m, t) { return showStatus(m, t); },
+    renderProgram: function (program, options) { return renderProgram(program, options); },
+    getCurrentProgramFromEditor: function () { return getCurrentProgramFromEditor(); },
+    validateEditableProgram: function (program) { return validateEditableProgram(program); },
+    loadLastPlan: loadLastPlan,
+    collectFormData: collectFormData,
+    findActiveMember: function () { return findActiveMember(); },
+    convertProgramToText: convertProgramToText,
+    downloadFile: downloadFile,
+    formatFileDate: formatFileDate,
+    escapeHtml: escapeHtml,
+    labelMaps: labelMaps,
+    getDayLabel: getDayLabel,
   });
   populateStaticFilters();
   populateProgramStyleOptions();
@@ -3336,10 +3363,6 @@ function bindApplicationHandlers() {
   );
   bindOutputHandlers(
     {
-      copyPlanButton,
-      printPlanButton,
-      programPdfActionButton,
-      downloadLiveProgramButton,
       sendProgramMailButton,
       programDeliveryStatus,
       programMailHistory,
@@ -3351,6 +3374,14 @@ function bindApplicationHandlers() {
     },
     outputHandlers,
   );
+  // Refactor Adım 4A.2.2: Output action button bind'lari (copy/print/pdf/html) →
+  // output/outputActions.js (idempotent guard'li). Mail + backup bind'lari yukarida kaldi.
+  window.BSMOutputActions.bindOutputActionHandlers({
+    copyPlanButton,
+    printPlanButton,
+    programPdfActionButton,
+    downloadLiveProgramButton,
+  });
   // v1.1.8: Report Center UI etkilesimleri (toggle counter + thumbnail switch)
   try { bindReportCenterHandlers(); } catch (e) { /* defansif */ }
   bindNutritionHandlers(
