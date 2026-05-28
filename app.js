@@ -461,6 +461,9 @@ if (!window.BSMLibraryRenderers) {
 if (!window.BSMLibraryCustomExercise) {
   throw new Error("BSMLibraryCustomExercise yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMOutputRenderers) {
+  throw new Error("BSMOutputRenderers yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -1001,7 +1004,7 @@ const nutritionHandlers = createNutritionHandlers({
   collectSupplementPreferences,
   collectNutritionPlanEdits,
   renderNutritionWorkspace,
-  renderNutritionOutput,
+  renderNutritionOutput: function () { return window.BSMOutputRenderers.renderNutritionOutput(); },
   persistMembers,
   renderMemberWorkspace,
   showStatus,
@@ -1286,12 +1289,45 @@ function initialize() {
     equipmentLabels: equipmentLabels,
     baseExerciseLibrary: baseExerciseLibrary,
   });
+  // Refactor Adım 4A.2.1: Output render wrapper'lari → output/outputRenderers.js
+  // MOVE HOST / KEEP OWNER: renderNutritionOutput wrapper tasindi ama gercek
+  // render owner BSMNutritionUI.renderOutputNutritionPlan'da kaldi. Signature
+  // (target, plan, labelMaps, escapeHtml) korundu, plan parametresi UNUSED.
+  window.BSMOutputRenderers.init({
+    state: state,
+    domRefs: {
+      resultsSection: resultsSection,
+      programOverview: programOverview,
+      weeklyPlan: weeklyPlan,
+      coachNote: coachNote,
+      aiReportSummary: aiReportSummary,
+      nextControlReport: nextControlReport,
+      outputWarnings: outputWarnings,
+      muscleCoverage: muscleCoverage,
+      progressionPlan: progressionPlan,
+      guidanceBlock: guidanceBlock,
+      coverBrand: coverBrand,
+      coverMember: coverMember,
+      coverMeta: coverMeta,
+      coverTrainer: coverTrainer,
+      outputNutritionPlan: outputNutritionPlan,
+    },
+    renderProgramCoverUi: renderProgramCoverUi,
+    renderOutputIntelligenceUi: renderOutputIntelligenceUi,
+    renderOutputNutritionPlanUi: renderOutputNutritionPlanUi,
+    buildOutputIntelligenceModelService: buildOutputIntelligenceModelService,
+    buildProgramCoverModelService: buildProgramCoverModelService,
+    normalizeNutritionPlan: normalizeNutritionPlan,
+    findActiveMember: function () { return findActiveMember(); },
+    labelMaps: labelMaps,
+    escapeHtml: escapeHtml,
+  });
   populateStaticFilters();
   populateProgramStyleOptions();
   prepareRepetitionTemplateControls();
   prepareNutritionControls?.(nutritionPanel, escapeHtml);
   initializeStateFromStorage();
-  prepareOutputLayout();
+  window.BSMOutputRenderers.prepareOutputLayout();
   setupBuilderWizard();
   prepareMeasurementTabLayout();
   bindApplicationHandlers();
@@ -1339,54 +1375,6 @@ function syncStartupUi() {
   renderLibrary();
   renderMemberWorkspace();
   renderNutritionWorkspace();
-}
-
-function prepareOutputLayout() {
-  const grid = resultsSection?.querySelector(".results__grid");
-
-  if (!grid || grid.querySelector(".output-detail-panel")) {
-    return;
-  }
-
-  const summaryCard = programOverview?.closest(".result-card");
-  const programCard = weeklyPlan?.closest(".result-card");
-  const detailTargets = [
-    coachNote,
-    aiReportSummary,
-    nextControlReport,
-    outputWarnings,
-    muscleCoverage,
-    progressionPlan,
-    guidanceBlock,
-  ];
-  const detailCards = detailTargets.map((target) => target?.closest(".result-card")).filter(Boolean);
-
-  summaryCard?.classList.add("output-summary-card");
-  programCard?.classList.add("output-program-card");
-  setResultCardTitle(summaryCard, "Üye Program Özeti");
-  setResultCardTitle(programCard, "Haftalık Üye Antrenman Planı");
-
-  const detailPanel = document.createElement("details");
-  detailPanel.className = "result-card result-card--wide output-detail-panel";
-  detailPanel.innerHTML = `
-    <summary>
-      <span>Detaylı Analiz</span>
-      <small>Antrenör için teknik notlar, AI değerlendirme ve takip bilgileri</small>
-    </summary>
-    <div class="output-detail-grid"></div>
-  `;
-
-  const detailGrid = detailPanel.querySelector(".output-detail-grid");
-  detailCards.forEach((card) => {
-    card.classList.add("output-detail-card");
-    detailGrid.appendChild(card);
-  });
-
-  if (programCard?.nextSibling) {
-    grid.insertBefore(detailPanel, programCard.nextSibling);
-  } else {
-    grid.appendChild(detailPanel);
-  }
 }
 
 function setupBuilderWizard() {
@@ -3049,14 +3037,6 @@ function formatMeasurementMetric(value, suffix = "") {
   return `${number.toFixed(number % 1 === 0 ? 0 : 1)} ${suffix}`.trim();
 }
 
-function setResultCardTitle(card, title) {
-  const titleElement = card?.querySelector("h3");
-
-  if (titleElement) {
-    titleElement.textContent = title;
-  }
-}
-
 function renderTanitaPreview(model) {
   if (!tanitaPreview) {
     return;
@@ -4007,7 +3987,7 @@ function loadMember(member) {
   state.activeNutritionPlan = normalizeNutritionPlan(member.nutritionPlan || member.nutritionPlans?.[0]) || null;
   state.activeNutritionMemberId = member.id;
   renderNutritionWorkspace();
-  renderNutritionOutput();
+  window.BSMOutputRenderers.renderNutritionOutput();
 
   showStatus(`${member.profile?.memberName || "Üye"} dosyası yüklendi.`, "success");
 }
@@ -4058,7 +4038,7 @@ function renderMemberWorkspace() {
   renderMeasurementTabStatus();
   renderWorkspacePanels();
   renderNutritionWorkspace();
-  renderNutritionOutput();
+  window.BSMOutputRenderers.renderNutritionOutput();
   // F5b: Workspace wizard bar + footer
   renderWizardBar();
   renderWizardFooter();
@@ -6920,7 +6900,7 @@ function triggerMeasurementRecalculation() {
   refreshNutritionPlanFromMeasurement(activeMember || state.activeMember);
   renderNutritionWorkspace();
   renderMemberWorkspace();
-  renderNutritionOutput();
+  window.BSMOutputRenderers.renderNutritionOutput();
 
   console.log("MEASUREMENT RECALC TRIGGERED");
 }
@@ -8278,7 +8258,7 @@ function renderProgram(program, options = {}) {
   saveLastPlan(state.activeProgram);
   resultsSection.classList.remove("hidden");
   resultsTitle.textContent = state.activeProgram.title;
-  renderProgramCover(state.activeProgram);
+  window.BSMOutputRenderers.renderProgramCover(state.activeProgram);
   const weeklyPlanHtml = buildWeeklyPlanHtmlUi(
     { sessions: state.activeProgram.sessions || [], editMode: state.programEditMode },
     escapeHtml,
@@ -8312,21 +8292,9 @@ function renderProgram(program, options = {}) {
   );
   renderProgramEditToolbar();
   renderTrainingReportUi?.(trainingReportPanel, state.activeProgram.trainingReport, escapeHtml);
-  renderOutputIntelligence(state.activeProgram);
-  renderNutritionOutput();
+  window.BSMOutputRenderers.renderOutputIntelligence(state.activeProgram);
+  window.BSMOutputRenderers.renderNutritionOutput();
   renderWorkflowAssistant();
-}
-
-function renderOutputIntelligence(program) {
-  renderOutputIntelligenceUi(
-    {
-      aiReportSummary,
-      nextControlReport,
-      outputWarnings,
-    },
-    buildOutputIntelligenceModelService(program),
-    escapeHtml,
-  );
 }
 
 function renderNutritionWorkspace() {
@@ -8550,21 +8518,6 @@ function setNutritionPdfActivePage(num) {
 }
 
 // Refactor Adim 3 part 3B3: handleMealAction + extractMealFoodsForOverride + handleMealEditorInput + handleNutritionPdfZoom + bindNutritionPremiumHandlers + debouncedNutritionInputHandler + handleNutritionFormInputChange -> nutrition/nutritionPremiumHandlers.js (destructure)
-
-function renderNutritionOutput() {
-  const plan = getNutritionPlanForOutput();
-  renderOutputNutritionPlanUi(outputNutritionPlan, plan, labelMaps, escapeHtml);
-}
-
-function getNutritionPlanForOutput() {
-  const activeMember = findActiveMember();
-
-  return (
-    normalizeNutritionPlan(state.activeNutritionPlan) ||
-    normalizeNutritionPlan(activeMember?.nutritionPlan || activeMember?.nutritionPlans?.[0]) ||
-    null
-  );
-}
 
 function getExerciseMedia(exercise) {
   return buildExerciseMedia?.(exercise, getMuscleLabel(exercise?.group)) || null;
@@ -8980,20 +8933,6 @@ function validateEditableProgram(program) {
   });
 
   return errors[0] || "";
-}
-
-function renderProgramCover(program) {
-  renderProgramCoverUi(
-    {
-      coverBrand,
-      coverMember,
-      coverMeta,
-      coverTrainer,
-    },
-    buildProgramCoverModelService(program, {
-      labelMaps,
-    }),
-  );
 }
 
 function getCurrentProgramFromEditor() {
