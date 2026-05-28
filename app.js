@@ -467,6 +467,9 @@ if (!window.BSMOutputRenderers) {
 if (!window.BSMOutputActions) {
   throw new Error("BSMOutputActions yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMOutputMail) {
+  throw new Error("BSMOutputMail yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -1348,6 +1351,20 @@ function initialize() {
     escapeHtml: escapeHtml,
     labelMaps: labelMaps,
     getDayLabel: getDayLabel,
+  });
+  // Refactor Adım 4A.2.3: Mail flow (handleSendProgramMail + 7 mail helper) →
+  // output/outputMail.js. buildLiveProgramHtml/buildProgramPdfPayload/
+  // setProgramDeliveryStatus/slugifyFilePart cross-module reference ile
+  // window.BSMOutputActions üzerinden kullanilir (handleSendProgramMail govdesi degismedi).
+  window.BSMOutputMail.init({
+    domRefs: {
+      programMailHistory: programMailHistory,
+    },
+    getCurrentProgramFromEditor: function () { return getCurrentProgramFromEditor(); },
+    loadLastPlan: loadLastPlan,
+    collectFormData: collectFormData,
+    findActiveMember: function () { return findActiveMember(); },
+    persistMembers: function () { return persistMembers(); },
   });
   populateStaticFilters();
   populateProgramStyleOptions();
@@ -3363,9 +3380,6 @@ function bindApplicationHandlers() {
   );
   bindOutputHandlers(
     {
-      sendProgramMailButton,
-      programDeliveryStatus,
-      programMailHistory,
       downloadBackupButton,
       restoreBackupButton,
       exportMembersCsvButton,
@@ -3375,12 +3389,16 @@ function bindApplicationHandlers() {
     outputHandlers,
   );
   // Refactor Adım 4A.2.2: Output action button bind'lari (copy/print/pdf/html) →
-  // output/outputActions.js (idempotent guard'li). Mail + backup bind'lari yukarida kaldi.
+  // output/outputActions.js (idempotent guard'li).
   window.BSMOutputActions.bindOutputActionHandlers({
     copyPlanButton,
     printPlanButton,
     programPdfActionButton,
     downloadLiveProgramButton,
+  });
+  // Refactor Adım 4A.2.3: Mail button bind → output/outputMail.js (idempotent guard'li).
+  window.BSMOutputMail.bindOutputMailHandlers({
+    sendProgramMailButton,
   });
   // v1.1.8: Report Center UI etkilesimleri (toggle counter + thumbnail switch)
   try { bindReportCenterHandlers(); } catch (e) { /* defansif */ }
