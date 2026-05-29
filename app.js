@@ -473,6 +473,9 @@ if (!window.BSMOutputMail) {
 if (!window.BSMMemberState) {
   throw new Error("BSMMemberState yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMMemberRenderers) {
+  throw new Error("BSMMemberRenderers yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -1372,6 +1375,27 @@ function initialize() {
     updateStoredActiveMemberProfile: updateStoredActiveMemberProfile,
     isMeasurementForMember: function (m, member) { return isMeasurementForMember(m, member); },
     renderMemberWorkspace: function () { return renderMemberWorkspace(); },
+  });
+  // Refactor Adım 4B.2.1: Saf member render fn'leri → members/memberRenderers.js.
+  // renderMemberWorkspace + renderWorkspacePanels orchestrator'lari app.js'de kalir.
+  window.BSMMemberRenderers.init({
+    state: state,
+    normalizeText: normalizeText,
+    labelMaps: labelMaps,
+    escapeHtml: escapeHtml,
+    findActiveMember: function () { return findActiveMember(); },
+    getMemberAnalysis: function (member) { return getMemberAnalysis(member); },
+    sortMembersForList: function (members, sortKey) { return sortMembersForList(members, sortKey); },
+    normalizeMemberSort: function (value) { return normalizeMemberSort(value); },
+    renderActiveMemberProfileUi: renderActiveMemberProfileUi,
+    renderMemberListUi: renderMemberListUi,
+    domRefs: {
+      activeMemberProfile: activeMemberProfile,
+      memberList: memberList,
+      memberCount: memberCount,
+      memberSort: memberSort,
+      memberSearch: memberSearch,
+    },
   });
   window.BSMOutputMail.init({
     domRefs: {
@@ -4099,7 +4123,7 @@ function flashWorkspaceSkeleton() {
 
 function renderMemberWorkspace() {
   renderDashboard();
-  renderMembersKpiStrip();
+  window.BSMMemberRenderers.renderMembersKpiStrip();
   renderWorkflowAssistant();
   renderMeasurementTabStatus();
   renderWorkspacePanels();
@@ -5064,77 +5088,9 @@ function shiftWizardStep(delta) {
   setActiveWizardStep(BSM_WIZARD_STEPS[nextIdx].id);
 }
 
-function renderMembersKpiStrip() {
-  const totalEl = document.querySelector("#membersKpiTotal");
-  const measuredEl = document.querySelector("#membersKpiMeasured");
-  const measuredMetaEl = document.querySelector("#membersKpiMeasuredMeta");
-  const programsEl = document.querySelector("#membersKpiPrograms");
-  const programsMetaEl = document.querySelector("#membersKpiProgramsMeta");
-  const nutritionEl = document.querySelector("#membersKpiNutrition");
-  const nutritionMetaEl = document.querySelector("#membersKpiNutritionMeta");
-  const lastNameEl = document.querySelector("#membersKpiLastUpdate");
-  const lastMetaEl = document.querySelector("#membersKpiLastUpdateMeta");
-
-  if (!totalEl) return;
-
-  const members = Array.isArray(state.members) ? state.members : [];
-  const total = members.length;
-  const measuredCount = members.filter((m) => Array.isArray(m?.measurements) && m.measurements.length > 0).length;
-  const programCount = members.filter((m) => Array.isArray(m?.programs) && m.programs.length > 0).length;
-  const nutritionCount = members.filter((m) => {
-    if (m?.nutritionPlan) return true;
-    return Array.isArray(m?.nutritionPlans) && m.nutritionPlans.length > 0;
-  }).length;
-
-  totalEl.textContent = String(total);
-
-  measuredEl.textContent = String(measuredCount);
-  if (measuredMetaEl) {
-    measuredMetaEl.textContent = total > 0 ? `${total} üyeden ${measuredCount}` : "Henüz ölçüm yok";
-  }
-
-  programsEl.textContent = String(programCount);
-  if (programsMetaEl) {
-    programsMetaEl.textContent = total > 0 ? `${total} üyeden ${programCount}` : "Henüz program yok";
-  }
-
-  nutritionEl.textContent = String(nutritionCount);
-  if (nutritionMetaEl) {
-    nutritionMetaEl.textContent = total > 0 ? `${total} üyeden ${nutritionCount}` : "Henüz beslenme planı yok";
-  }
-
-  let latest = null;
-  members.forEach((m) => {
-    const stamp = m?.updatedAt || m?.createdAt;
-    if (!stamp) return;
-    const time = new Date(stamp).getTime();
-    if (Number.isNaN(time)) return;
-    if (!latest || time > latest.time) {
-      latest = { time, name: m?.profile?.memberName || m?.profile?.memberCode || "Üye", stamp };
-    }
-  });
-
-  if (latest) {
-    lastNameEl.textContent = latest.name;
-    if (lastMetaEl) {
-      lastMetaEl.textContent = formatMembersKpiDate(latest.stamp);
-    }
-  } else {
-    lastNameEl.textContent = "-";
-    if (lastMetaEl) lastMetaEl.textContent = "Henüz güncelleme yok";
-  }
-}
-
-function formatMembersKpiDate(value) {
-  if (!value) return "Tarih yok";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return String(value);
-  try {
-    return parsed.toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-  } catch (e) {
-    return parsed.toISOString().slice(0, 10);
-  }
-}
+// Refactor Adım 4B.2.1: renderMembersKpiStrip + formatMembersKpiDate →
+// members/memberRenderers.js. renderMemberWorkspace orchestrator app.js'de kalir,
+// window.BSMMemberRenderers.renderMembersKpiStrip() cagirir.
 
 function handleMemberQuickAction(event) {
   const btn = event.target.closest("[data-member-quick-action]");
@@ -5159,8 +5115,8 @@ function handleMemberQuickAction(event) {
 }
 
 function renderWorkspacePanels() {
-  renderActiveMemberProfile();
-  renderMemberList();
+  window.BSMMemberRenderers.renderActiveMemberProfile();
+  window.BSMMemberRenderers.renderMemberList();
   renderMeasurementHistory();
   renderProgramHistory();
   renderV3CoachingPanel();
@@ -5925,93 +5881,9 @@ function buildCoachQuickPanelModel(activeMember) {
 }
 
 
-function renderActiveMemberProfile() {
-  const member = findActiveMember();
-  const activeAnalysis = getMemberAnalysis(member);
-  const activeProfileData = member?.profile || {};
-  const latestMeasurementRecord = member?.measurements?.[0] || null;
-  const latestProgramRecord = member?.programs?.[0]?.program || null;
-  const profileModel = member
-    ? {
-        memberName: activeProfileData.memberName || "İsimsiz Üye",
-        memberCode: activeProfileData.memberCode || "Üye no yok",
-        trainerName: activeProfileData.trainerName || "Antrenör yok",
-        levelLabel: labelMaps.level[activeProfileData.level] || "Seviye yok",
-        goalLabel: labelMaps.goal[activeProfileData.goal] || "Belirtilmedi",
-        latestMeasurementDate: latestMeasurementRecord?.date || "Yok",
-        programStatus: latestProgramRecord ? "Aktif" : "Yok",
-        riskText: activeProfileData.restrictions?.length
-          ? activeProfileData.restrictions.map((item) => labelMaps.restrictions[item]).join(", ")
-          : "Özel uyarı yok",
-        score: `${activeAnalysis?.score ?? 0}/100`,
-        goalFitScore: `${activeAnalysis?.goalFitScore ?? 0}/100`,
-        riskLevel: activeAnalysis?.riskLevel || "Belirsiz",
-        summary: activeAnalysis?.summary || "Analiz için ölçüm ve üye bilgisi bekleniyor.",
-        trendText: activeAnalysis?.trend?.text || "Trend için en az iki ölçüm gerekir.",
-        programSuitability: activeAnalysis?.programSuitability || "Program uygunluğu için kayıt bekleniyor.",
-        revisionNote: activeAnalysis?.revisionNote || "Revizyon notu ölçüm trendine göre oluşur.",
-        nextAction: activeAnalysis?.nextAction || "Ölçüm ve program takibini başlat.",
-        lastThreeMeasurements: (activeAnalysis?.measurementSummary || []).map((item) => ({
-          date: item.date,
-          summary: `${item.weight} • Yağ: ${item.fat} • Kas: ${item.muscleMass}`,
-        })),
-        warnings: (activeAnalysis?.coachAlerts || []).slice(0, 3),
-      }
-    : null;
-  renderActiveMemberProfileUi(activeMemberProfile, profileModel, escapeHtml);
-  return;
-}
-
-function renderMemberList() {
-  const searchText = normalizeText(memberSearch.value);
-  const filteredMembers = state.members.filter((member) => {
-    const profile = member.profile || {};
-    const haystack = [
-      profile.memberName,
-      profile.memberCode,
-      profile.trainerName,
-      labelMaps.goal[profile.goal],
-      labelMaps.level[profile.level],
-    ]
-      .filter(Boolean)
-      .join(" ");
-
-    return !searchText || normalizeText(haystack).includes(searchText);
-  });
-  const sortedMembers = sortMembersForList(filteredMembers, state.activeMemberSort);
-  const listModel = {
-    totalCount: state.members.length,
-    activeSort: normalizeMemberSort(state.activeMemberSort),
-    items: sortedMembers.map((member) => {
-      const profile = member.profile || {};
-      const isActive = member.id === state.activeMemberId;
-      const lastMeasurement = member.measurements?.[0];
-      const lastProgram = member.programs?.[0];
-
-      return {
-        memberId: member.id,
-        isActive,
-        memberName: profile.memberName || "İsimsiz Üye",
-        memberCode: profile.memberCode || "Üye no yok",
-        goalLabel: labelMaps.goal[profile.goal] || "Hedef yok",
-        measurementText: lastMeasurement ? `Son ölçüm: ${lastMeasurement.date}` : "Ölçüm kaydı yok",
-        programText: lastProgram ? "Program geçmişi var" : "Program kaydı yok",
-        actionLabel: isActive ? "Aktif" : "Yükle",
-        photo: profile.photo || null,
-      };
-    }),
-  };
-  renderMemberListUi(
-    {
-      memberList,
-      memberCount,
-      memberSort,
-    },
-    listModel,
-    escapeHtml,
-  );
-  return;
-}
+// Refactor Adım 4B.2.1: renderActiveMemberProfile + renderMemberList →
+// members/memberRenderers.js. renderWorkspacePanels orchestrator app.js'de kalir,
+// window.BSMMemberRenderers.renderActiveMemberProfile/renderMemberList() cagirir.
 
 function renderMeasurementHistory() {
   const member = findActiveMember();
