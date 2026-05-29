@@ -476,6 +476,9 @@ if (!window.BSMMemberState) {
 if (!window.BSMMemberRenderers) {
   throw new Error("BSMMemberRenderers yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMMemberSelection) {
+  throw new Error("BSMMemberSelection yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -1402,6 +1405,35 @@ function initialize() {
     getMemberAccent: function (m) { return getMemberAccent(m); },
     computeWizardStepStates: function (m) { return computeWizardStepStates(m); },
     wizardSteps: BSM_WIZARD_STEPS,
+  });
+  // Refactor Adım 4B.3.1: Member selection + hydration flow → members/memberSelection.js.
+  // hydrateInitialSession initialize sonunda cagrilir; init ONCE yapilir.
+  // Cross-domain render'lar (renderProgram/nutrition/output) + orchestrator
+  // (renderMemberWorkspace) callback DI ile; davranis birebir korunur.
+  window.BSMMemberSelection.init({
+    state: state,
+    findActiveMember: function () { return findActiveMember(); },
+    saveActiveMemberId: saveActiveMemberId,
+    setActiveMeasurementState: function (m, o) { return setActiveMeasurementState(m, o); },
+    populateForm: function (p) { return populateForm(p); },
+    clearMeasurementInputs: function () { return clearMeasurementInputs(); },
+    getTodayInputValue: getTodayInputValue,
+    handleLiveUpdate: function () { return formHandlers.handleLiveUpdate(); },
+    renderMemberWorkspace: function () { return renderMemberWorkspace(); },
+    setActiveScreen: function (screen, opts) { return setActiveScreen(screen, opts); },
+    renderProgram: function (program, opts) { return renderProgram(program, opts); },
+    renderNutritionWorkspace: function () { return renderNutritionWorkspace(); },
+    renderNutritionOutput: function () { return window.BSMOutputRenderers.renderNutritionOutput(); },
+    cloneData: cloneData,
+    normalizeNutritionPlan: normalizeNutritionPlan,
+    showStatus: function (m, t) { return showStatus(m, t); },
+    loadLastForm: loadLastForm,
+    loadLastPlan: loadLastPlan,
+    schemaVersion: schemaVersion,
+    domRefs: {
+      measurementDate: measurementDate,
+      resultsSection: resultsSection,
+    },
   });
   window.BSMOutputMail.init({
     domRefs: {
@@ -3694,50 +3726,11 @@ function closeExerciseGifModal() {
   }
 }
 
+// Refactor Adım 4B.3.1: hydrateInitialSession + hydrateSavedFormDraft +
+// hydrateActiveMemberSession + hydrateLastSavedProgram → members/memberSelection.js.
+// app.js'de hydrateInitialSession WRAPPER kalir (initialize cagrisi degismez).
 function hydrateInitialSession() {
-  hydrateSavedFormDraft();
-  hydrateActiveMemberSession();
-  hydrateLastSavedProgram();
-}
-
-function hydrateSavedFormDraft() {
-  const lastForm = loadLastForm();
-
-  if (lastForm) {
-    populateForm(lastForm);
-  }
-
-  formHandlers.handleLiveUpdate();
-}
-
-function hydrateActiveMemberSession() {
-  const activeMember = findActiveMember();
-
-  if (!activeMember) {
-    return null;
-  }
-
-  populateForm(activeMember.profile);
-  formHandlers.handleLiveUpdate();
-  renderMemberWorkspace();
-
-  if (activeMember.programs?.[0]?.program) {
-    renderProgram(activeMember.programs[0].program, { savedProgramRecordId: activeMember.programs[0].id });
-  }
-
-  state.activeNutritionPlan = normalizeNutritionPlan(activeMember.nutritionPlan || activeMember.nutritionPlans?.[0]) || null;
-  state.activeNutritionMemberId = activeMember.id;
-  renderNutritionWorkspace();
-
-  return activeMember;
-}
-
-function hydrateLastSavedProgram() {
-  const lastPlan = loadLastPlan();
-
-  if (!state.activeProgram && lastPlan?.schemaVersion === schemaVersion) {
-    renderProgram(lastPlan);
-  }
+  return window.BSMMemberSelection.hydrateInitialSession();
 }
 
 function populateStaticFilters() {
@@ -4059,72 +4052,15 @@ function upsertMemberFromCurrentForm(options = {}) {
   return member;
 }
 
+// Refactor Adım 4B.3.1: loadMember + selectActiveMemberFromRail + flashWorkspaceSkeleton →
+// members/memberSelection.js. app.js'de loadMember + selectActiveMemberFromRail WRAPPER
+// kalir — member-handlers DI + handleMemberQuickAction + rail click cagrı siteleri degismez.
 function loadMember(member) {
-  state.activeMemberId = member.id;
-  state.activeMember = member;
-  state.latestMeasurement = member.measurements?.[0] || null;
-  state.pendingTanitaMeasurement = null;
-  setActiveMeasurementState(state.latestMeasurement, { memberId: member.id, source: "saved" });
-  saveActiveMemberId(member.id);
-  populateForm(member.profile || {});
-  clearMeasurementInputs();
-  measurementDate.value = getTodayInputValue();
-  formHandlers.handleLiveUpdate();
-  renderMemberWorkspace();
-  setActiveScreen("builder", { silent: true });
-
-  if (member.programs?.[0]?.program) {
-    renderProgram(cloneData(member.programs[0].program), { savedProgramRecordId: member.programs[0].id });
-  } else {
-    resultsSection.classList.add("hidden");
-    state.activeProgram = null;
-  }
-
-  state.activeNutritionPlan = normalizeNutritionPlan(member.nutritionPlan || member.nutritionPlans?.[0]) || null;
-  state.activeNutritionMemberId = member.id;
-  renderNutritionWorkspace();
-  window.BSMOutputRenderers.renderNutritionOutput();
-
-  showStatus(`${member.profile?.memberName || "Üye"} dosyası yüklendi.`, "success");
+  return window.BSMMemberSelection.loadMember(member);
 }
 
-// F5a: Rail click wrapper — üye seçimini hızlı yapar, ekran değiştirmez.
-// loadMember() ile farkı: setActiveScreen("builder") çağırmaz, üye Üyeler ekranında kalır.
 function selectActiveMemberFromRail(member) {
-  if (!member) return;
-  state.activeMemberId = member.id;
-  state.activeMember = member;
-  state.latestMeasurement = member.measurements?.[0] || null;
-  state.pendingTanitaMeasurement = null;
-  setActiveMeasurementState(state.latestMeasurement, { memberId: member.id, source: "saved" });
-  saveActiveMemberId(member.id);
-
-  // F5j: Brief skeleton flash ile geçiş hissi ver (premium snappy feel)
-  flashWorkspaceSkeleton();
-
-  // Builder form'unu da güncel tut (sonra Program Oluştur sekmesine geçtiğinde dolu gelsin)
-  try { populateForm(member.profile || {}); } catch (e) { /* form yoksa sessiz geç */ }
-  try {
-    if (measurementDate) measurementDate.value = getTodayInputValue();
-    clearMeasurementInputs();
-  } catch (e) { /* ölçüm input'ları yoksa sessiz */ }
-  try { formHandlers?.handleLiveUpdate?.(); } catch (e) { /* */ }
-
-  state.activeNutritionPlan = normalizeNutritionPlan(member.nutritionPlan || member.nutritionPlans?.[0]) || null;
-  state.activeNutritionMemberId = member.id;
-
-  renderMemberWorkspace();
-}
-
-// F5j: Workspace switch sırasında 120ms skeleton flash (CSS-only kontrol).
-// prefers-reduced-motion altinda otomatik devre disi (CSS @media).
-function flashWorkspaceSkeleton() {
-  const panel = document.querySelector("#membersPanel");
-  if (!panel) return;
-  panel.classList.add("is-switching");
-  // Re-trigger animation: force reflow
-  void panel.offsetWidth;
-  setTimeout(() => panel.classList.remove("is-switching"), 280);
+  return window.BSMMemberSelection.selectActiveMemberFromRail(member);
 }
 
 function renderMemberWorkspace() {
