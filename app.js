@@ -470,6 +470,9 @@ if (!window.BSMOutputActions) {
 if (!window.BSMOutputMail) {
   throw new Error("BSMOutputMail yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMMemberState) {
+  throw new Error("BSMMemberState yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -1356,6 +1359,20 @@ function initialize() {
   // output/outputMail.js. buildLiveProgramHtml/buildProgramPdfPayload/
   // setProgramDeliveryStatus/slugifyFilePart cross-module reference ile
   // window.BSMOutputActions üzerinden kullanilir (handleSendProgramMail govdesi degismedi).
+  // Refactor Adım 4B.1: Member state resolver/sync/persistence → members/memberState.js.
+  // ⚠ init ONCE yapilir: findActiveMember diger modul init'lerinde kullanilir
+  // (orn. BSMOutputMail.init → renderProgramMailHistory → findActiveMember).
+  // initializeStateFromStorage da syncActiveMemberState cagirir.
+  // isMeasurementForMember + renderMemberWorkspace app.js'de kalir (callback ile).
+  window.BSMMemberState.init({
+    state: state,
+    normalizeMembersPayload: normalizeMembersPayload,
+    loadStoredMembers: loadStoredMembers,
+    persistStoredMembers: persistStoredMembers,
+    updateStoredActiveMemberProfile: updateStoredActiveMemberProfile,
+    isMeasurementForMember: function (m, member) { return isMeasurementForMember(m, member); },
+    renderMemberWorkspace: function () { return renderMemberWorkspace(); },
+  });
   window.BSMOutputMail.init({
     domRefs: {
       programMailHistory: programMailHistory,
@@ -7931,48 +7948,28 @@ function formatResistanceLine(resistance = {}) {
     .join(" • ");
 }
 
+// Refactor Adım 4B.1: findActiveMember, syncActiveMemberState, loadMembers,
+// persistMembers, updateActiveMemberProfile → members/memberState.js (ownership transfer).
+// app.js'de ICE WRAPPER kalir — 51 findActiveMember cagrisi + diger modullere giden
+// callback'ler (findActiveMember: () => findActiveMember()) DEGISMEZ.
 function findActiveMember() {
-  const members = Array.isArray(state.members) ? state.members : normalizeMembersPayload(state.members);
-
-  if (!Array.isArray(state.members)) {
-    state.members = members;
-  }
-
-  return members.find((member) => member.id === state.activeMemberId) || null;
+  return window.BSMMemberState.findActiveMember();
 }
 
 function syncActiveMemberState() {
-  const activeMember = findActiveMember();
-  state.activeMember = activeMember || null;
-  state.latestMeasurement = activeMember?.measurements?.[0] || null;
-
-  if (!state.pendingTanitaMeasurement || !isMeasurementForMember(state.pendingTanitaMeasurement, activeMember)) {
-    state.activeMeasurementState = state.latestMeasurement;
-    state.activeMeasurementSource = state.latestMeasurement ? "saved" : null;
-  }
-
-  return state.activeMember;
+  return window.BSMMemberState.syncActiveMemberState();
 }
 
 function loadMembers() {
-  return loadStoredMembers();
+  return window.BSMMemberState.loadMembers();
 }
 
 function persistMembers() {
-  state.members = persistStoredMembers(state.members, state.activeMemberId);
-  syncActiveMemberState();
+  return window.BSMMemberState.persistMembers();
 }
 
 function updateActiveMemberProfile(profile) {
-  const nextMembers = updateStoredActiveMemberProfile(state.members, state.activeMemberId, profile);
-
-  if (!nextMembers) {
-    return;
-  }
-
-  state.members = nextMembers;
-  syncActiveMemberState();
-  renderMemberWorkspace();
+  return window.BSMMemberState.updateActiveMemberProfile(profile);
 }
 
 function renderLiveSummary(data) {
