@@ -37,6 +37,12 @@
   var _renderActiveMemberProfileUi = function () {};
   var _renderMemberListUi = function () {};
   var _domRefs = {};
+  // 4B.2.2 — Hero/Utility callback'leri (app.js'de kalan helper'lar)
+  var _buildMemberInitials = function () { return "BSM"; };
+  var _relativeTimeShort = function () { return ""; };
+  var _getMemberAccent = function () { return { from: "#1d6b74", to: "#082b35" }; };
+  var _computeWizardStepStates = function () { return {}; };
+  var _wizardSteps = [];
 
   function init(deps) {
     if (!deps) deps = {};
@@ -51,6 +57,11 @@
     if (typeof deps.renderActiveMemberProfileUi === "function") _renderActiveMemberProfileUi = deps.renderActiveMemberProfileUi;
     if (typeof deps.renderMemberListUi === "function") _renderMemberListUi = deps.renderMemberListUi;
     if (deps.domRefs) _domRefs = deps.domRefs;
+    if (typeof deps.buildMemberInitials === "function") _buildMemberInitials = deps.buildMemberInitials;
+    if (typeof deps.relativeTimeShort === "function") _relativeTimeShort = deps.relativeTimeShort;
+    if (typeof deps.getMemberAccent === "function") _getMemberAccent = deps.getMemberAccent;
+    if (typeof deps.computeWizardStepStates === "function") _computeWizardStepStates = deps.computeWizardStepStates;
+    if (Array.isArray(deps.wizardSteps)) _wizardSteps = deps.wizardSteps;
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -223,10 +234,165 @@
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // renderWorkspaceHero — workspace hero karti (app.js:4148 birebir, 4B.2.2)
+  // countCompletedWizardSteps + BSM_WIZARD_STEPS + buildMemberInitials +
+  // relativeTimeShort + getMemberAccent callback'leri ile.
+  // ═══════════════════════════════════════════════════════════════════
+  function renderWorkspaceHero() {
+    const host = document.querySelector("#bsmWorkspaceHero");
+    if (!host) return;
+    const member = _findActiveMember();
+    if (!member) {
+      host.innerHTML = `
+      <div class="bsm-hero-empty">
+        <strong>Aktif üye seçilmedi</strong>
+        <span>Sol panelden bir üye seçtiğinizde profili burada görüntülenecek.</span>
+      </div>
+    `;
+      return;
+    }
+
+    const profile = member.profile || {};
+    const goalLabel = _labelMaps.goal[profile.goal] || "Hedef belirtilmedi";
+    const initials = _buildMemberInitials(profile.memberName, profile.memberCode);
+    const photo = profile.photo || null;
+    const lastUpdate = _relativeTimeShort(member.updatedAt || member.createdAt);
+    const completedCount = countCompletedWizardSteps(member);
+    const progressPct = Math.round((completedCount / _wizardSteps.length) * 100);
+    const memberStatus = member.measurements?.length > 0 ? "Aktif Üye" : "Yeni Üye";
+
+    const accent = _getMemberAccent(member);
+    const accentStyle = `background: linear-gradient(135deg, ${accent.from} 0%, ${accent.to} 100%)`;
+
+    host.innerHTML = `
+    <div class="bsm-hero-card" data-member-id="${_escapeHtml(member.id)}">
+      <button type="button" class="bsm-hero-card__avatar" data-photo-edit="${_escapeHtml(member.id)}" aria-label="Profil fotoğrafını değiştir" title="Profil fotoğrafını değiştir" style="${photo ? "" : accentStyle}">
+        ${photo
+          ? `<img src="${_escapeHtml(photo)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'" />`
+          : `<span class="bsm-hero-card__initials">${_escapeHtml(initials)}</span>`}
+        <span class="bsm-hero-card__edit" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        </span>
+      </button>
+      <div class="bsm-hero-card__body">
+        <div class="bsm-hero-card__title">
+          <h3>${_escapeHtml(profile.memberName || "İsimsiz Üye")}</h3>
+          <span class="bsm-pill bsm-pill--${memberStatus === "Aktif Üye" ? "active" : "warning"}">${_escapeHtml(memberStatus)}</span>
+        </div>
+        <p class="bsm-hero-card__goal">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+          <span>Hedef: <strong>${_escapeHtml(goalLabel)}</strong></span>
+        </p>
+        <p class="bsm-hero-card__meta">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <span>Son güncelleme: ${_escapeHtml(lastUpdate)}</span>
+        </p>
+      </div>
+      <div class="bsm-hero-card__progress">
+        <div class="bsm-hero-card__progress-head">
+          <span>Genel İlerleme</span>
+          <strong>%${progressPct}</strong>
+        </div>
+        <div class="bsm-hero-card__progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}">
+          <span class="bsm-hero-card__progress-fill" style="width: ${progressPct}%"></span>
+        </div>
+        <small>${completedCount} / ${_wizardSteps.length} adım tamamlandı</small>
+      </div>
+    </div>
+  `;
+  }
+
+  // ── countCompletedWizardSteps — inline helper (app.js:4212 birebir) ──
+  function countCompletedWizardSteps(member) {
+    const states = _computeWizardStepStates(member);
+    return Object.values(states).filter((v) => v === "completed").length;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // renderUtilityPanel — hizli durum + islemler (app.js:4921 birebir, 4B.2.2)
+  // ═══════════════════════════════════════════════════════════════════
+  function renderUtilityPanel() {
+    const host = document.querySelector("#bsmUtilityPanel");
+    if (!host) return;
+    const member = _findActiveMember();
+    if (!member) {
+      host.innerHTML = "";
+      return;
+    }
+    const states = _computeWizardStepStates(member);
+
+    const statusRow = (id, label) => {
+      const s = states[id] || "pending";
+      const ok = s === "completed";
+      return `
+      <li class="bsm-status-row ${ok ? "is-ok" : "is-pending"}">
+        <span class="bsm-status-row__icon" aria-hidden="true">
+          ${ok
+            ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+            : `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>`}
+        </span>
+        <span class="bsm-status-row__label">${_escapeHtml(label)}</span>
+        <span class="bsm-status-row__state">${ok ? "Tamamlandı" : "Eksik"}</span>
+      </li>
+    `;
+    };
+
+    host.innerHTML = `
+    <article class="bsm-utility-card bsm-utility-card--status">
+      <header class="bsm-utility-card__head">
+        <h4>Hızlı Durum</h4>
+      </header>
+      <ul class="bsm-status-list">
+        ${statusRow("olcum", "Ölçüm")}
+        ${statusRow("program", "Program")}
+        ${statusRow("beslenme", "Beslenme")}
+        ${statusRow("pdf", "PDF Çıktısı")}
+        ${statusRow("mail", "Mail Gönder")}
+      </ul>
+    </article>
+
+    <article class="bsm-utility-card bsm-utility-card--actions">
+      <header class="bsm-utility-card__head">
+        <h4>Hızlı İşlemler</h4>
+      </header>
+      <div class="bsm-action-list">
+        <button type="button" class="bsm-action-btn bsm-action-btn--blue" data-utility-action="olcum">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h3l3-9 4 18 3-9h5"></path></svg>
+          <span>Ölçüm Güncelle</span>
+        </button>
+        <button type="button" class="bsm-action-btn bsm-action-btn--orange" data-utility-action="program">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16"></path><path d="M18 4v16"></path><path d="M2 8h4"></path><path d="M2 16h4"></path><path d="M18 8h4"></path><path d="M18 16h4"></path><path d="M6 12h12"></path></svg>
+          <span>Program Oluştur</span>
+        </button>
+        <button type="button" class="bsm-action-btn bsm-action-btn--green" data-utility-action="beslenme">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2v20"></path><path d="M5 2v6a3 3 0 0 0 6 0V2"></path><path d="M18 2v20"></path><path d="M15 2c0 4 3 4 3 8"></path></svg>
+          <span>Beslenme Planı</span>
+        </button>
+        <button type="button" class="bsm-action-btn bsm-action-btn--purple" data-utility-action="pdf">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          <span>PDF Oluştur</span>
+        </button>
+        <button type="button" class="bsm-action-btn bsm-action-btn--cyan" data-utility-action="mail">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          <span>Mail Gönder</span>
+        </button>
+      </div>
+    </article>
+
+    <button type="button" class="bsm-utility-deactivate" disabled aria-disabled="true" title="Bu özellik gelecek sprintte aktif edilecek">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+      <span>Üyeyi Pasif Yap</span>
+    </button>
+  `;
+  }
+
   window.BSMMemberRenderers = {
     init: init,
     renderActiveMemberProfile: renderActiveMemberProfile,
     renderMemberList: renderMemberList,
     renderMembersKpiStrip: renderMembersKpiStrip,
+    renderWorkspaceHero: renderWorkspaceHero,
+    renderUtilityPanel: renderUtilityPanel,
   };
 })();
