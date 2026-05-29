@@ -210,6 +210,24 @@ window.BSMTestApi = {
   getMembersCount: function () {
     try { return Array.isArray(state.members) ? state.members.length : 0; } catch (e) { return 0; }
   },
+  // 4B.3.2 regression hook'lari (read-only / test-only).
+  // Production davranisi degismez — mevcut sync fn'lerini test'ten tetiklemek +
+  // Supabase state'ini gozlemlemek icin. Gercek Supabase yazma YOK (loadMembers mock'lanir).
+  triggerSupabaseSync: function (options) {
+    try { return syncMembersFromSupabase(options || {}); } catch (e) { return null; }
+  },
+  triggerRealtimeSetup: function () {
+    try { return setupSupabaseRealtimeSync(); } catch (e) { return null; }
+  },
+  getSupabaseSnapshot: function () {
+    try {
+      return {
+        supabaseStatus: state.supabaseStatus,
+        supabaseRealtimeActive: state.supabaseRealtimeActive,
+        hasRealtimeSubscription: !!state.supabaseRealtimeSubscription,
+      };
+    } catch (e) { return null; }
+  },
 };
 
 const state = {
