@@ -497,6 +497,9 @@ if (!window.BSMMemberRenderers) {
 if (!window.BSMMemberSelection) {
   throw new Error("BSMMemberSelection yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMMemberSupabaseSync) {
+  throw new Error("BSMMemberSupabaseSync yüklenmedi (script sırası bozuk olabilir)");
+}
 window.BSMNutritionHelpers.init({
   foodLibrary: BSM_FOOD_LIBRARY,
   supplementLibrary: BSM_SUPPLEMENT_LIBRARY,
@@ -1452,6 +1455,23 @@ function initialize() {
       measurementDate: measurementDate,
       resultsSection: resultsSection,
     },
+  });
+  // Refactor Adım 4B.3.2: Member Supabase sync + realtime → members/memberSupabaseSync.js.
+  // init ONCE yapilir (initialize'da syncMembersFromSupabase + auth-ready + BSMTestApi hook
+  // bu wrapper'lari cagirir). syncAppSettingsFromSupabase (LIBRARY) app.js'de kalir → callback.
+  window.BSMMemberSupabaseSync.init({
+    state: state,
+    isTestMode: function () { return isTestMode(); },
+    renderDashboard: function () { return renderDashboard(); },
+    renderMemberWorkspace: function () { return renderMemberWorkspace(); },
+    renderNutritionWorkspace: function () { return renderNutritionWorkspace(); },
+    syncActiveMemberState: function () { return syncActiveMemberState(); },
+    loadSupabaseMemberRecords: function () { return loadSupabaseMemberRecords(); },
+    mergeMemberLists: mergeMemberLists,
+    cacheMembersLocally: cacheMembersLocally,
+    persistStoredMembers: persistStoredMembers,
+    saveActiveMemberId: saveActiveMemberId,
+    syncAppSettingsFromSupabase: function () { return syncAppSettingsFromSupabase(); },
   });
   window.BSMOutputMail.init({
     domRefs: {
@@ -3242,85 +3262,16 @@ function renderMeasurementReport() {
   if (window.BSMMeasurementReport) window.BSMMeasurementReport.render();
 }
 
-function syncMembersFromSupabase(options = {}) {
-  // v1.4.4: Test mode aktifse Supabase sync'i bypass et — localStorage seed
-  // member'lari Supabase realtime override'indan korunsun.
-  if (isTestMode()) {
-    state.supabaseStatus = "Test modu";
-    return;
-  }
-  state.supabaseStatus = window.supabaseClient?.from ? "Kontrol ediliyor" : "Kapalı";
-  renderDashboard();
-
-  loadSupabaseMemberRecords()
-    .then((supabaseMembers) => {
-      state.supabaseStatus = window.supabaseClient?.from ? getSupabaseConnectedStatus() : "Kapalı";
-
-      if (!supabaseMembers.length) {
-        if (state.members.length && window.BSMSupabaseSyncService?.isEnabled?.()) {
-          persistStoredMembers(state.members, state.activeMemberId);
-        }
-
-        syncActiveMemberState();
-        renderMemberWorkspace();
-        renderNutritionWorkspace();
-        renderDashboard();
-        return;
-      }
-
-      const mergedMembers = mergeMemberLists(state.members, supabaseMembers);
-
-      if (!mergedMembers.length) {
-        renderDashboard();
-        return;
-      }
-
-      state.activeMemberId = mergedMembers.some((member) => member.id === state.activeMemberId)
-        ? state.activeMemberId
-        : mergedMembers[0]?.id || null;
-      saveActiveMemberId(state.activeMemberId);
-      state.members = cacheMembersLocally(mergedMembers, state.activeMemberId);
-      syncActiveMemberState();
-      renderMemberWorkspace();
-      renderNutritionWorkspace();
-      renderDashboard();
-    })
-    .catch((error) => {
-      state.supabaseStatus = "Bağlantı hatası";
-      renderDashboard();
-      console.warn("Supabase members sync error", error);
-    });
+// Refactor Adım 4B.3.2: syncMembersFromSupabase + setupSupabaseRealtimeSync +
+// getSupabaseConnectedStatus (inline) → members/memberSupabaseSync.js.
+// app.js'de WRAPPER kalir — initialize + auth-ready + BSMTestApi hook cagrı siteleri degismez.
+// syncAppSettingsFromSupabase (LIBRARY domain) app.js'de KALIR, callback ile inject edilir.
+function syncMembersFromSupabase(options) {
+  return window.BSMMemberSupabaseSync.syncMembersFromSupabase(options || {});
 }
 
 function setupSupabaseRealtimeSync() {
-  // v1.4.4: Test mode'da realtime subscription kurma — test seed'i korunsun
-  if (isTestMode()) return;
-  if (state.supabaseRealtimeSubscription || !window.BSMSupabaseSyncService?.subscribeToChanges) {
-    return;
-  }
-
-  state.supabaseRealtimeSubscription = window.BSMSupabaseSyncService.subscribeToChanges((event) => {
-    if (event?.status) {
-      state.supabaseRealtimeActive = event.status === "SUBSCRIBED";
-      state.supabaseStatus = state.supabaseRealtimeActive ? "Bağlı / Realtime aktif" : `Realtime: ${event.status}`;
-      renderDashboard();
-      return;
-    }
-
-    if (event?.table === "app_settings") {
-      syncAppSettingsFromSupabase();
-      return;
-    }
-
-    window.clearTimeout(state.supabaseRealtimeTimer);
-    state.supabaseRealtimeTimer = window.setTimeout(() => {
-      syncMembersFromSupabase({ source: "realtime" });
-    }, 700);
-  });
-}
-
-function getSupabaseConnectedStatus() {
-  return state.supabaseRealtimeActive ? "Bağlı / Realtime aktif" : "Bağlı";
+  return window.BSMMemberSupabaseSync.setupSupabaseRealtimeSync();
 }
 
 function syncAppSettingsFromSupabase() {
