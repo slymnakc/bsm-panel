@@ -233,18 +233,18 @@ window.BSMTestApi = {
   // Production davranisi DEGISMEZ — handler'lar dogal akisla calisir (confirm dialog,
   // downloadFile, state mutation, render zinciri birebir).
   triggerBackupDownload: function () {
-    try { return outputHandlers.handleDownloadBackup(); } catch (e) { return null; }
+    try { return window.BSMMemberBackup.handleDownloadBackup(); } catch (e) { return null; }
   },
   triggerCsvExport: function (memberSubset) {
-    try { return outputHandlers.handleExportMembersCsv(memberSubset || null); } catch (e) { return null; }
+    try { return window.BSMMemberBackup.handleExportMembersCsv(memberSubset || null); } catch (e) { return null; }
   },
   triggerAutoRestore: function () {
-    try { return outputHandlers.handleRestoreAutoBackup(); } catch (e) { return null; }
+    try { return window.BSMMemberBackup.handleRestoreAutoBackup(); } catch (e) { return null; }
   },
   triggerBackupRestore: function (jsonText) {
     try {
       var file = new File([jsonText], "test-backup.json", { type: "application/json" });
-      return outputHandlers.handleBackupFileSelected({ target: { files: [file] } });
+      return window.BSMMemberBackup.handleBackupFileSelected({ target: { files: [file] } });
     } catch (e) { return null; }
   },
   // Backup snapshot seed (auto-restore test'i icin localStorage'a snapshot yazar).
@@ -716,7 +716,8 @@ const {
 const { createFormHandlers, bindFormHandlers } = window.BSMFormHandlers;
 const { createNavigationHandlers, bindNavigationHandlers } = window.BSMNavigationHandlers;
 const { createMemberHandlers, bindMemberHandlers } = window.BSMMemberHandlers;
-const { createOutputHandlers, bindOutputHandlers } = window.BSMOutputHandlers;
+// 4B.4: createOutputHandlers + bindOutputHandlers KALDIRILDI (factory bosaldi).
+// BSMOutputHandlers globali artik kullanilmiyor — output-handlers.js stub.
 const { createNutritionHandlers, bindNutritionHandlers } = window.BSMNutritionHandlers;
 const programStyleOptionMap = Object.fromEntries(programStyleOptions.map((option) => [option.value, option]));
 const trainingSystemMap = Object.fromEntries(trainingSystemOptions.map((option) => [option.value, option]));
@@ -1031,39 +1032,9 @@ const navigationHandlers = createNavigationHandlers({
   libraryEquipmentFilter,
 });
 
-const outputHandlers = createOutputHandlers({
-  state,
-  schemaVersion,
-  form,
-  backupFileInput,
-  resultsSection,
-  collectFormData,
-  getCurrentProgramFromEditor,
-  validateEditableProgram,
-  loadLastPlan,
-  showStatus,
-  convertProgramToText,
-  downloadFile,
-  formatFileDate,
-  extractMembersFromBackup,
-  normalizeImportedMembers,
-  saveActiveMemberId,
-  persistMembers,
-  findActiveMember,
-  populateForm,
-  renderProgram,
-  cloneData,
-  handleLiveUpdate: formHandlers.handleLiveUpdate,
-  renderMemberWorkspace,
-  loadBackupHistory,
-  formatDashboardDate,
-  buildCsvContent,
-  labelMaps,
-  getTrainingSystemLabel,
-  getDayLabel,
-  programDeliveryStatus,
-  programMailHistory,
-});
+// Refactor Adım 4B.4: createOutputHandlers + outputHandlers değişkeni KALDIRILDI —
+// 4A.2.2 (actions) + 4A.2.3 (mail) + 4B.4 (backup/CSV) sonrası factory tamamen bosaldi.
+// Backup/restore/CSV fn'leri window.BSMMemberBackup.init({...}) ile DI edilir.
 
 const nutritionHandlers = createNutritionHandlers({
   state,
@@ -1108,7 +1079,10 @@ const memberHandlers = createMemberHandlers({
   saveLastForm,
   saveLastPlan,
   updateActiveMemberProfile,
-  handleExportMembersCsv: outputHandlers.handleExportMembersCsv,
+  // 4B.4: handleExportMembersCsv → window.BSMMemberBackup (output-handlers.js'den tasindi)
+  handleExportMembersCsv: function (memberSubset) {
+    return window.BSMMemberBackup.handleExportMembersCsv(memberSubset || null);
+  },
 });
 
 // ── BSMRouter başlatma ────────────────────────────────────────────────────────
@@ -1515,6 +1489,38 @@ function initialize() {
     collectFormData: collectFormData,
     findActiveMember: function () { return findActiveMember(); },
     persistMembers: function () { return persistMembers(); },
+  });
+  // Refactor Adım 4B.4: Backup/Restore/CSV → members/memberBackup.js (STRICT MECHANICAL).
+  // outputHandlers.handleXxx wrapper'lari BSMTestApi hook'lari + memberHandlers.handleExportMembersCsv
+  // window.BSMMemberBackup.xxx'e cevrildi. Davranis degismedi.
+  window.BSMMemberBackup.init({
+    state: state,
+    schemaVersion: schemaVersion,
+    form: form,
+    backupFileInput: backupFileInput,
+    resultsSection: resultsSection,
+    collectFormData: collectFormData,
+    getCurrentProgramFromEditor: function () { return getCurrentProgramFromEditor(); },
+    loadLastPlan: loadLastPlan,
+    showStatus: showStatus,
+    downloadFile: downloadFile,
+    formatFileDate: formatFileDate,
+    extractMembersFromBackup: extractMembersFromBackup,
+    normalizeImportedMembers: normalizeImportedMembers,
+    saveActiveMemberId: saveActiveMemberId,
+    persistMembers: function () { return persistMembers(); },
+    findActiveMember: function () { return findActiveMember(); },
+    populateForm: populateForm,
+    renderProgram: function (program, opts) { return renderProgram(program, opts); },
+    cloneData: cloneData,
+    handleLiveUpdate: function () { return formHandlers.handleLiveUpdate(); },
+    renderMemberWorkspace: function () { return renderMemberWorkspace(); },
+    loadBackupHistory: loadBackupHistory,
+    formatDashboardDate: formatDashboardDate,
+    buildCsvContent: buildCsvContent,
+    labelMaps: labelMaps,
+    getTrainingSystemLabel: getTrainingSystemLabel,
+    getDayLabel: getDayLabel,
   });
   populateStaticFilters();
   populateProgramStyleOptions();
@@ -3459,16 +3465,15 @@ function bindApplicationHandlers() {
     },
     memberHandlers,
   );
-  bindOutputHandlers(
-    {
-      downloadBackupButton,
-      restoreBackupButton,
-      exportMembersCsvButton,
-      restoreAutoBackupButton,
-      backupFileInput,
-    },
-    outputHandlers,
-  );
+  // Refactor Adım 4B.4: backup/restore/CSV bind'lari → window.BSMMemberBackup.bindBackupHandlers
+  // (idempotent dataset guard'li). output-handlers.js artik fn icermez.
+  window.BSMMemberBackup.bindBackupHandlers({
+    downloadBackupButton,
+    restoreBackupButton,
+    exportMembersCsvButton,
+    restoreAutoBackupButton,
+    backupFileInput,
+  });
   // Refactor Adım 4A.2.2: Output action button bind'lari (copy/print/pdf/html) →
   // output/outputActions.js (idempotent guard'li).
   window.BSMOutputActions.bindOutputActionHandlers({
