@@ -228,6 +228,39 @@ window.BSMTestApi = {
       };
     } catch (e) { return null; }
   },
+  // 4B.4-pre regression hook'lari (read-only / test-only).
+  // outputHandlers closure'inda gizli backup fn'lerini test'ten tetiklemek icin.
+  // Production davranisi DEGISMEZ — handler'lar dogal akisla calisir (confirm dialog,
+  // downloadFile, state mutation, render zinciri birebir).
+  triggerBackupDownload: function () {
+    try { return outputHandlers.handleDownloadBackup(); } catch (e) { return null; }
+  },
+  triggerCsvExport: function (memberSubset) {
+    try { return outputHandlers.handleExportMembersCsv(memberSubset || null); } catch (e) { return null; }
+  },
+  triggerAutoRestore: function () {
+    try { return outputHandlers.handleRestoreAutoBackup(); } catch (e) { return null; }
+  },
+  triggerBackupRestore: function (jsonText) {
+    try {
+      var file = new File([jsonText], "test-backup.json", { type: "application/json" });
+      return outputHandlers.handleBackupFileSelected({ target: { files: [file] } });
+    } catch (e) { return null; }
+  },
+  // Backup snapshot seed (auto-restore test'i icin localStorage'a snapshot yazar).
+  // BSMStorageService.storeBackupSnapshot direkt cagrilabilir ama test'in tekrar
+  // edilebilirligi icin convenience wrapper.
+  getBackupHistoryLength: function () {
+    try {
+      var hist = window.BSMStorageService?.loadBackupHistory?.() || [];
+      return hist.length;
+    } catch (e) { return 0; }
+  },
+  getActiveProgramSnapshot: function () {
+    try {
+      return state.activeProgram ? { hasProgram: true, exerciseCount: Array.isArray(state.activeProgram.exercises) ? state.activeProgram.exercises.length : (state.activeProgram.days?.length || 0) } : { hasProgram: false };
+    } catch (e) { return null; }
+  },
 };
 
 const state = {
