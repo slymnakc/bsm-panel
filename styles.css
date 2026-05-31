@@ -23008,3 +23008,244 @@ body.bsm-photo-modal-open { overflow: hidden; }
 body.is-video-modal-open {
   overflow: hidden;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   M1b.1: Periodization fieldset + previews (program builder)
+   ═══════════════════════════════════════════════════════════════ */
+
+.bsm-periodization {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.bsm-periodization__row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 14px;
+  align-items: end;
+}
+
+.bsm-field--range {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bsm-field--range input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent, #4c6ef5);
+}
+
+.bsm-field--range output {
+  font-weight: 700;
+  color: var(--accent, #4c6ef5);
+}
+
+.bsm-radio-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  margin: 0;
+}
+
+.bsm-radio-cards > legend {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--muted, #6c757d);
+}
+
+.bsm-radio-card {
+  position: relative;
+  border: 1px solid var(--border, #dee2e6);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.bsm-radio-card:has(input:checked) {
+  border-color: var(--accent, #4c6ef5);
+  background: rgba(76, 110, 245, 0.06);
+}
+
+.bsm-radio-card input[type="radio"] {
+  margin-top: 4px;
+  accent-color: var(--accent, #4c6ef5);
+}
+
+.bsm-radio-card__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bsm-radio-card__head strong {
+  font-size: 0.95rem;
+}
+
+.bsm-radio-card__head em {
+  font-style: normal;
+  color: var(--muted, #6c757d);
+  font-size: 0.85rem;
+}
+
+.bsm-period-linear-only[hidden] {
+  display: none;
+}
+
+.bsm-period-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bsm-period-chips__label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted, #6c757d);
+}
+
+.bsm-period-chips__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bsm-chip {
+  border: 1px solid var(--border, #dee2e6);
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: var(--surface, #fff);
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text, #212529);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.bsm-chip:hover {
+  border-color: var(--accent, #4c6ef5);
+}
+
+.bsm-chip.is-active {
+  background: var(--accent, #4c6ef5);
+  color: #fff;
+  border-color: var(--accent, #4c6ef5);
+}
+
+.bsm-period-preview {
+  background: var(--surface-muted, #f8f9fa);
+  border: 1px dashed var(--border, #dee2e6);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 6px;
+}
+
+.bsm-period-preview h5,
+.bsm-period-preview h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.95rem;
+  color: var(--muted, #6c757d);
+}
+
+.bsm-period-preview--big {
+  margin-top: 18px;
+  background: var(--surface, #fff);
+  border-style: solid;
+}
+
+.bsm-period-preview--big h4 {
+  font-size: 1.05rem;
+  color: var(--text, #212529);
+}
+
+.bsm-period-preview__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bsm-period-preview__row {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 0.88rem;
+  align-items: center;
+}
+
+.bsm-period-preview__row.is-deload {
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 3px solid #f59e0b;
+  padding-left: 6px;
+}
+
+.bsm-period-preview__week {
+  font-weight: 600;
+  color: var(--text, #212529);
+}
+
+.bsm-period-preview__type {
+  color: var(--muted, #6c757d);
+}
+
+.bsm-period-preview__intensity {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  color: var(--muted, #6c757d);
+}
+
+.bsm-period-preview__manual {
+  padding: 10px;
+  text-align: center;
+  color: var(--muted, #6c757d);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.bsm-period-preview__list--big .bsm-period-preview__row {
+  grid-template-columns: 90px 1fr 110px;
+  padding: 7px 10px;
+  font-size: 0.95rem;
+}
+
+.bsm-period-hint {
+  margin: 8px 0 0 0;
+  padding: 10px 12px;
+  background: rgba(76, 110, 245, 0.06);
+  border-left: 3px solid var(--accent, #4c6ef5);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  color: var(--text, #212529);
+  line-height: 1.5;
+}
+
+.bsm-period-hint[hidden] {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .bsm-periodization__row {
+    grid-template-columns: 1fr;
+  }
+
+  .bsm-radio-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .bsm-period-preview__row,
+  .bsm-period-preview__list--big .bsm-period-preview__row {
+    grid-template-columns: 70px 1fr auto;
+    font-size: 0.82rem;
+  }
+}

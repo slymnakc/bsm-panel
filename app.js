@@ -1526,6 +1526,9 @@ function initialize() {
   populateProgramStyleOptions();
   prepareRepetitionTemplateControls();
   prepareNutritionControls?.(nutritionPanel, escapeHtml);
+  // M1b.1: Periodization fieldset event bind + initial preview render.
+  bindPeriodizationHandlers();
+  applyPeriodizationToForm({});  // İlk yüklemede default values + bugün startDate
   initializeStateFromStorage();
   window.BSMOutputRenderers.prepareOutputLayout();
   setupBuilderWizard();
@@ -3927,6 +3930,19 @@ function collectFormData() {
     .filter((day) => formData.getAll("days").includes(day.value))
     .map((day) => day.value);
 
+  // M1b.1: Periodization fields. rawData.macrocycle shape M1a.3 normalizePlan ile uyumlu.
+  // Linear progressionRule sadece Linear model'de doldurulur, Manual'de null.
+  const periodModel = String(formData.get("periodModel") || "linear");
+  const linearDeltaPercent = Number(formData.get("linearDeltaPercent") || 2.5);
+  const macrocycle = {
+    totalWeeks: Number(formData.get("totalWeeks") || 8),
+    model: periodModel === "manual" ? "manual" : "linear",
+    deloadCadence: Number(formData.get("deloadCadence") || 0),
+    progressionRule: periodModel === "linear"
+      ? { type: "linear", deltaPercent: linearDeltaPercent }
+      : null,
+  };
+
   return {
     gymName: String(formData.get("gymName") || "").trim(),
     memberName: String(formData.get("memberName") || "").trim(),
@@ -3945,6 +3961,9 @@ function collectFormData() {
     restrictions: formData.getAll("restrictions").map(String),
     days: selectedDays,
     notes: String(formData.get("notes") || "").trim(),
+    // M1b.1: Periodization (M1b.6 currentWeekIndex auto için startDate)
+    startDate: String(formData.get("startDate") || ""),
+    macrocycle,
   };
 }
 
@@ -3975,6 +3994,9 @@ function populateForm(data) {
   form.querySelector("#priorityMuscle").value = data.priorityMuscle || "balanced";
   form.querySelector("#notes").value = data.notes || "";
 
+  // M1b.1: Periodization restore. Eski form state'inde macrocycle/startDate yoksa defaults.
+  applyPeriodizationToForm(data);
+
   const repetitionTemplate = data.repetitionTemplate || {};
   if (defaultSetCount) defaultSetCount.value = String(repetitionTemplate.sets || 3);
   if (defaultRepModel) defaultRepModel.value = normalizeRepModel(repetitionTemplate.model || "pyramid");
@@ -4003,6 +4025,165 @@ function populateForm(data) {
 
   form.querySelectorAll('input[name="restrictions"]').forEach((input) => {
     input.checked = (data.restrictions || []).includes(input.value);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// M1b.1: Periodization helpers — form restore + live preview + event bind
+// ═══════════════════════════════════════════════════════════════════════
+// applyPeriodizationToForm(data): populateForm tarafından restore sırasında
+// çağrılır. Mevcut data.macrocycle ve data.startDate alanlarını DOM'a yansıtır.
+// Geriye uyumlu: data.macrocycle yoksa default values uygulanır.
+function applyPeriodizationToForm(data) {
+  const macro = (data && data.macrocycle) || {};
+  const totalWeeks = Number(macro.totalWeeks) >= 1 ? Number(macro.totalWeeks) : 8;
+  const model = macro.model === "manual" ? "manual" : "linear";
+  const deloadCadence = Number(macro.deloadCadence) >= 0 ? Number(macro.deloadCadence) : 4;
+  const linearDelta = (macro.progressionRule && Number(macro.progressionRule.deltaPercent) > 0)
+    ? Number(macro.progressionRule.deltaPercent)
+    : 2.5;
+
+  const totalInput = document.querySelector("#periodTotalWeeks");
+  const totalOutput = document.querySelector("#periodTotalWeeksOutput");
+  if (totalInput) totalInput.value = String(totalWeeks);
+  if (totalOutput) totalOutput.textContent = String(totalWeeks);
+
+  document.querySelectorAll('input[name="periodModel"]').forEach((r) => {
+    r.checked = (r.value === model);
+  });
+
+  const linearDeltaInput = document.querySelector("#periodLinearDelta");
+  const linearDeltaOutput = document.querySelector("#periodLinearDeltaOutput");
+  if (linearDeltaInput) linearDeltaInput.value = String(linearDelta);
+  if (linearDeltaOutput) linearDeltaOutput.textContent = `%${linearDelta.toFixed(1)}`;
+
+  document.querySelectorAll('[data-deload-value]').forEach((chip) => {
+    chip.classList.toggle("is-active", Number(chip.dataset.deloadValue) === deloadCadence);
+  });
+  const deloadHidden = document.querySelector("#periodDeloadCadenceValue");
+  if (deloadHidden) deloadHidden.value = String(deloadCadence);
+
+  const startDateInput = document.querySelector("#periodStartDate");
+  if (startDateInput) {
+    if (data && data.startDate) {
+      startDateInput.value = data.startDate;
+    } else if (!startDateInput.value) {
+      // İlk yüklemede boşsa bugünü doldur (M1b.6 currentWeekIndex auto'ya hazır)
+      startDateInput.value = new Date().toISOString().slice(0, 10);
+    }
+  }
+
+  togglePeriodLinearDeltaVisibility();
+  renderPeriodizationPreview();
+}
+
+// togglePeriodLinearDeltaVisibility: Linear seçili değilse delta slider'ı gizle.
+function togglePeriodLinearDeltaVisibility() {
+  const wrap = document.querySelector("#periodLinearDeltaWrap");
+  if (!wrap) return;
+  const model = document.querySelector('input[name="periodModel"]:checked')?.value;
+  wrap.hidden = (model !== "linear");
+}
+
+// computeWeekPreviewRows: Linear/Manual model + deload + delta'dan week-by-week
+// list üretir. Mini + büyük preview tek hesaplama paylaşır.
+function computeWeekPreviewRows() {
+  const totalWeeks = Number(document.querySelector("#periodTotalWeeks")?.value) || 8;
+  const model = document.querySelector('input[name="periodModel"]:checked')?.value || "linear";
+  const deloadCadence = Number(document.querySelector("#periodDeloadCadenceValue")?.value) || 0;
+  const linearDelta = Number(document.querySelector("#periodLinearDelta")?.value) || 2.5;
+
+  if (model === "manual") {
+    return {
+      model,
+      totalWeeks,
+      rows: [],
+      manualNote: `1 hafta tasarlanacak. Sistem ${Math.max(0, totalWeeks - 1)} hafta otomatik kopya üretecek.`,
+    };
+  }
+
+  const rows = [];
+  let intensity = 1.0;
+  for (let i = 1; i <= totalWeeks; i++) {
+    const isDeload = deloadCadence > 0 && i % deloadCadence === 0;
+    const value = isDeload ? 0.65 : intensity;
+    rows.push({
+      weekIndex: i,
+      isDeload,
+      intensityFactor: value,
+      label: isDeload ? "🌙 Deload" : (i === 1 ? "Standart" : "Yoğun"),
+    });
+    if (!isDeload) intensity += linearDelta / 100;
+  }
+  return { model, totalWeeks, rows, manualNote: null };
+}
+
+// renderPeriodizationPreview: mini (#periodPreviewList) + büyük (#bigPeriodPreviewList)
+// preview'leri JS-computed week table ile doldurur. aria-live korunur.
+function renderPeriodizationPreview() {
+  const data = computeWeekPreviewRows();
+  const miniList = document.querySelector("#periodPreviewList");
+  const bigList = document.querySelector("#bigPeriodPreviewList");
+  const manualHint = document.querySelector("#periodManualHint");
+
+  if (manualHint) manualHint.hidden = (data.model !== "manual");
+
+  if (data.model === "manual") {
+    const noteHtml = `<li class="bsm-period-preview__manual">${escapeHtml(data.manualNote)}</li>`;
+    if (miniList) miniList.innerHTML = noteHtml;
+    if (bigList) bigList.innerHTML = noteHtml;
+    return;
+  }
+
+  const rowsHtml = data.rows.map((row) => `
+    <li class="bsm-period-preview__row ${row.isDeload ? "is-deload" : ""}">
+      <span class="bsm-period-preview__week">Hafta ${row.weekIndex}</span>
+      <span class="bsm-period-preview__type">${escapeHtml(row.label)}</span>
+      <span class="bsm-period-preview__intensity">${row.intensityFactor.toFixed(3)}× yoğunluk</span>
+    </li>
+  `).join("");
+
+  if (miniList) miniList.innerHTML = rowsHtml;
+  if (bigList) bigList.innerHTML = rowsHtml;
+}
+
+// bindPeriodizationHandlers: idempotent guard (dataset.bsmPeriodBound) ile
+// document.documentElement üzerinde flag set edilir. Tek defa initialize().
+function bindPeriodizationHandlers() {
+  if (document.documentElement.dataset.bsmPeriodBound === "true") return;
+  document.documentElement.dataset.bsmPeriodBound = "true";
+
+  const totalInput = document.querySelector("#periodTotalWeeks");
+  const totalOutput = document.querySelector("#periodTotalWeeksOutput");
+  totalInput?.addEventListener("input", (e) => {
+    if (totalOutput) totalOutput.textContent = e.target.value;
+    renderPeriodizationPreview();
+  });
+
+  document.querySelectorAll('input[name="periodModel"]').forEach((r) => {
+    r.addEventListener("change", () => {
+      togglePeriodLinearDeltaVisibility();
+      renderPeriodizationPreview();
+    });
+  });
+
+  const linearDeltaInput = document.querySelector("#periodLinearDelta");
+  const linearDeltaOutput = document.querySelector("#periodLinearDeltaOutput");
+  linearDeltaInput?.addEventListener("input", (e) => {
+    const v = Number(e.target.value);
+    if (linearDeltaOutput) linearDeltaOutput.textContent = `%${v.toFixed(1)}`;
+    renderPeriodizationPreview();
+  });
+
+  const deloadChips = document.querySelectorAll('[data-deload-value]');
+  const deloadHidden = document.querySelector("#periodDeloadCadenceValue");
+  deloadChips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      deloadChips.forEach((c) => c.classList.remove("is-active"));
+      chip.classList.add("is-active");
+      if (deloadHidden) deloadHidden.value = chip.dataset.deloadValue;
+      renderPeriodizationPreview();
+    });
   });
 }
 

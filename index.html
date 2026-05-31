@@ -517,6 +517,93 @@
             </div>
           </fieldset>
 
+          <!-- M1b.1: Periodization fieldset — totalWeeks + model + deload + linear delta + startDate + mini preview -->
+          <fieldset class="choice-block bsm-periodization" data-form-section="periodization">
+            <legend>Periodization (Makrosikl)</legend>
+            <p class="help-text">Programın kaç hafta süreceğini, hangi modelle ilerleyeceğini ve deload sıklığını ayarlayın.</p>
+
+            <div class="bsm-periodization__row">
+              <label class="field bsm-field--range">
+                <span>Program süresi: <output id="periodTotalWeeksOutput">8</output> hafta</span>
+                <input
+                  type="range"
+                  id="periodTotalWeeks"
+                  name="totalWeeks"
+                  min="4"
+                  max="12"
+                  value="8"
+                  step="1"
+                  aria-describedby="periodTotalWeeksHint"
+                />
+                <small id="periodTotalWeeksHint" class="help-text">4–12 hafta arası</small>
+              </label>
+
+              <label class="field compact-field">
+                <span>Başlangıç tarihi</span>
+                <input
+                  type="date"
+                  id="periodStartDate"
+                  name="startDate"
+                  aria-describedby="periodStartDateHint"
+                />
+                <small id="periodStartDateHint" class="help-text">"Bugün Hafta X" hesabında kullanılır</small>
+              </label>
+            </div>
+
+            <fieldset class="bsm-radio-cards" role="radiogroup" aria-label="Progression modeli">
+              <legend>Progression modeli</legend>
+              <label class="bsm-radio-card">
+                <input type="radio" name="periodModel" value="linear" checked />
+                <span class="bsm-radio-card__head">
+                  <strong>Linear</strong>
+                  <em>Her hafta belirlenen oranda yük artışı</em>
+                </span>
+              </label>
+              <label class="bsm-radio-card">
+                <input type="radio" name="periodModel" value="manual" />
+                <span class="bsm-radio-card__head">
+                  <strong>Manual</strong>
+                  <em>İlk hafta clone + manuel düzenle</em>
+                </span>
+              </label>
+            </fieldset>
+
+            <label class="field bsm-field--range bsm-period-linear-only" id="periodLinearDeltaWrap">
+              <span>Linear artış oranı: <output id="periodLinearDeltaOutput">%2.5</output> / hafta</span>
+              <input
+                type="range"
+                id="periodLinearDelta"
+                name="linearDeltaPercent"
+                min="0.5"
+                max="5.0"
+                value="2.5"
+                step="0.5"
+              />
+              <small class="help-text">%0.5 – %5.0 arası (sadece Linear için)</small>
+            </label>
+
+            <div class="bsm-period-chips" role="radiogroup" aria-label="Deload sıklığı">
+              <span class="bsm-period-chips__label">Deload sıklığı:</span>
+              <div class="bsm-period-chips__group" id="periodDeloadCadence">
+                <button type="button" class="bsm-chip" data-deload-value="0">Yok</button>
+                <button type="button" class="bsm-chip" data-deload-value="3">Her 3 hafta</button>
+                <button type="button" class="bsm-chip is-active" data-deload-value="4">Her 4 hafta</button>
+                <button type="button" class="bsm-chip" data-deload-value="6">Her 6 hafta</button>
+              </div>
+              <input type="hidden" id="periodDeloadCadenceValue" name="deloadCadence" value="4" />
+            </div>
+
+            <div class="bsm-period-preview bsm-period-preview--mini" aria-live="polite">
+              <h5>Mini önizleme</h5>
+              <ol class="bsm-period-preview__list" id="periodPreviewList"></ol>
+            </div>
+
+            <p class="bsm-period-hint" id="periodManualHint" hidden>
+              💡 Manual seçtiniz. İlk haftayı oluşturursunuz. Sistem kalan haftaları otomatik kopyalar.
+              İsterseniz her haftayı daha sonra ayrı ayrı düzenleyebilirsiniz.
+            </p>
+          </fieldset>
+
           <label class="field field--full">
             <span>Antrenör notu</span>
             <textarea
@@ -527,6 +614,13 @@
               placeholder="Örn. Üye ilk ay adaptasyon programında. Squat derinliği kontrollü, omuz press hareketleri hafif başlatılacak."
             ></textarea>
           </label>
+
+          <!-- M1b.1: Büyük preview — Önizleme ve Oluştur step için -->
+          <section class="bsm-period-preview bsm-period-preview--big" data-form-section="big-preview" aria-live="polite">
+            <h4>Program ön izlemesi</h4>
+            <p class="help-text">Aşağıdaki yapı oluşturulacak. <strong>Üye Programını Oluştur</strong> butonuna basmadan önce kontrol edin.</p>
+            <ol class="bsm-period-preview__list bsm-period-preview__list--big" id="bigPeriodPreviewList"></ol>
+          </section>
 
         </form>
       </section>
