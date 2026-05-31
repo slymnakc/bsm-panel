@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const schemaVersion = 3;
+  const schemaVersion = 4;  // M1a.3: v3 -> v4 periodization bump
   const storageKeys = {
     form: "formaplan-studio-last-form",
     plan: "formaplan-studio-last-plan",

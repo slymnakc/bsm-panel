@@ -46,7 +46,7 @@
   var _showStatus = function () {};
   var _loadLastForm = function () { return null; };
   var _loadLastPlan = function () { return null; };
-  var _schemaVersion = 3;
+  var _schemaVersion = 4;  // M1a.3: v3 -> v4 periodization bump
   var _domRefs = {};
 
   function init(deps) {

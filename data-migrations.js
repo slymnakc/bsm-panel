@@ -1,7 +1,13 @@
 (function () {
   "use strict";
 
-  const TARGET_SCHEMA_VERSION = 3;
+  // M1a.3: v3 → v4 schema bump. v4 = periodization-ready (macrocycle + weeks[]).
+  // v3 programlari otomatik migrate edilir (normalizePlan icinde v3 detection +
+  // weeks=[{weekIndex:1, sessions: rawV3.sessions}] + macrocycle defaults).
+  // program.sessions BACKWARD ALIAS olarak weeks[0].sessions'a point eder —
+  // 7 v3 consumer (app.js, outputActions, ui/output-ui, program-summary-service,
+  // output-model-service, form-handlers, analysis-engine) calismaya devam.
+  const TARGET_SCHEMA_VERSION = 4;
   const DEFAULT_FORM = {
     gymName: "Bahçeşehir Spor Merkezi",
     memberName: "",
@@ -219,15 +225,51 @@
 
     const createdAtIso = normalizeIsoDate(raw.createdAtIso) || new Date().toISOString();
 
+    // M1a.3: v3 → v4 detection.
+    //   v3 input → schemaVersion === 3 VEYA (weeks[] yok ama sessions[] var)
+    //   v4 input → weeks[] dolu
+    const isV3Input = raw.schemaVersion === 3
+      || (!Array.isArray(raw.weeks) && Array.isArray(raw.sessions));
+
+    // weeks[]: v3 ise tek hafta wrap, v4 ise normalize.
+    const weeks = isV3Input
+      ? [{
+          weekIndex: 1,
+          isDeload: false,
+          intensityFactor: 1.0,
+          sessions: normalizeSessions(raw.sessions),
+        }]
+      : normalizeWeeks(raw.weeks);
+
+    // macrocycle: v3 ise manual defaults, v4 ise normalize.
+    const macrocycle = isV3Input
+      ? { totalWeeks: weeks.length || 1, model: "manual", deloadCadence: 0, progressionRule: null }
+      : normalizeMacrocycle(raw.macrocycle, weeks.length);
+
+    // currentWeekIndex: kullanici hangi haftadayken cikti aliyor.
+    const currentWeekIndex = Number(raw.currentWeekIndex) >= 1
+      ? Math.min(Number(raw.currentWeekIndex), weeks.length || 1)
+      : 1;
+
+    // sessions BACKWARD ALIAS: weeks[0]?.sessions referansi — v3 consumers icin garanti.
+    // program.sessions === program.weeks[0].sessions (shallow ref equal)
+    const aliasSessions = weeks[0]?.sessions || [];
+
     return {
       ...raw,
       schemaVersion: TARGET_SCHEMA_VERSION,
       createdAtIso,
       createdAt: normalizeString(raw.createdAt, formatDisplayDate(createdAtIso)),
       title: normalizeString(raw.title, "Üye Programı"),
+      // YENİ v4 alanlari
+      macrocycle,
+      weeks,
+      currentWeekIndex,
+      // BACKWARD ALIAS — v3 consumers (7 dosya) icin garanti
+      sessions: aliasSessions,
+      // Mevcut v3 alanlari — lossless korunur
       overview: Array.isArray(raw.overview) ? raw.overview.filter((item) => Array.isArray(item) && item.length >= 2) : [],
       coachNote: normalizeString(raw.coachNote),
-      sessions: normalizeSessions(raw.sessions),
       progression: normalizeTextBlocks(raw.progression),
       guidance: normalizeTextBlocks(raw.guidance),
       coverage: normalizeCoverage(raw.coverage),
@@ -237,6 +279,39 @@
       v3Insights: raw.v3Insights && typeof raw.v3Insights === "object" ? raw.v3Insights : null,
       programContext: raw.programContext && typeof raw.programContext === "object" ? raw.programContext : null,
       rawData: normalizeFormData(raw.rawData),
+    };
+  }
+
+  // M1a.3: v4 weeks[] normalize. Her week: {weekIndex, isDeload, intensityFactor, sessions[]}
+  function normalizeWeeks(rawWeeks) {
+    if (!Array.isArray(rawWeeks)) {
+      return [];
+    }
+
+    return rawWeeks
+      .filter((week) => week && typeof week === "object")
+      .map((week, index) => ({
+        weekIndex: Number(week.weekIndex) >= 1 ? Number(week.weekIndex) : (index + 1),
+        isDeload: Boolean(week.isDeload),
+        intensityFactor: Number(week.intensityFactor) > 0 ? Number(week.intensityFactor) : 1.0,
+        sessions: normalizeSessions(week.sessions),
+      }));
+  }
+
+  // M1a.3: v4 macrocycle normalize. {totalWeeks, model, deloadCadence, progressionRule}
+  // model whitelist: linear / dup / block / manual.
+  function normalizeMacrocycle(rawMacro, totalWeeksHint) {
+    const source = rawMacro && typeof rawMacro === "object" ? rawMacro : {};
+    const allowedModels = ["linear", "dup", "block", "manual"];
+    const fallbackTotal = totalWeeksHint || 1;
+
+    return {
+      totalWeeks: Number(source.totalWeeks) >= 1 ? Number(source.totalWeeks) : fallbackTotal,
+      model: allowedModels.includes(source.model) ? source.model : "manual",
+      deloadCadence: Number(source.deloadCadence) >= 0 ? Number(source.deloadCadence) : 0,
+      progressionRule: source.progressionRule && typeof source.progressionRule === "object"
+        ? source.progressionRule
+        : null,
     };
   }
 

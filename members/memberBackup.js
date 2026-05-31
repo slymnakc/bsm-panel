@@ -38,7 +38,7 @@
   "use strict";
 
   var _state = null;
-  var _schemaVersion = 3;
+  var _schemaVersion = 4;  // M1a.3: v3 -> v4 periodization bump
   var _form = null;
   var _backupFileInput = null;
   var _resultsSection = null;

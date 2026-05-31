@@ -70,7 +70,8 @@ test("Backup JSON export — download payload + state mutate etmez", async ({ pa
   const rawText = fs.readFileSync(path, "utf-8");
   const payload = JSON.parse(rawText);
 
-  expect(payload.schemaVersion, "schemaVersion field").toBe(3);
+  // M1a.3: BSMStorageService.schemaVersion v3 → v4 bump sonrasi backup file V4 yaziyor.
+  expect(payload.schemaVersion, "schemaVersion field (M1a.3 v4)").toBe(4);
   expect(payload.exportedAt, "exportedAt ISO").toMatch(/^\d{4}-\d{2}-\d{2}T/);
   expect(payload.gymName, "gymName fallback").toBeTruthy();
   expect(payload.activeMemberId, "activeMemberId payload").toBe(DEFAULT_MEMBER.id);
