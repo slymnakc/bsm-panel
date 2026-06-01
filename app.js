@@ -289,6 +289,38 @@ window.BSMTestApi = {
       return false;
     } catch (e) { return null; }
   },
+  // M1b.6 regression hook'lari (test-only).
+  // computeAutoWeekIndexForTest — pure helper test (todayOverride deterministic).
+  // resumeAutoWeekForTest — "Auto'ya dön" buton tetikleme.
+  // getProgramAutoSnapshot — autoMode + startDate + currentWeekIndex okuma.
+  // __setRawStartDateForTest — startDate'i runtime'da degistirip resume test etmek icin.
+  computeAutoWeekIndexForTest: function (startDate, totalWeeks, todayOverride) {
+    try { return computeAutoWeekIndex(startDate, totalWeeks, todayOverride); } catch (e) { return null; }
+  },
+  resumeAutoWeekForTest: function () {
+    try { return resumeAutoWeekMode(); } catch (e) { return null; }
+  },
+  __setRawStartDateForTest: function (iso) {
+    try {
+      if (state.activeProgram && state.activeProgram.rawData) {
+        state.activeProgram.rawData.startDate = String(iso || "");
+      }
+      return state.activeProgram?.rawData?.startDate;
+    } catch (e) { return null; }
+  },
+  getProgramAutoSnapshot: function () {
+    try {
+      const p = state.activeProgram;
+      if (!p) return { hasProgram: false };
+      return {
+        hasProgram: true,
+        currentWeekIndex: Number(p.currentWeekIndex) || 1,
+        autoMode: p.currentWeekIndexAutoMode !== false,
+        startDate: (p.rawData && p.rawData.startDate) || "",
+        editMode: !!state.programEditMode,
+      };
+    } catch (e) { return null; }
+  },
   // M1b.5 regression hook'u. buildProgramPdfPayload mevcut callsite imzasini
   // bozmadan test'ten cagrilabilsin diye minimal profile/activeMember turetir.
   // Production davranisi degismez — buildProgramPdfPayload dogal akisla calisir.
@@ -8262,17 +8294,95 @@ function rebindActiveWeekSessions() {
 
 // setActiveWeek: week tab click → currentWeekIndex mutate + alias re-bind +
 // full re-render (preserveEditState) + persist. Edit mode'da no-op (tabs disabled).
+// M1b.6: Manuel tıklama → autoMode=false (manuel kilit). resumeAutoWeekMode ile
+// tekrar auto mod'a dönülebilir.
 function setActiveWeek(weekIndex) {
   if (!state.activeProgram || !Array.isArray(state.activeProgram.weeks)) return;
   if (state.programEditMode) return;  // Edit mode'da hafta değişimi engellenir (veri kaybı koruması)
   const total = state.activeProgram.weeks.length;
   const clamped = Math.max(1, Math.min(Number(weekIndex) || 1, total));
-  if (clamped === state.activeProgram.currentWeekIndex) return;  // aynı hafta → no-op
+  // M1b.6: autoMode'u manuel'e çek (kullanıcı explicit seçim yapıyor).
+  // Aynı hafta no-op olsa bile autoMode=false kalsın (manuel niyet).
+  state.activeProgram.currentWeekIndexAutoMode = false;
+  if (clamped === state.activeProgram.currentWeekIndex) {
+    // Hafta aynı ama autoMode değişti → persist + UI badge refresh
+    saveLastPlan(state.activeProgram);
+    renderProgramWeekTabs();
+    return;
+  }
   state.activeProgram.currentWeekIndex = clamped;
   // renderProgram başında rebindActiveWeekSessions() çağrılıyor; ama persist için
   // burada da alias kur (saveLastPlan currentWeekIndex'i yazsın).
   rebindActiveWeekSessions();
-  saveLastPlan(state.activeProgram);  // currentWeekIndex persistence
+  saveLastPlan(state.activeProgram);  // currentWeekIndex + autoMode persistence
+  renderProgram(state.activeProgram, { preserveEditState: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// M1b.6: Date-based currentWeekIndex auto compute + manuel override
+// ═══════════════════════════════════════════════════════════════════════
+
+// computeAutoWeekIndex: startDate'e göre bugünün hafta indeksini hesaplar.
+// Pure fn — todayOverride opsiyonel (deterministic test için ISO date string).
+// Geçersiz/boş startDate → null (caller'da compute SKIP).
+// Saat dilimi: yerel midnight (T00:00:00) — gün bazlı, saat etkisi yok.
+function computeAutoWeekIndex(startDateStr, totalWeeks, todayOverride) {
+  if (typeof startDateStr !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(startDateStr.trim())) {
+    return null;
+  }
+  const start = new Date(`${startDateStr.trim()}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return null;
+
+  let today;
+  if (typeof todayOverride === "string" && /^\d{4}-\d{2}-\d{2}$/.test(todayOverride.trim())) {
+    today = new Date(`${todayOverride.trim()}T00:00:00`);
+  } else if (todayOverride instanceof Date && !Number.isNaN(todayOverride.getTime())) {
+    today = new Date(todayOverride.getTime());
+  } else {
+    today = new Date();
+  }
+  today.setHours(0, 0, 0, 0);
+  start.setHours(0, 0, 0, 0);
+
+  const diffMs = today.getTime() - start.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays < 0) return 1;  // gelecekte başlayan plan → hafta 1
+
+  const total = Number(totalWeeks) >= 1 ? Math.floor(Number(totalWeeks)) : 1;
+  const idx = Math.floor(diffDays / 7) + 1;
+  return Math.max(1, Math.min(idx, total));
+}
+
+// applyAutoWeekIndex: renderProgram başında çağrılır.
+// - state.programEditMode → SKIP (M1b.4 ile tutarlı, veri kaybı koruması)
+// - currentWeekIndexAutoMode=false → SKIP (manuel kilit aktif)
+// - startDate yok/geçersiz → SKIP (compute null)
+// - Aksi takdirde state.activeProgram.currentWeekIndex'i compute sonucuna set.
+// rebindActiveWeekSessions'tan ÖNCE çağrılmalı.
+function applyAutoWeekIndex() {
+  const p = state.activeProgram;
+  if (!p) return;
+  if (state.programEditMode) return;                       // edit mode kilidi
+  if (p.currentWeekIndexAutoMode === false) return;        // manuel kilit
+  const weeks = Array.isArray(p.weeks) ? p.weeks : [];
+  if (weeks.length <= 1) return;                           // 1 hafta program — compute anlamsız
+  const startDate = p.rawData && p.rawData.startDate;
+  const computed = computeAutoWeekIndex(startDate, weeks.length);
+  if (computed === null) return;                           // startDate yok/geçersiz
+  p.currentWeekIndex = computed;
+}
+
+// resumeAutoWeekMode: "Auto'ya dön" butonu. autoMode=true + tetiklenir re-render.
+// Edit mode'da no-op (M1b.4 ile tutarlı).
+function resumeAutoWeekMode() {
+  if (!state.activeProgram) return;
+  if (state.programEditMode) {
+    // Edit mode'da auto compute zaten SKIP olur; mode değişimini de engelle ki
+    // kullanıcı manuel düzenlemesini koru. UI feedback: badge güncellemesi yok.
+    return;
+  }
+  state.activeProgram.currentWeekIndexAutoMode = true;
+  saveLastPlan(state.activeProgram);
   renderProgram(state.activeProgram, { preserveEditState: true });
 }
 
@@ -8324,6 +8434,49 @@ function renderProgramWeekTabs() {
   group.className = "program-week-tabs__group";
   group.innerHTML = chipsHtml;
   container.appendChild(group);
+
+  // M1b.6: Auto/Manuel badge + "Auto'ya dön" buton.
+  // - autoMode=true → 🔄 Auto: Hafta X, resume buton hidden
+  // - autoMode=false → 🔒 Manuel: Hafta X + resume buton visible
+  // - startDate yoksa: badge "—" (compute imkansız), buton hidden (resume anlamsız)
+  const autoMode = program.currentWeekIndexAutoMode !== false;  // default true
+  const startDate = program.rawData && program.rawData.startDate;
+  const hasStartDate = typeof startDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(startDate.trim());
+
+  const mode = document.createElement("div");
+  mode.className = "program-week-tabs__mode";
+
+  const badge = document.createElement("span");
+  badge.className = "week-auto-badge";
+  if (autoMode && hasStartDate) {
+    badge.dataset.weekAutoBadge = "auto";
+    badge.classList.add("week-auto-badge--auto");
+    badge.textContent = `🔄 Auto · Hafta ${current}`;
+    badge.title = `Bugünün tarihine göre otomatik hesaplandı (başlangıç: ${startDate})`;
+  } else if (autoMode && !hasStartDate) {
+    badge.dataset.weekAutoBadge = "auto";
+    badge.classList.add("week-auto-badge--auto", "week-auto-badge--no-date");
+    badge.textContent = `🔄 Auto · Hafta ${current} (tarihsiz)`;
+    badge.title = "Program başlangıç tarihi tanımsız — otomatik hesap yapılmadı";
+  } else {
+    badge.dataset.weekAutoBadge = "manual";
+    badge.classList.add("week-auto-badge--manual");
+    badge.textContent = `🔒 Manuel · Hafta ${current}`;
+    badge.title = "Manuel hafta seçimi aktif";
+  }
+  mode.appendChild(badge);
+
+  const resumeBtn = document.createElement("button");
+  resumeBtn.type = "button";
+  resumeBtn.className = "week-auto-resume";
+  resumeBtn.dataset.weekAutoResume = "true";
+  resumeBtn.textContent = "↻ Auto'ya dön";
+  resumeBtn.title = "Bugünün tarihine göre haftaya geri dön";
+  resumeBtn.hidden = autoMode;       // sadece manuel mod'da görünür
+  resumeBtn.disabled = editing;       // edit mode'da disabled
+  mode.appendChild(resumeBtn);
+
+  container.appendChild(mode);
   container.classList.toggle("is-disabled", editing);
 }
 
@@ -8336,6 +8489,12 @@ function bindProgramWeekTabsHandler() {
   if (container.dataset.bsmWeekTabsBound === "true") return;
   container.dataset.bsmWeekTabsBound = "true";
   container.addEventListener("click", (e) => {
+    // M1b.6: "Auto'ya dön" buton — week chip'lerden önce kontrol (öncelik)
+    const resumeBtn = e.target.closest("[data-week-auto-resume]");
+    if (resumeBtn && !resumeBtn.disabled) {
+      resumeAutoWeekMode();
+      return;
+    }
     const chip = e.target.closest("[data-week-chip]");
     if (!chip || chip.disabled) return;
     const idx = Number(chip.dataset.weekChip);
@@ -8379,6 +8538,11 @@ function renderProgram(program, options = {}) {
     );
     state.activeProgram.weeks = expandedWeeks;
   }
+
+  // M1b.6: Date-based auto compute. Edit mode + autoMode=false + startDate yok →
+  // SKIP. Aksi takdirde rawData.startDate'e göre currentWeekIndex'i bugüne ayarlar.
+  // KRİTİK SIRA: rebindActiveWeekSessions'tan ÖNCE — alias doğru haftaya bağlanır.
+  applyAutoWeekIndex();
 
   // M1b.4: Alias dynamic re-bind. sessions = weeks[currentWeekIndex-1].sessions.
   // currentWeekIndex clamp [1, weeks.length]. KRİTİK: bu re-bind buildMuscleCoverage

@@ -100,6 +100,17 @@
     return Math.min(Math.max(value, min), max);
   }
 
+  // M1b.6: startDate strict YYYY-MM-DD normalizer.
+  // Geçersiz/eksik değer → boş string (auto compute null döner, currentWeekIndex
+  // mevcut değeriyle kalır). Whitelist olmadan persist edilmediği için fix kritik.
+  function normalizeStartDate(raw) {
+    if (typeof raw !== "string") return "";
+    const trimmed = raw.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return "";
+    const parsed = new Date(`${trimmed}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? "" : trimmed;
+  }
+
   function normalizeFormData(raw) {
     if (!raw || typeof raw !== "object") {
       return { ...DEFAULT_FORM, schemaVersion: TARGET_SCHEMA_VERSION };
@@ -125,6 +136,10 @@
       restrictions: normalizeStringArray(raw.restrictions),
       days: normalizeStringArray(raw.days),
       notes: normalizeString(raw.notes),
+      // M1b.6: Periodization startDate persistence FIX. M1b.1'de form'a eklendi
+      // ama whitelist'te yoktu → normalize sonrası kayboluyordu. Strict YYYY-MM-DD,
+      // geçersiz değerler boş string'e düşer (auto compute null döner, etki yok).
+      startDate: normalizeStartDate(raw.startDate),
     };
 
     // F5e: Profil fotoğrafı (dataURL string). Sadece data: URL'leri kabul et.
@@ -251,6 +266,12 @@
       ? Math.min(Number(raw.currentWeekIndex), weeks.length || 1)
       : 1;
 
+    // M1b.6: Auto/manuel kilit. Default true (yeni planlarda auto compute aktif).
+    // setActiveWeek manuel mod'a düşürür, resumeAutoMode tekrar auto'ya alır.
+    const currentWeekIndexAutoMode = typeof raw.currentWeekIndexAutoMode === "boolean"
+      ? raw.currentWeekIndexAutoMode
+      : true;
+
     // sessions BACKWARD ALIAS: weeks[0]?.sessions referansi — v3 consumers icin garanti.
     // program.sessions === program.weeks[0].sessions (shallow ref equal)
     const aliasSessions = weeks[0]?.sessions || [];
@@ -265,6 +286,8 @@
       macrocycle,
       weeks,
       currentWeekIndex,
+      // M1b.6: Date-based auto compute kilit. Default true (yeni planlarda auto).
+      currentWeekIndexAutoMode,
       // BACKWARD ALIAS — v3 consumers (7 dosya) icin garanti
       sessions: aliasSessions,
       // Mevcut v3 alanlari — lossless korunur
