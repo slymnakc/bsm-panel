@@ -289,6 +289,16 @@ window.BSMTestApi = {
       return false;
     } catch (e) { return null; }
   },
+  // M1b.5 regression hook'u. buildProgramPdfPayload mevcut callsite imzasini
+  // bozmadan test'ten cagrilabilsin diye minimal profile/activeMember turetir.
+  // Production davranisi degismez — buildProgramPdfPayload dogal akisla calisir.
+  buildProgramPdfPayloadForTest: function (program) {
+    try {
+      const profile = (program && program.rawData) || { memberName: "Test", goal: "muscle-gain", level: "intermediate", days: [] };
+      const activeMember = { profile: profile };
+      return window.BSMOutputActions.buildProgramPdfPayload(program, profile, activeMember);
+    } catch (e) { return null; }
+  },
   getProgramWeeksSnapshot: function () {
     try {
       const p = state.activeProgram;

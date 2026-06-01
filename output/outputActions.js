@@ -598,10 +598,31 @@
   function buildProgramPdfPayload(program, profile, activeMember) {
     const memberName = profile.memberName || activeMember?.profile?.memberName || "Üye";
 
+    // M1b.5: Macrocycle header için SOT alanı.
+    // buildMacrocycleCoverModel(program) cover band'i besleyen aynı fonksiyon.
+    // Drift kabul edilmiyor — UI ve PDF aynı kaynaktan akar.
+    // Defansif: BSMOutputModelService veya helper eksikse macrocycle:{visible:false}.
+    let macrocycle = { visible: false };
+    try {
+      const builder = (typeof window !== "undefined"
+        && window.BSMOutputModelService
+        && typeof window.BSMOutputModelService.buildMacrocycleCoverModel === "function")
+        ? window.BSMOutputModelService.buildMacrocycleCoverModel
+        : null;
+      if (builder) {
+        macrocycle = builder(program) || { visible: false };
+      }
+    } catch (e) {
+      macrocycle = { visible: false };
+    }
+
     return {
       memberName,
       programText: _convertProgramToText(program),
       programData: buildMailProgramData(program, profile, activeMember),
+      // M1b.5: server-side PDF render bu field'ı okuyup header band çizecek.
+      // Geriye uyumluluk: macrocycle.visible=false → server eski davranışı korur.
+      macrocycle,
     };
   }
 

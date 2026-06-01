@@ -23435,3 +23435,14 @@ body.is-video-modal-open {
     padding-bottom: 4px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   M1b.5: Print CSS — week tabs interaktif element, basılmamalı.
+   Cover macrocycle band (M1b.3) print'te görünür kalır (static).
+   ═══════════════════════════════════════════════════════════════ */
+@media print {
+  .program-week-tabs,
+  #programWeekTabs {
+    display: none !important;
+  }
+}

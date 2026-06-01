@@ -545,8 +545,9 @@ function getStaticCacheControl(ext) {
   return "no-cache";
 }
 
-function createPremiumProgramPdf({ title, memberName, programText, programData }) {
-  const model = buildProgramPdfModel({ title, memberName, programText, programData });
+function createPremiumProgramPdf({ title, memberName, programText, programData, macrocycle }) {
+  // M1b.5: macrocycle payload alanı (client SOT) → model'e iletilir.
+  const model = buildProgramPdfModel({ title, memberName, programText, programData, macrocycle });
   const pages = buildPremiumProgramPdfPages(model).slice(0, 4);
   const objects = [];
   const pageIds = pages.map((_, index) => 4 + index * 2);
@@ -576,6 +577,9 @@ function createProgramPdfBuffer(payload = {}) {
     memberName: sanitizeText(payload.memberName || payload.programData?.memberName || "Üye"),
     programText: sanitizeText(payload.programText || ""),
     programData: payload.programData,
+    // M1b.5: macrocycle (visible/header satırları) — payload'dan geçer, buildProgramPdfModel
+    // normalize eder. Defansif: yoksa visible:false (eski PDF davranışı).
+    macrocycle: payload.macrocycle || null,
   });
 }
 
@@ -1293,7 +1297,7 @@ function drawNutritionSupplementGroup(commands, title, supplements, y) {
   return y - 4;
 }
 
-function buildProgramPdfModel({ title, memberName, programText, programData }) {
+function buildProgramPdfModel({ title, memberName, programText, programData, macrocycle }) {
   const data = programData && typeof programData === "object" ? programData : {};
   const sessions = Array.isArray(data.sessions) ? data.sessions : parseProgramTextToSessions(programText);
   const summary = [
@@ -1303,6 +1307,18 @@ function buildProgramPdfModel({ title, memberName, programText, programData }) {
     ["Haftalık düzen", data.daysText || data.frequency || "Haftalık plana göre"],
   ];
 
+  // M1b.5: Macrocycle header band. Payload'dan gelir (client SOT — buildMacrocycleCoverModel).
+  // Geriye uyumluluk: macrocycle yok veya visible=false → band çizilmez, eski layout korunur.
+  const macroBand = macrocycle && typeof macrocycle === "object" && macrocycle.visible
+    ? {
+        visible: true,
+        headerLine1: sanitizeText(macrocycle.headerLine1 || ""),
+        headerLine2: sanitizeText(macrocycle.headerLine2 || ""),
+        headerLine3: macrocycle.headerLine3 ? sanitizeText(macrocycle.headerLine3) : null,
+        isActiveDeload: !!macrocycle.isActiveDeload,
+      }
+    : { visible: false };
+
   return {
     title: title || data.title || "Bahçeşehir Spor Merkezi Antrenman Programı",
     summarySubtitle: "Üyeye verilecek sade antrenman planı",
@@ -1311,6 +1327,7 @@ function buildProgramPdfModel({ title, memberName, programText, programData }) {
     summary,
     sessions,
     generatedAt: new Date().toLocaleDateString("tr-TR"),
+    macrocycle: macroBand,
   };
 }
 
@@ -1334,7 +1351,14 @@ function buildPremiumProgramPdfPages(model) {
 
   startPage();
   drawSummaryBlock(commands, model);
-  y = 612;
+  // M1b.5: Macrocycle header band (visible ise summary altına çizilir).
+  // Geriye uyumluluk: visible=false → band yok, y=612 (eski layout).
+  if (model.macrocycle && model.macrocycle.visible) {
+    drawMacrocycleBand(commands, model);
+    y = 580;  // band 32pt yer kaplar → sessions başlangıcı aşağı kayar
+  } else {
+    y = 612;
+  }
 
   for (const session of model.sessions) {
     const exercises = Array.isArray(session.exercises) ? session.exercises : [];
@@ -1400,6 +1424,37 @@ function drawSummaryBlock(commands, model) {
     addText(commands, x + 8, 678, item[0], 6.8, "#1d6b74");
     addText(commands, x + 8, 666, item[1], 8.6, "#082b35", 18);
   });
+}
+
+// M1b.5: Macrocycle header band — summary block altına çizilir (Y=612-644).
+// Renkler: Deload haftaysa amber soft fill, normal haftada cream fill.
+// 3 satır:
+//   Line1 (üst):  "📅 N Haftalık Program · Linear/Manual" (sol)
+//   Line2 (üst-sağ): "Bu çıktı: Hafta X / N · 1.05× yoğunluk" veya "🌙 DELOAD..."
+//   Line3 (alt, opsiyonel): "Bir sonraki deload: Hafta X (Y hafta sonra)"
+function drawMacrocycleBand(commands, model) {
+  const macro = model.macrocycle || {};
+  const isDeload = !!macro.isActiveDeload;
+  const fillColor = isDeload ? "#fff6e5" : "#f3f8f7";
+  const borderColor = isDeload ? "#d8ad63" : "#1d6b74";
+
+  // Y=612-640 (28pt yükseklik), kenarlık + fill
+  drawRect(commands, 28, 612, 539, 28, fillColor, borderColor);
+  // Sol şerit (vurgu) — deload amber, normal teal
+  drawRect(commands, 28, 612, 4, 28, borderColor);
+
+  // Line1: sol üst (Y=630), title — "📅 N Haftalık Program · Linear/Manual"
+  if (macro.headerLine1) {
+    addText(commands, 38, 630, macro.headerLine1, 9, "#082b35", 50);
+  }
+  // Line2: sağ üst (Y=630), aktif hafta + yoğunluk
+  if (macro.headerLine2) {
+    addText(commands, 290, 630, macro.headerLine2, 8.5, isDeload ? "#92581b" : "#1d6b74", 48);
+  }
+  // Line3: alt (Y=618), sıradaki deload (varsa)
+  if (macro.headerLine3) {
+    addText(commands, 38, 618, macro.headerLine3, 7.5, "#5a5a5a", 78);
+  }
 }
 
 function drawSessionHeader(commands, session, y) {

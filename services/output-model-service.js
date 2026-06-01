@@ -168,17 +168,53 @@
         : `Bir sonraki deload: Hafta ${nextDeloadIndex} (${weeksUntil} hafta sonra)`;
     }
 
+    // M1b.5: PDF header band için aktif hafta yoğunluğu + deload durumu.
+    // SOT ilkesi: PDF payload bu fonksiyondan beslenir, drift yok.
+    // - Manual modda intensityFactor=1.0 (engine kuralı), bilgi anlamsız → gizle
+    // - isActiveDeload: aktif haftanın isDeload field'ı (Linear için anlamlı)
+    const activeWeek = weeks[currentWeekIndex - 1] || null;
+    const rawIntensity = Number(activeWeek && activeWeek.intensityFactor);
+    const activeIntensityFactor = Number.isFinite(rawIntensity) && rawIntensity > 0
+      ? Math.round(rawIntensity * 100) / 100
+      : 1.0;
+    // Manual'de deload yok (engine kuralı); defansif: model==manual → false
+    const isActiveDeload = model === "manual"
+      ? false
+      : !!(activeWeek && activeWeek.isDeload);
+
+    // PDF header satırları (3 satır şablon):
+    //   headerLine1: "📅 N Haftalık Program · Linear/Manual" (= title, alias)
+    //   headerLine2: aktif hafta + yoğunluk (Manual'de intensity yok)
+    //                Deload aktif → "🌙 DELOAD HAFTASI · 0.65× yoğunluk"
+    //   headerLine3: sıradaki deload (= nextDeloadText, alias)
+    const headerLine1 = title;
+    let headerLine2;
+    if (isActiveDeload) {
+      headerLine2 = `🌙 ${currentText} · DELOAD HAFTASI · ${activeIntensityFactor.toFixed(2)}× yoğunluk`;
+    } else if (model === "manual") {
+      headerLine2 = `Bu çıktı: ${currentText}`;
+    } else {
+      headerLine2 = `Bu çıktı: ${currentText} · ${activeIntensityFactor.toFixed(2)}× yoğunluk`;
+    }
+    const headerLine3 = nextDeloadText;  // null → PDF'de satır çizilmez
+
     return {
       visible: true,
       title,
       currentText,
       progressPercent,
       nextDeloadText,           // null → UI'da satır hidden
+      // M1b.5: PDF header alanları (3 satır).
+      headerLine1,
+      headerLine2,
+      headerLine3,
       // Raw veriler (gelecek tüketiciler için):
       totalWeeks,
       currentWeekIndex,
       model,
       nextDeloadIndex,
+      activeIntensityFactor,    // M1b.5: aktif haftanın yoğunluk faktörü
+      isActiveDeload,           // M1b.5: aktif hafta deload mı?
     };
   }
 
@@ -186,5 +222,7 @@
     buildProgramSectionsModel,
     buildOutputIntelligenceModel,
     buildProgramCoverModel,
+    // M1b.5: SOT için public expose. PDF payload aynı fonksiyondan beslenir.
+    buildMacrocycleCoverModel,
   };
 })();
