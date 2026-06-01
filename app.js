@@ -261,6 +261,54 @@ window.BSMTestApi = {
       return state.activeProgram ? { hasProgram: true, exerciseCount: Array.isArray(state.activeProgram.exercises) ? state.activeProgram.exercises.length : (state.activeProgram.days?.length || 0) } : { hasProgram: false };
     } catch (e) { return null; }
   },
+  // M1b.4 regression hook'lari (test-only). Production davranisi degismez —
+  // renderProgram + setActiveWeek dogal akisla calisir. Test'ten program seed +
+  // hafta degisimi + alias kontrolu icin.
+  renderProgramForTest: function (program) {
+    try { return renderProgram(program); } catch (e) { return null; }
+  },
+  setActiveWeekForTest: function (weekIndex) {
+    try { return setActiveWeek(weekIndex); } catch (e) { return null; }
+  },
+  setProgramEditModeForTest: function (enabled) {
+    try {
+      state.programEditMode = !!enabled;
+      renderProgramEditToolbar();
+      return state.programEditMode;
+    } catch (e) { return null; }
+  },
+  editActiveExerciseNameForTest: function (newName) {
+    try {
+      // Aktif hafta alias'i uzerinden ilk session ilk exercise name degistir.
+      // Inline edit'in aktif haftaya yazdigini dogrulamak icin minimal mutation.
+      const sessions = state.activeProgram && state.activeProgram.sessions;
+      if (Array.isArray(sessions) && sessions[0] && Array.isArray(sessions[0].exercises) && sessions[0].exercises[0]) {
+        sessions[0].exercises[0].name = String(newName || "");
+        return true;
+      }
+      return false;
+    } catch (e) { return null; }
+  },
+  getProgramWeeksSnapshot: function () {
+    try {
+      const p = state.activeProgram;
+      if (!p) return { hasProgram: false };
+      const weeks = Array.isArray(p.weeks) ? p.weeks : [];
+      const current = Number(p.currentWeekIndex) || 1;
+      const activeWeekSessions = weeks[current - 1] && weeks[current - 1].sessions;
+      return {
+        hasProgram: true,
+        weeksLength: weeks.length,
+        currentWeekIndex: current,
+        // Alias = aktif hafta sessions referansi mi?
+        aliasMatchesCurrent: p.sessions === activeWeekSessions,
+        week0FirstExerciseName: weeks[0] && weeks[0].sessions && weeks[0].sessions[0] && weeks[0].sessions[0].exercises && weeks[0].sessions[0].exercises[0]
+          ? weeks[0].sessions[0].exercises[0].name : null,
+        currentFirstExerciseName: activeWeekSessions && activeWeekSessions[0] && activeWeekSessions[0].exercises && activeWeekSessions[0].exercises[0]
+          ? activeWeekSessions[0].exercises[0].name : null,
+      };
+    } catch (e) { return null; }
+  },
 };
 
 const state = {
@@ -1553,6 +1601,8 @@ function initialize() {
   setupBuilderWizard();
   prepareMeasurementTabLayout();
   bindApplicationHandlers();
+  // M1b.4: Week tab click delegation (container-level, idempotent).
+  bindProgramWeekTabsHandler();
   syncStartupUi();
   hydrateInitialSession();
   setActiveScreen(inferScreenFromHash(window.location.hash), { silent: true });
@@ -8178,6 +8228,111 @@ function buildMuscleCoverage(sessions) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// M1b.4: Week navigation — alias dynamic re-bind + setActiveWeek + tabs render
+// ═══════════════════════════════════════════════════════════════════════
+
+// rebindActiveWeekSessions: state.activeProgram.sessions = weeks[currentWeekIndex-1].sessions.
+// currentWeekIndex clamp [1, weeks.length]. Tüm 14 sessions consumer'ı bu alias'ı
+// okur → tek noktadan re-bind ile aktif haftaya bağlanır. Coverage/intelligence
+// hesabından ÖNCE çağrılmalı.
+function rebindActiveWeekSessions() {
+  if (!state.activeProgram) return;
+  const weeks = Array.isArray(state.activeProgram.weeks) ? state.activeProgram.weeks : [];
+  if (!weeks.length) return;
+  const total = weeks.length;
+  const raw = Number(state.activeProgram.currentWeekIndex);
+  const clamped = Number.isFinite(raw) && raw >= 1 ? Math.min(Math.floor(raw), total) : 1;
+  state.activeProgram.currentWeekIndex = clamped;
+  const activeSessions = weeks[clamped - 1] && weeks[clamped - 1].sessions;
+  if (Array.isArray(activeSessions)) {
+    state.activeProgram.sessions = activeSessions;  // SHALLOW REF — inline edit aktif haftaya yazar
+  }
+}
+
+// setActiveWeek: week tab click → currentWeekIndex mutate + alias re-bind +
+// full re-render (preserveEditState) + persist. Edit mode'da no-op (tabs disabled).
+function setActiveWeek(weekIndex) {
+  if (!state.activeProgram || !Array.isArray(state.activeProgram.weeks)) return;
+  if (state.programEditMode) return;  // Edit mode'da hafta değişimi engellenir (veri kaybı koruması)
+  const total = state.activeProgram.weeks.length;
+  const clamped = Math.max(1, Math.min(Number(weekIndex) || 1, total));
+  if (clamped === state.activeProgram.currentWeekIndex) return;  // aynı hafta → no-op
+  state.activeProgram.currentWeekIndex = clamped;
+  // renderProgram başında rebindActiveWeekSessions() çağrılıyor; ama persist için
+  // burada da alias kur (saveLastPlan currentWeekIndex'i yazsın).
+  rebindActiveWeekSessions();
+  saveLastPlan(state.activeProgram);  // currentWeekIndex persistence
+  renderProgram(state.activeProgram, { preserveEditState: true });
+}
+
+// renderProgramWeekTabs: weeks → chip HTML. totalWeeks <= 1 ise hidden.
+// Chip durumları: is-active (current), is-past (<current), is-deload (isDeload).
+// Edit mode'da disabled. data-week-chip attr ile event delegation.
+function renderProgramWeekTabs() {
+  const container = document.querySelector("#programWeekTabs");
+  if (!container) return;
+  const program = state.activeProgram;
+  const weeks = Array.isArray(program && program.weeks) ? program.weeks : [];
+
+  if (weeks.length <= 1) {
+    container.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+
+  container.hidden = false;
+  const current = Number(program.currentWeekIndex) >= 1 ? Number(program.currentWeekIndex) : 1;
+  const editing = !!state.programEditMode;
+
+  const label = document.createElement("span");
+  label.className = "program-week-tabs__label";
+  label.textContent = "Hafta seçimi:";
+
+  const chipsHtml = weeks.map((w) => {
+    const idx = Number(w.weekIndex) || 0;
+    const isActive = idx === current;
+    const isPast = idx < current;
+    const isDeload = !!w.isDeload;
+    const classes = ["program-week-chip"];
+    if (isActive) classes.push("is-active");
+    if (isPast) classes.push("is-past");
+    if (isDeload) classes.push("is-deload");
+    const icon = isDeload ? "🌙" : (isPast ? "✓" : "");
+    return `<button type="button" class="${classes.join(" ")}" data-week-chip="${idx}" `
+      + `data-deload="${isDeload ? "true" : "false"}" `
+      + `${isActive ? 'aria-current="true"' : ""} ${editing ? "disabled" : ""} `
+      + `title="Hafta ${idx}${isDeload ? " (Deload)" : ""}">`
+      + `<span class="program-week-chip__num">${idx}</span>`
+      + `${icon ? `<span class="program-week-chip__icon">${icon}</span>` : ""}`
+      + `</button>`;
+  }).join("");
+
+  container.innerHTML = "";
+  container.appendChild(label);
+  const group = document.createElement("div");
+  group.className = "program-week-tabs__group";
+  group.innerHTML = chipsHtml;
+  container.appendChild(group);
+  container.classList.toggle("is-disabled", editing);
+}
+
+// bindProgramWeekTabsHandler: container-level event delegation (idempotent guard).
+// renderProgramWeekTabs her render'da innerHTML değiştirir; bu yüzden delegation
+// container'a bağlanır (chip'lere değil). Tek bind, initialize() içinde.
+function bindProgramWeekTabsHandler() {
+  const container = document.querySelector("#programWeekTabs");
+  if (!container) return;
+  if (container.dataset.bsmWeekTabsBound === "true") return;
+  container.dataset.bsmWeekTabsBound = "true";
+  container.addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-week-chip]");
+    if (!chip || chip.disabled) return;
+    const idx = Number(chip.dataset.weekChip);
+    if (idx >= 1) setActiveWeek(idx);
+  });
+}
+
 function renderProgram(program, options = {}) {
   const previousEditMode = state.programEditMode;
   const previousDefaultSnapshot = state.programDefaultSnapshot;
@@ -8213,9 +8368,12 @@ function renderProgram(program, options = {}) {
       baseSessionsForExpansion,
     );
     state.activeProgram.weeks = expandedWeeks;
-    // Backward alias: sessions = weeks[0].sessions (M1a.3 garantili shallow ref)
-    state.activeProgram.sessions = expandedWeeks[0] && expandedWeeks[0].sessions || state.activeProgram.sessions;
   }
+
+  // M1b.4: Alias dynamic re-bind. sessions = weeks[currentWeekIndex-1].sessions.
+  // currentWeekIndex clamp [1, weeks.length]. KRİTİK: bu re-bind buildMuscleCoverage
+  // ve buildProgramIntelligence çağrılarından ÖNCE olmalı (aktif hafta üzerinden hesap).
+  rebindActiveWeekSessions();
 
   state.activeProgram.coverage = state.activeProgram.coverage || buildMuscleCoverage(state.activeProgram.sessions);
   state.activeProgram.progression = state.activeProgram.progression || buildProgression(rawData);
@@ -8234,6 +8392,8 @@ function renderProgram(program, options = {}) {
   resultsSection.classList.remove("hidden");
   resultsTitle.textContent = state.activeProgram.title;
   window.BSMOutputRenderers.renderProgramCover(state.activeProgram);
+  // M1b.4: Week navigation tabs render (totalWeeks > 1 ise visible).
+  renderProgramWeekTabs();
   const weeklyPlanHtml = buildWeeklyPlanHtmlUi(
     { sessions: state.activeProgram.sessions || [], editMode: state.programEditMode },
     escapeHtml,
@@ -8519,6 +8679,10 @@ function renderProgramEditToolbar() {
       ? "Düzenleme modu açık. Değişiklikler ekranda anında güncellenir; kalıcı kayıt için Değişiklikleri Kaydet düğmesine basın."
       : "Düzenle modunda hareket, set, tekrar, dinlenme, tempo ve not alanlarını değiştirebilirsiniz.";
   }
+
+  // M1b.4: Edit mode değişince week tabs disabled durumunu güncelle.
+  // renderProgramWeekTabs editing flag'ine göre chip'leri disabled yapar.
+  renderProgramWeekTabs();
 }
 
 function normalizeEditableProgram(program) {
