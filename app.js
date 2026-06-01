@@ -509,6 +509,9 @@ if (!window.BSMLibraryVideoModal) {
 if (!window.BSMLibraryRenderers) {
   throw new Error("BSMLibraryRenderers yüklenmedi (script sırası bozuk olabilir)");
 }
+if (!window.BSMProgramPeriodizationEngine) {
+  throw new Error("BSMProgramPeriodizationEngine yüklenmedi (script sırası bozuk olabilir)");
+}
 if (!window.BSMLibraryCustomExercise) {
   throw new Error("BSMLibraryCustomExercise yüklenmedi (script sırası bozuk olabilir)");
 }
@@ -1529,6 +1532,8 @@ function initialize() {
   // M1b.1: Periodization fieldset event bind + initial preview render.
   bindPeriodizationHandlers();
   applyPeriodizationToForm({});  // İlk yüklemede default values + bugün startDate
+  // M1b.2: Periodization engine cloneData injection (SOT math + state hydration).
+  window.BSMProgramPeriodizationEngine.init({ cloneData: cloneData });
   initializeStateFromStorage();
   window.BSMOutputRenderers.prepareOutputLayout();
   setupBuilderWizard();
@@ -4074,6 +4079,7 @@ function applyPeriodizationToForm(data) {
   }
 
   togglePeriodLinearDeltaVisibility();
+  togglePeriodDeloadChipsState();
   renderPeriodizationPreview();
 }
 
@@ -4085,14 +4091,30 @@ function togglePeriodLinearDeltaVisibility() {
   wrap.hidden = (model !== "linear");
 }
 
-// computeWeekPreviewRows: Linear/Manual model + deload + delta'dan week-by-week
-// list üretir. Mini + büyük preview tek hesaplama paylaşır.
+// M1b.2: Manual mod seçildiğinde deload chip grubunu disabled yap.
+// Engine Manual'de deloadCadence'i sessizce ignore eder (computeIntensityTable
+// Manual branch); UI tarafında da user'a "deload Manual'de etkisiz" feedback
+// vermek için chip'ler disabled görünür.
+function togglePeriodDeloadChipsState() {
+  const model = document.querySelector('input[name="periodModel"]:checked')?.value;
+  const isManual = (model === "manual");
+  document.querySelectorAll('[data-deload-value]').forEach((chip) => {
+    chip.disabled = isManual;
+  });
+  const group = document.querySelector("#periodDeloadCadence");
+  if (group) group.classList.toggle("is-disabled", isManual);
+}
+
+// M1b.2: SOT pattern. Form'dan macrocycle config'i topla → engine'in
+// computeIntensityTable'ından ham math'i al → UI için label ekle.
+// Engine ile preview arasında math drift İMKANSIZ.
 function computeWeekPreviewRows() {
   const totalWeeks = Number(document.querySelector("#periodTotalWeeks")?.value) || 8;
   const model = document.querySelector('input[name="periodModel"]:checked')?.value || "linear";
   const deloadCadence = Number(document.querySelector("#periodDeloadCadenceValue")?.value) || 0;
   const linearDelta = Number(document.querySelector("#periodLinearDelta")?.value) || 2.5;
 
+  // Manual mod için preview hala özel "manualNote" gösterir (engine plain data döner).
   if (model === "manual") {
     return {
       model,
@@ -4102,19 +4124,23 @@ function computeWeekPreviewRows() {
     };
   }
 
-  const rows = [];
-  let intensity = 1.0;
-  for (let i = 1; i <= totalWeeks; i++) {
-    const isDeload = deloadCadence > 0 && i % deloadCadence === 0;
-    const value = isDeload ? 0.65 : intensity;
-    rows.push({
-      weekIndex: i,
-      isDeload,
-      intensityFactor: value,
-      label: isDeload ? "🌙 Deload" : (i === 1 ? "Standart" : "Yoğun"),
-    });
-    if (!isDeload) intensity += linearDelta / 100;
-  }
+  // Linear: engine.computeIntensityTable() SOT — ham math
+  const macrocycle = {
+    totalWeeks,
+    model: "linear",
+    deloadCadence,
+    progressionRule: { type: "linear", deltaPercent: linearDelta },
+  };
+  const rawTable = window.BSMProgramPeriodizationEngine.computeIntensityTable(macrocycle);
+
+  // UI tarafında label ekle (engine plain data döner)
+  const rows = rawTable.map((row) => ({
+    weekIndex: row.weekIndex,
+    isDeload: row.isDeload,
+    intensityFactor: row.intensityFactor,
+    label: row.isDeload ? "🌙 Deload" : (row.weekIndex === 1 ? "Standart" : "Yoğun"),
+  }));
+
   return { model, totalWeeks, rows, manualNote: null };
 }
 
@@ -4163,6 +4189,7 @@ function bindPeriodizationHandlers() {
   document.querySelectorAll('input[name="periodModel"]').forEach((r) => {
     r.addEventListener("change", () => {
       togglePeriodLinearDeltaVisibility();
+      togglePeriodDeloadChipsState();
       renderPeriodizationPreview();
     });
   });
@@ -8155,6 +8182,27 @@ function renderProgram(program, options = {}) {
 
   const rawData = state.activeProgram.rawData || collectFormData();
   state.activeProgram.sessions = state.activeProgram.sessions || [];
+
+  // M1b.2: Periodization engine hydration. macrocycle.totalWeeks > weeks.length
+  // ise engine ile expand (yeni plan create akışı). Saved plan load akışında
+  // weeks.length === totalWeeks → idempotent skip (re-expand zarar vermez ama
+  // gereksiz; M1b.8 per-week customization sonrası SKIP zorunlu).
+  const macroForExpansion = state.activeProgram.macrocycle || {};
+  const targetTotalWeeks = Number(macroForExpansion.totalWeeks) || 1;
+  const currentWeeksArr = Array.isArray(state.activeProgram.weeks) ? state.activeProgram.weeks : [];
+  if (targetTotalWeeks > 1 && currentWeeksArr.length !== targetTotalWeeks) {
+    const baseSessionsForExpansion = state.activeProgram.sessions.length
+      ? state.activeProgram.sessions
+      : (currentWeeksArr[0] && currentWeeksArr[0].sessions) || [];
+    const expandedWeeks = window.BSMProgramPeriodizationEngine.generateWeeksFromForm(
+      { macrocycle: macroForExpansion },
+      baseSessionsForExpansion,
+    );
+    state.activeProgram.weeks = expandedWeeks;
+    // Backward alias: sessions = weeks[0].sessions (M1a.3 garantili shallow ref)
+    state.activeProgram.sessions = expandedWeeks[0] && expandedWeeks[0].sessions || state.activeProgram.sessions;
+  }
+
   state.activeProgram.coverage = state.activeProgram.coverage || buildMuscleCoverage(state.activeProgram.sessions);
   state.activeProgram.progression = state.activeProgram.progression || buildProgression(rawData);
   state.activeProgram.guidance = state.activeProgram.guidance || buildGuidance(rawData);

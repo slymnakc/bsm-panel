@@ -23249,3 +23249,15 @@ body.is-video-modal-open {
     font-size: 0.82rem;
   }
 }
+
+/* M1b.2: Manual mod'da deload chip group disabled state */
+.bsm-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: var(--surface-muted, #f8f9fa);
+}
+
+.bsm-period-chips__group.is-disabled .bsm-period-chips__label,
+.bsm-period-chips.is-disabled .bsm-period-chips__label {
+  opacity: 0.6;
+}
