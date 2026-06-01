@@ -23520,3 +23520,87 @@ body.is-video-modal-open {
     margin-top: 6px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   M1b.7: Mobile responsive — week navigation full refinements.
+   - 375px viewport (iPhone SE/12 mini) hedef
+   - Touch target WCAG 44×44
+   - Horizontal scroll snap (mandatory)
+   - Resume buton kompakt (44px height korunur)
+   - Badge tek satır wrap yok
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  /* Container padding düşür → daha fazla içerik genişliği */
+  .program-week-tabs {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  /* Label kompakt */
+  .program-week-tabs__label {
+    font-size: 0.78rem;
+  }
+
+  /* Chip grubu: scroll snap mandatory + nowrap + smooth scroll */
+  .program-week-tabs__group {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;  /* iOS momentum */
+    scrollbar-width: thin;
+    gap: 8px;  /* daha rahat touch hedefleri */
+  }
+
+  /* Chip: touch target WCAG 44×44 sağlanmış (mevcut min-width/min-height: 44px),
+     scroll-snap-align: center → swipe sırasında otomatik centerlanır */
+  .program-week-chip {
+    scroll-snap-align: center;
+    flex: 0 0 auto;  /* shrink yapma — touch target sabit */
+  }
+
+  /* Mode container mobile'da row layout (badge + buton yan yana) */
+  .program-week-tabs__mode {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+  }
+
+  /* Badge mobile: tek satır, biraz daha sıkı padding */
+  .week-auto-badge {
+    padding: 4px 8px;
+    font-size: 0.74rem;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Resume buton: WCAG 44px touch target zorunlu + kompakt görünüm.
+     Desktop'ta inline-flex 26px civarı (padding 4×10) — mobilde min-height ile zorlanır.
+     "↻ Auto'ya dön" yazısı korunur (375px'e sığar). */
+  .week-auto-resume {
+    min-height: 44px;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+
+/* Çok dar viewport (≤360px) — eski Android, Galaxy Fold gibi cihazlar.
+   Resume butonu ikon-only mod'a düşür (yazı gizli, sadece ↻). */
+@media (max-width: 360px) {
+  .week-auto-resume {
+    padding: 8px 12px;
+    font-size: 0;  /* yazı gizle */
+  }
+  .week-auto-resume::before {
+    content: "↻";
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+  .week-auto-badge {
+    font-size: 0.7rem;
+    padding: 3px 6px;
+  }
+}
