@@ -1447,6 +1447,15 @@
           <p id="coverBrand">Bahçeşehir Spor Merkezi</p>
           <h3 id="coverMember">Üye Programı</h3>
           <span id="coverMeta">Program oluşturulduğunda salon çıktısı burada hazırlanır.</span>
+          <!-- M1b.3: Macrocycle read-only band. totalWeeks > 1 ise visible. -->
+          <aside class="cover-macrocycle" id="coverMacrocycle" data-macrocycle-band hidden>
+            <p class="cover-macrocycle__title" id="coverMacroTitle">📅 — </p>
+            <p class="cover-macrocycle__current" id="coverMacroCurrent">Hafta 1 / 1</p>
+            <div class="cover-macrocycle__progress" aria-label="Program ilerlemesi" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="coverMacroProgressBar">
+              <span class="cover-macrocycle__progress-fill" id="coverMacroProgressFill" style="width:0%"></span>
+            </div>
+            <p class="cover-macrocycle__next-deload" id="coverMacroNextDeload" hidden>Bir sonraki deload: —</p>
+          </aside>
         </div>
         <div class="cover-signature">
           <span>Antrenör Onayı</span>

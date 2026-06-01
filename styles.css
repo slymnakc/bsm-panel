@@ -23261,3 +23261,65 @@ body.is-video-modal-open {
 .bsm-period-chips.is-disabled .bsm-period-chips__label {
   opacity: 0.6;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   M1b.3: Cover macrocycle read-only band
+   ═══════════════════════════════════════════════════════════════ */
+
+.cover-macrocycle {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(76, 110, 245, 0.06);
+  border-left: 3px solid var(--accent, #4c6ef5);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cover-macrocycle[hidden] {
+  display: none;
+}
+
+.cover-macrocycle__title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text, #212529);
+}
+
+.cover-macrocycle__current {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--muted, #6c757d);
+}
+
+.cover-macrocycle__progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  background: rgba(76, 110, 245, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 2px 0;
+}
+
+.cover-macrocycle__progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent, #4c6ef5);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.cover-macrocycle__next-deload {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted, #6c757d);
+  font-style: italic;
+}
+
+.cover-macrocycle__next-deload[hidden] {
+  display: none;
+}

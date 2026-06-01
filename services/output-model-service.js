@@ -117,6 +117,68 @@
       memberTitle: `${memberName} için Antrenman Planı`,
       meta: `${labelMaps.goal[rawData.goal] || "Hedef"} • ${labelMaps.level[rawData.level] || "Seviye"} • ${rawData.days?.length || program.sessions.length} günlük program`,
       trainer: trainerName === "Belirtilmedi" ? "-" : trainerName,
+      // M1b.3: Macrocycle read-only model. Sessions alias mantığına dokunulmuyor;
+      // sadece state.activeProgram.weeks + macrocycle + currentWeekIndex okunup
+      // UI'a düz veri olarak iletiliyor.
+      macrocycle: buildMacrocycleCoverModel(program),
+    };
+  }
+
+  // M1b.3: Cover macrocycle band için read-only veri model'i.
+  // - totalWeeks <= 1 → visible:false (band tamamen gizli)
+  // - currentWeekIndex yoksa 1 fallback
+  // - nextDeloadWeekIndex: weeks.find(w => w.isDeload && w.weekIndex > currentIdx)
+  //   yoksa null (UI'da deload satırı gizlenir)
+  // - model "manual" ise label "Manual", deload chip ignore (engine kuralı)
+  function buildMacrocycleCoverModel(program) {
+    const macro = program && program.macrocycle ? program.macrocycle : {};
+    const totalWeeks = Number(macro.totalWeeks) >= 1 ? Math.floor(Number(macro.totalWeeks)) : 1;
+    const model = macro.model === "manual" ? "manual" : "linear";
+
+    // Default: band gizli (1 hafta program — macrocycle anlamsız)
+    if (totalWeeks <= 1) {
+      return { visible: false };
+    }
+
+    const rawCurrent = Number(program && program.currentWeekIndex);
+    const currentWeekIndex = Number.isFinite(rawCurrent) && rawCurrent >= 1
+      ? Math.min(Math.floor(rawCurrent), totalWeeks)
+      : 1;
+
+    const weeks = Array.isArray(program && program.weeks) ? program.weeks : [];
+    // Sıradaki deload: currentWeekIndex'ten BÜYÜK ilk isDeload week.
+    // M1b.3: Manual model'de deload mantığı KULLANILMAZ (engine kuralı —
+    // computeIntensityTable Manual branch hep isDeload:false döner). Mock
+    // ya da malformed weeks'te isDeload=true gelse bile Manual'de yok say.
+    const nextDeloadWeek = model === "manual"
+      ? null
+      : weeks.find((w) => w && w.isDeload && Number(w.weekIndex) > currentWeekIndex);
+    const nextDeloadIndex = nextDeloadWeek ? Number(nextDeloadWeek.weekIndex) : null;
+
+    const modelLabel = model === "manual" ? "Manual" : "Linear";
+    const title = `📅 ${totalWeeks} Haftalık Program · ${modelLabel}`;
+    const currentText = `Hafta ${currentWeekIndex} / ${totalWeeks}`;
+    const progressPercent = Math.round((currentWeekIndex / totalWeeks) * 1000) / 10; // 1 ondalık (örn. 12.5)
+
+    let nextDeloadText = null;
+    if (nextDeloadIndex !== null) {
+      const weeksUntil = nextDeloadIndex - currentWeekIndex;
+      nextDeloadText = weeksUntil <= 1
+        ? `Bir sonraki deload: Hafta ${nextDeloadIndex}`
+        : `Bir sonraki deload: Hafta ${nextDeloadIndex} (${weeksUntil} hafta sonra)`;
+    }
+
+    return {
+      visible: true,
+      title,
+      currentText,
+      progressPercent,
+      nextDeloadText,           // null → UI'da satır hidden
+      // Raw veriler (gelecek tüketiciler için):
+      totalWeeks,
+      currentWeekIndex,
+      model,
+      nextDeloadIndex,
     };
   }
 

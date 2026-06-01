@@ -10,6 +10,45 @@
     setText(targets.coverMember, model.memberTitle);
     setText(targets.coverMeta, model.meta);
     setText(targets.coverTrainer, model.trainer);
+
+    // M1b.3: Macrocycle read-only band render.
+    // model.macrocycle.visible === false → tüm band hidden (1 hafta program)
+    // visible === true → title + current week + progress fill + (opsiyonel) next deload
+    renderMacrocycleBand(targets, model.macrocycle);
+  }
+
+  // M1b.3: Macrocycle band setter — pure DOM mutation, model'i UI'a yansıtır.
+  // Targets: coverMacrocycle, coverMacroTitle, coverMacroCurrent,
+  //          coverMacroProgressFill, coverMacroNextDeload, coverMacroProgressBar (opsiyonel)
+  function renderMacrocycleBand(targets, macrocycle) {
+    const band = targets.coverMacrocycle;
+    if (!band) return;
+
+    if (!macrocycle || !macrocycle.visible) {
+      band.hidden = true;
+      return;
+    }
+
+    band.hidden = false;
+    setText(targets.coverMacroTitle, macrocycle.title);
+    setText(targets.coverMacroCurrent, macrocycle.currentText);
+
+    if (targets.coverMacroProgressFill) {
+      targets.coverMacroProgressFill.style.width = `${macrocycle.progressPercent || 0}%`;
+    }
+    if (targets.coverMacroProgressBar) {
+      targets.coverMacroProgressBar.setAttribute("aria-valuenow", String(Math.round(macrocycle.progressPercent || 0)));
+    }
+
+    const deloadEl = targets.coverMacroNextDeload;
+    if (deloadEl) {
+      if (macrocycle.nextDeloadText) {
+        deloadEl.textContent = macrocycle.nextDeloadText;
+        deloadEl.hidden = false;
+      } else {
+        deloadEl.hidden = true;
+      }
+    }
   }
 
   function renderProgramSections(targets, model, escapeHtml) {

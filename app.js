@@ -900,6 +900,13 @@ const coverBrand = document.querySelector("#coverBrand");
 const coverMember = document.querySelector("#coverMember");
 const coverMeta = document.querySelector("#coverMeta");
 const coverTrainer = document.querySelector("#coverTrainer");
+// M1b.3: Macrocycle cover band DOM ref'leri (read-only display).
+const coverMacrocycle = document.querySelector("#coverMacrocycle");
+const coverMacroTitle = document.querySelector("#coverMacroTitle");
+const coverMacroCurrent = document.querySelector("#coverMacroCurrent");
+const coverMacroProgressFill = document.querySelector("#coverMacroProgressFill");
+const coverMacroProgressBar = document.querySelector("#coverMacroProgressBar");
+const coverMacroNextDeload = document.querySelector("#coverMacroNextDeload");
 const trainingReportPanel = document.querySelector("#trainingReportPanel");
 const aiReportSummary = document.querySelector("#aiReportSummary");
 const nextControlReport = document.querySelector("#nextControlReport");
@@ -1356,6 +1363,13 @@ function initialize() {
       coverMember: coverMember,
       coverMeta: coverMeta,
       coverTrainer: coverTrainer,
+      // M1b.3: Macrocycle cover band targets
+      coverMacrocycle: coverMacrocycle,
+      coverMacroTitle: coverMacroTitle,
+      coverMacroCurrent: coverMacroCurrent,
+      coverMacroProgressFill: coverMacroProgressFill,
+      coverMacroProgressBar: coverMacroProgressBar,
+      coverMacroNextDeload: coverMacroNextDeload,
       outputNutritionPlan: outputNutritionPlan,
     },
     renderProgramCoverUi: renderProgramCoverUi,

@@ -161,6 +161,13 @@
         coverMember: _domRefs.coverMember,
         coverMeta: _domRefs.coverMeta,
         coverTrainer: _domRefs.coverTrainer,
+        // M1b.3: Macrocycle band targets. domRefs'ten lazy alınır (init zamanı dolu).
+        coverMacrocycle: _domRefs.coverMacrocycle,
+        coverMacroTitle: _domRefs.coverMacroTitle,
+        coverMacroCurrent: _domRefs.coverMacroCurrent,
+        coverMacroProgressFill: _domRefs.coverMacroProgressFill,
+        coverMacroProgressBar: _domRefs.coverMacroProgressBar,
+        coverMacroNextDeload: _domRefs.coverMacroNextDeload,
       },
       _buildProgramCoverModelService(program, {
         labelMaps: _labelMaps,
