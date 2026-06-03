@@ -23604,3 +23604,24 @@ body.is-video-modal-open {
     padding: 3px 6px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   M1b.10: "Yakında" badge (Manual mode wizard radio kartı).
+   Gerçek manuel week editing M1b.12'ye ertelendi; beklenti yönetimi.
+   ═══════════════════════════════════════════════════════════════ */
+.bsm-soon-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: rgba(76, 110, 245, 0.14);
+  color: #3b5bdb;
+  border: 1px solid rgba(76, 110, 245, 0.3);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  white-space: nowrap;
+}

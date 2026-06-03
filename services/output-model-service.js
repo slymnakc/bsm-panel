@@ -65,7 +65,11 @@
         {
           label: "Program Özeti",
           value: `${program.sessions?.length || 0} gün`,
-          text: intelligence.summary || "Program dağılımı oluşturuldu.",
+          // M1b.10: periodizationSummary varsa base summary'ye eklenir (ayrı kart değil).
+          // Çok haftalı programlarda "N haftalık ... Hafta X/N ..." bilgisi gösterilir.
+          text: intelligence.periodizationSummary
+            ? `${intelligence.summary || "Program dağılımı oluşturuldu."} ${intelligence.periodizationSummary}`
+            : (intelligence.summary || "Program dağılımı oluşturuldu."),
         },
         {
           label: "V3 Hazırlık",

@@ -208,7 +208,7 @@
     }));
   }
 
-  function buildProgramIntelligence(data = {}, sessions = [], analysis = null) {
+  function buildProgramIntelligence(data = {}, sessions = [], analysis = null, periodization = null) {
     const compoundCount = countExercisesByKind(sessions, "compound");
     const accessoryCount = countExercisesByKind(sessions, "accessory");
     const cardioCount = countExercisesByKind(sessions, "cardio") + countExercisesByKind(sessions, "conditioning");
@@ -256,6 +256,14 @@
       warnings,
       coachNote: analysis?.nextAction || "Program 10-14 gün ölçüm ve performans notuyla tekrar kontrol edilmeli.",
       nextControlSuggestion: buildNextControlSuggestion(data, analysis),
+      // M1b.10: Periodization summary. SOT helper (program-summary-service) çağrılır →
+      // fallback ile birebir aynı string. periodization null/1-hafta → null.
+      // Defansif: helper yüklenmemişse null (geriye uyumluluk).
+      periodizationSummary: (typeof window !== "undefined"
+        && window.BSMProgramSummaryService
+        && typeof window.BSMProgramSummaryService.buildPeriodizationSummary === "function")
+        ? window.BSMProgramSummaryService.buildPeriodizationSummary(periodization)
+        : null,
     };
   }
 

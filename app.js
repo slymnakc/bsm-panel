@@ -8101,8 +8101,28 @@ function getAnalysisForProgramData(data) {
   return getMemberAnalysis(buildProgramMemberRecord(data));
 }
 
-function buildFallbackProgramIntelligence(data, sessions, analysis) {
-  return buildFallbackProgramIntelligenceService(data, sessions, analysis);
+function buildFallbackProgramIntelligence(data, sessions, analysis, periodization) {
+  return buildFallbackProgramIntelligenceService(data, sessions, analysis, periodization);
+}
+
+// M1b.10: Periodization metadata derleyici (intelligence için).
+// buildMacrocycleCoverModel'den (cover band ile AYNI SOT kaynağı) hazır türetilmiş
+// alanları alır → engine/fallback hesap yapmaz, drift imkansız.
+// totalWeeks <= 1 veya cover model visible:false ise null (1 hafta / v3 program).
+function buildPeriodizationMetaForProgram(program) {
+  if (!program || !program.macrocycle) return null;
+  const builder = window.BSMOutputModelService && window.BSMOutputModelService.buildMacrocycleCoverModel;
+  if (typeof builder !== "function") return null;
+  const cover = builder(program);
+  if (!cover || !cover.visible) return null;
+  return {
+    totalWeeks: cover.totalWeeks,
+    currentWeekIndex: cover.currentWeekIndex,
+    model: cover.model,
+    activeIntensityFactor: cover.activeIntensityFactor,
+    isActiveDeload: cover.isActiveDeload,
+    nextDeloadIndex: cover.nextDeloadIndex,
+  };
 }
 
 function buildV3ProgramInsights(data, analysis) {
@@ -8553,10 +8573,19 @@ function renderProgram(program, options = {}) {
   state.activeProgram.progression = state.activeProgram.progression || buildProgression(rawData);
   state.activeProgram.guidance = state.activeProgram.guidance || buildGuidance(rawData);
   state.activeProgram.aiReport = state.activeProgram.aiReport || getAnalysisForProgramData(rawData);
+  // M1b.10: Periodization metadata derle (cover band ile AYNI SOT kaynağı).
+  const periodizationMeta = buildPeriodizationMetaForProgram(state.activeProgram);
   state.activeProgram.programIntelligence =
     state.activeProgram.programIntelligence ||
-    (window.BSMProgramEngineV2?.buildProgramIntelligence?.(rawData, state.activeProgram.sessions || [], state.activeProgram.aiReport) ||
-      buildFallbackProgramIntelligence(rawData, state.activeProgram.sessions || [], state.activeProgram.aiReport));
+    (window.BSMProgramEngineV2?.buildProgramIntelligence?.(rawData, state.activeProgram.sessions || [], state.activeProgram.aiReport, periodizationMeta) ||
+      buildFallbackProgramIntelligence(rawData, state.activeProgram.sessions || [], state.activeProgram.aiReport, periodizationMeta));
+  // M1b.10: periodizationSummary'yi HER render'da güncel currentWeekIndex'e göre tazele.
+  // programIntelligence cache'lense (||) bile week navigation sonrası "Hafta X/N" doğru
+  // kalmalı — cover band ile drift olmaması için. SOT: buildPeriodizationSummary helper'ı.
+  if (state.activeProgram.programIntelligence && window.BSMProgramSummaryService?.buildPeriodizationSummary) {
+    state.activeProgram.programIntelligence.periodizationSummary =
+      window.BSMProgramSummaryService.buildPeriodizationSummary(periodizationMeta);
+  }
   const trainingReportData = rawData.latestMeasurement ? rawData : attachLatestMeasurementContext(rawData);
   state.activeProgram.trainingReport =
     state.activeProgram.trainingReport ||
