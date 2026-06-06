@@ -424,6 +424,21 @@
             </label>
           </div>
 
+          <!-- BSM-UX-001: Adım 2 periyodizasyon özet rozeti. Tam panel Adım 5'te.
+               Rozet metni app.js (renderPeriodizationPreview) tarafından senkronlanır.
+               "Düzenle" → data-builder-step-target="5" mevcut wizard click delegation'ı
+               ile Adım 5'e gider (ekstra handler gerekmez). -->
+          <div class="period-summary-card" data-period-summary-wrap>
+            <div class="period-summary-card__info">
+              <p class="period-summary-card__kicker">Periyodizasyon</p>
+              <p class="period-summary-card__text" data-period-summary>8 haftalık Linear program</p>
+              <p class="period-summary-card__hint">Varsayılan ayar uygundur. İnce ayar için Önizleme adımında düzenleyebilirsiniz.</p>
+            </div>
+            <button type="button" class="ghost-button mini-button period-summary-card__edit" data-period-summary-edit data-builder-step-target="5">
+              Düzenle
+            </button>
+          </div>
+
           <fieldset class="choice-block">
             <legend>Üyenin haftalık uygun günleri</legend>
             <p class="help-text">En az 2, en fazla 6 gün seçin. Program bu günlere göre salon split’i oluşturur.</p>

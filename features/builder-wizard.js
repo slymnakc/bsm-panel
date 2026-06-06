@@ -63,6 +63,13 @@ function markBuilderWizardSections() {
   _form.querySelector('input[name="restrictions"]')?.closest(".choice-block")?.setAttribute("data-builder-step", "3");
   _repetitionBuilder?.setAttribute("data-builder-step", "4");
   _form.querySelector("#notes")?.closest(".field")?.setAttribute("data-builder-step", "5");
+
+  // BSM-UX-001 (Seçenek B): Tam periyodizasyon paneli + büyük preview yalnızca
+  // Adım 5'te (Önizleme ve Oluştur). Adım 2'de özet rozet (data-builder-step="2").
+  // Veri/engine/output dokunulmaz — sadece wizard görünürlük katmanı.
+  _form.querySelector('[data-form-section="periodization"]')?.setAttribute("data-builder-step", "5");
+  _form.querySelector('[data-form-section="big-preview"]')?.setAttribute("data-builder-step", "5");
+  _form.querySelector('[data-period-summary-wrap]')?.setAttribute("data-builder-step", "2");
 }
 
 function insertBuilderWizardToolbar() {

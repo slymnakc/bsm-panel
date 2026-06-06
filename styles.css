@@ -23625,3 +23625,64 @@ body.is-video-modal-open {
   vertical-align: middle;
   white-space: nowrap;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   BSM-UX-001: Periyodizasyon özet rozeti (Builder Adım 2).
+   Tam panel Adım 5'te; bu rozet Adım 2'de varsayılan ayarı özetler.
+   ═══════════════════════════════════════════════════════════════ */
+.period-summary-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  margin: 4px 0 8px;
+  border: 1px solid rgba(76, 110, 245, 0.25);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(76, 110, 245, 0.06), rgba(76, 110, 245, 0.02));
+}
+
+.period-summary-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.period-summary-card__kicker {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent, #4c6ef5);
+  margin: 0;
+}
+
+.period-summary-card__text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text, #212529);
+  margin: 0;
+}
+
+.period-summary-card__hint {
+  font-size: 0.78rem;
+  color: var(--muted, #6c757d);
+  margin: 0;
+}
+
+.period-summary-card__edit {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .period-summary-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .period-summary-card__edit {
+    width: 100%;
+  }
+}

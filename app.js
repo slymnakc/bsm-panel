@@ -4250,6 +4250,16 @@ function computeWeekPreviewRows() {
   return { model, totalWeeks, rows, manualNote: null };
 }
 
+// BSM-UX-001: Adım 2 özet rozet metnini güncelle. Sadece görünür özet — veri
+// katmanına/engine'e dokunmaz. Metin: "N haftalık Linear/Manuel program".
+function syncPeriodSummaryBadge(totalWeeks, model) {
+  const badge = document.querySelector("[data-period-summary]");
+  if (!badge) return;
+  const weeks = Number(totalWeeks) >= 1 ? Math.floor(Number(totalWeeks)) : 8;
+  const modelLabel = model === "manual" ? "Manuel" : "Linear";
+  badge.textContent = `${weeks} haftalık ${modelLabel} program`;
+}
+
 // renderPeriodizationPreview: mini (#periodPreviewList) + büyük (#bigPeriodPreviewList)
 // preview'leri JS-computed week table ile doldurur. aria-live korunur.
 function renderPeriodizationPreview() {
@@ -4257,6 +4267,10 @@ function renderPeriodizationPreview() {
   const miniList = document.querySelector("#periodPreviewList");
   const bigList = document.querySelector("#bigPeriodPreviewList");
   const manualHint = document.querySelector("#periodManualHint");
+
+  // BSM-UX-001: Adım 2 özet rozet metni senkronu. computeWeekPreviewRows zaten
+  // model + totalWeeks döndürüyor → tek kaynaktan rozet beslenir, drift yok.
+  syncPeriodSummaryBadge(data.totalWeeks, data.model);
 
   if (manualHint) manualHint.hidden = (data.model !== "manual");
 
