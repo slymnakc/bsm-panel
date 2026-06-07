@@ -7,6 +7,60 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.1 — "Periodization UX Refinements + Tanita Test Coverage"
+
+**Yayın tarihi:** 2026-06-07
+**Önceki sürüm:** 1.5.0
+
+## Highlights
+
+v1.5.0 ile gelen periyodizasyon özelliğinin kullanıcı deneyimi rötuşları ve
+Tanita CSV import için test güvencesi. Yeni özellik içermez; mevcut akışları
+sadeleştirir, Türkçeleştirir ve test altına alır.
+
+## Improvements
+
+### Periyodizasyon Paneli Wizard Görünürlüğü (BSM-UX-001)
+- Program oluşturma sihirbazında tam periyodizasyon paneli artık **yalnızca
+  son adımda (Önizleme ve Oluştur)** görünür
+- 2. adımda **özet rozet** ("8 haftalık Kademeli Artış programı") + "Düzenle"
+  butonuyla son adıma hızlı geçiş
+- 1., 3. ve 4. adımlarda panel gizlenir → wizard "her adım tek odak" prensibi
+  geri kazanıldı; alakasız adımlarda görsel gürültü kalktı
+
+### Periyodizasyon Terminolojisi Türkçeleştirme (BSM-UX-002)
+- Terimler Türkçe + parantezli İngilizce gösterilir:
+  - **Kademeli Artış (Linear)** · **Manuel Planlama** · **Hafifletme Haftası
+    (Deload)** · **Kas Gelişimi (Hypertrophy)** · **Kuvvet Gelişimi (Strength)**
+- Tüm görünür yüzeylerde tutarlı: rozet, model kartları, kapak bandı,
+  **PDF çıktısı**, program özeti, intelligence raporu
+- Üyeye verilen PDF artık tam Türkçe terminoloji içeriyor
+
+## Internal
+
+### Merkezi Terim Sözlüğü (BSM-UX-002)
+- Periyodizasyon terimleri merkezi label map'e (`data/labels.js`) taşındı; üç
+  ayrı tüketici (rozet, kapak bandı, intelligence) tek kaynaktan okur
+- Önceki "Manual / Manuel / manuel" tutarsızlığı giderildi (drift kapatıldı)
+- Veri modeli, engine, migration, PDF payload şeması **dokunulmadı** — yalnızca
+  görüntü katmanı
+
+### Tanita CSV Test Coverage — Faz 1 (BSM-TANITA-001)
+- Tanita CSV import servis katmanı (Generic yol) otomatik test altına alındı
+  (önceki coverage: 0)
+- Kapsam: CSV parse, Türkçe/İngilizce başlık eşleme, en güncel kayıt seçimi,
+  ölçüm nesnesi şekli (segmental + direnç), `fatFreeMass` regresyon kilidi,
+  hatalı/boş CSV uyarıları
+- Üretim koduna **sıfır dokunuş** (servis zaten dışa açık, test-only)
+- BC-418 segmental rapor (Yol A) ve DOM/persist akışı sonraki fazlara bırakıldı
+
+## Test
+
+- **48/48 e2e PASS** (0 flaky, 0 retry, 0 console/page/network error)
+- E2E suite: 47 → 48 spec/test
+
+---
+
 # BSM Panel v1.5.0 — "Periodization"
 
 **Yayın tarihi:** 2026-06-03
