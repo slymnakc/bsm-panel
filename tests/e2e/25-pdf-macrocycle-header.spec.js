@@ -85,7 +85,9 @@ test("PDF macrocycle header — payload field + SOT consistency + visibility rul
   const linearWeek3 = eightWeekPayload.macrocycle;
   expect(linearWeek3.headerLine1, "headerLine1 mevcut").toBeTruthy();
   expect(/8\s*Haftalık/i.test(linearWeek3.headerLine1), `headerLine1 "8 Haftalık" içermeli (gerçek: "${linearWeek3.headerLine1}")`).toBe(true);
+  // BSM-UX-002: "Linear" → "Kademeli Artış (Linear)" (Türkçe + parantezli İngilizce).
   expect(/Linear/i.test(linearWeek3.headerLine1), "headerLine1 'Linear' içermeli").toBe(true);
+  expect(/Kademeli Artış/i.test(linearWeek3.headerLine1), `headerLine1 'Kademeli Artış' Türkçe terim (gerçek: "${linearWeek3.headerLine1}")`).toBe(true);
   expect(/Hafta\s*3\s*\/\s*8/i.test(linearWeek3.headerLine2), `headerLine2 "Hafta 3 / 8" (gerçek: "${linearWeek3.headerLine2}")`).toBe(true);
   expect(/1\.05/i.test(linearWeek3.headerLine2), `headerLine2 "1.05" intensity (gerçek: "${linearWeek3.headerLine2}")`).toBe(true);
   expect(/yoğunluk|yogunluk/i.test(linearWeek3.headerLine2), "headerLine2 'yoğunluk' içermeli").toBe(true);
@@ -108,7 +110,8 @@ test("PDF macrocycle header — payload field + SOT consistency + visibility rul
 
   const manualMacro = manualPayload.macrocycle;
   expect(manualMacro.visible, "Manual 6 hafta → visible=true").toBe(true);
-  expect(/Manual/i.test(manualMacro.headerLine1), `Manual headerLine1 "Manual" (gerçek: "${manualMacro.headerLine1}")`).toBe(true);
+  // BSM-UX-002: "Manual" → "Manuel Planlama" (parantezsiz Türkçe).
+  expect(/Manuel/i.test(manualMacro.headerLine1), `Manual headerLine1 "Manuel" (gerçek: "${manualMacro.headerLine1}")`).toBe(true);
   expect(/Hafta\s*2\s*\/\s*6/i.test(manualMacro.headerLine2), `Manual headerLine2 "Hafta 2 / 6" (gerçek: "${manualMacro.headerLine2}")`).toBe(true);
   // Manual'de intensity yok — "× yoğunluk" eşleşmemeli
   expect(/×\s*yo.unluk/i.test(manualMacro.headerLine2), "Manual'de '× yoğunluk' GİZLİ (regex eşleşmemeli)").toBe(false);

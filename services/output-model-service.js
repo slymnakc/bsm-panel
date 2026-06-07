@@ -1,6 +1,16 @@
 (function () {
   "use strict";
 
+  // BSM-UX-002: Periyodizasyon model label resolver — merkezi map SOT.
+  // window.BSMLabelData.labelMaps.periodModel'den okur. Defansif fallback ile
+  // (map yoksa veya değer eksikse) eski davranış korunur.
+  function resolvePeriodModelLabel(model) {
+    var map = (typeof window !== "undefined" && window.BSMLabelData
+      && window.BSMLabelData.labelMaps && window.BSMLabelData.labelMaps.periodModel) || null;
+    if (map && map[model]) return map[model];
+    return model === "manual" ? "Manuel Planlama" : "Kademeli Artış (Linear)";
+  }
+
   function buildProgramSectionsModel(program, deps) {
     const { getMuscleLabel, getDayLabel, labelMaps, weeklyPlanHtml } = deps;
     const rawData = program.rawData || {};
@@ -159,7 +169,8 @@
       : weeks.find((w) => w && w.isDeload && Number(w.weekIndex) > currentWeekIndex);
     const nextDeloadIndex = nextDeloadWeek ? Number(nextDeloadWeek.weekIndex) : null;
 
-    const modelLabel = model === "manual" ? "Manual" : "Linear";
+    // BSM-UX-002: Merkezi label map SOT (drift yok). Defansif fallback.
+    const modelLabel = resolvePeriodModelLabel(model);
     const title = `📅 ${totalWeeks} Haftalık Program · ${modelLabel}`;
     const currentText = `Hafta ${currentWeekIndex} / ${totalWeeks}`;
     const progressPercent = Math.round((currentWeekIndex / totalWeeks) * 1000) / 10; // 1 ondalık (örn. 12.5)
@@ -168,8 +179,8 @@
     if (nextDeloadIndex !== null) {
       const weeksUntil = nextDeloadIndex - currentWeekIndex;
       nextDeloadText = weeksUntil <= 1
-        ? `Bir sonraki deload: Hafta ${nextDeloadIndex}`
-        : `Bir sonraki deload: Hafta ${nextDeloadIndex} (${weeksUntil} hafta sonra)`;
+        ? `Bir sonraki hafifletme haftası: Hafta ${nextDeloadIndex}`
+        : `Bir sonraki hafifletme haftası: Hafta ${nextDeloadIndex} (${weeksUntil} hafta sonra)`;
     }
 
     // M1b.5: PDF header band için aktif hafta yoğunluğu + deload durumu.
@@ -194,7 +205,8 @@
     const headerLine1 = title;
     let headerLine2;
     if (isActiveDeload) {
-      headerLine2 = `🌙 ${currentText} · DELOAD HAFTASI · ${activeIntensityFactor.toFixed(2)}× yoğunluk`;
+      // BSM-UX-002: "DELOAD HAFTASI" → "HAFİFLETME HAFTASI (DELOAD)"
+      headerLine2 = `🌙 ${currentText} · HAFİFLETME HAFTASI (DELOAD) · ${activeIntensityFactor.toFixed(2)}× yoğunluk`;
     } else if (model === "manual") {
       headerLine2 = `Bu çıktı: ${currentText}`;
     } else {

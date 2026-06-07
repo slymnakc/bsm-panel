@@ -1,6 +1,15 @@
 (function () {
   "use strict";
 
+  // BSM-UX-002: Periyodizasyon model label resolver — merkezi map SOT.
+  // labels.js bu servisten önce yüklenir; defansif fallback ile güvenli.
+  function resolvePeriodModelLabel(model) {
+    var map = (typeof window !== "undefined" && window.BSMLabelData
+      && window.BSMLabelData.labelMaps && window.BSMLabelData.labelMaps.periodModel) || null;
+    if (map && map[model]) return map[model];
+    return model === "manual" ? "Manuel Planlama" : "Kademeli Artış (Linear)";
+  }
+
   function buildProgramTitle(data, deps) {
     const { labelMaps } = deps;
     const memberLabel = data.memberName || "Üye";
@@ -77,7 +86,8 @@
       ? Math.min(Math.floor(Number(periodization.currentWeekIndex)), totalWeeks)
       : 1;
     const model = periodization.model === "manual" ? "manual" : "linear";
-    const modelLabel = model === "manual" ? "manuel" : "linear";
+    // BSM-UX-002: Merkezi label map SOT (drift yok). Defansif fallback.
+    const modelLabel = resolvePeriodModelLabel(model);
     const isActiveDeload = model === "manual" ? false : !!periodization.isActiveDeload;
     const rawIntensity = Number(periodization.activeIntensityFactor);
     const intensity = Number.isFinite(rawIntensity) && rawIntensity > 0 ? rawIntensity : 1.0;
@@ -88,7 +98,8 @@
 
     let body;
     if (isActiveDeload) {
-      body = `${weekText} — deload (toparlanma) haftası, yoğunluk ${intensity.toFixed(2)}×.`;
+      // BSM-UX-002: "deload (toparlanma)" → "hafifletme (deload)" haftası
+      body = `${weekText} — hafifletme (deload) haftası, yoğunluk ${intensity.toFixed(2)}×.`;
     } else if (model === "manual") {
       body = `${weekText}.`;  // Manual'de yoğunluk gizli
     } else {
@@ -97,7 +108,8 @@
 
     let tail = "";
     if (model !== "manual" && nextDeloadIndex !== null && nextDeloadIndex > currentWeekIndex) {
-      tail = ` Sıradaki deload: Hafta ${nextDeloadIndex}.`;
+      // BSM-UX-002: "Sıradaki deload" → "Sıradaki hafifletme haftası"
+      tail = ` Sıradaki hafifletme haftası: Hafta ${nextDeloadIndex}.`;
     }
 
     return `${head} ${body}${tail}`;

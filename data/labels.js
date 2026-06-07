@@ -42,6 +42,21 @@ const labelMaps = {
     shoulder: "Omuz hassasiyeti",
     "low-impact": "Düşük etkili çalışma",
   },
+  // BSM-UX-002: Periyodizasyon terminolojisi — Türkçe + parantezli İngilizce.
+  // SOT: 3 tüketici (syncPeriodSummaryBadge, buildMacrocycleCoverModel,
+  // buildPeriodizationSummary) buradan okur → "Manual/Manuel/manuel" tutarsızlığı
+  // giderilir. DEĞER (macrocycle.model="linear") değişmez, sadece görünür label.
+  periodModel: {
+    linear: "Kademeli Artış (Linear)",
+    manual: "Manuel Planlama",
+  },
+  // Deload haftası görünür etiketi. Değer (isDeload=true) değişmez.
+  deload: "Hafifletme Haftası (Deload)",
+  // Repetition preset görünür label'ları (Set/Tekrar adımı). Değer korunur.
+  repetitionPreset: {
+    hypertrophy: "Kas Gelişimi (Hypertrophy)",
+    strength: "Kuvvet Gelişimi (Strength)",
+  },
 };
   window.BSMLabelData = {
     labelMaps,

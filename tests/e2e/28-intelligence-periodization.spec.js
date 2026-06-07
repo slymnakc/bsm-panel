@@ -69,7 +69,9 @@ test("Intelligence periodization — engine/fallback eşitliği + SOT + output k
 
   expect(linear.summary, "periodizationSummary üretildi").toBeTruthy();
   expect(/8\s*haftal/i.test(linear.summary), `"8 haftalık" içermeli (gerçek: "${linear.summary}")`).toBe(true);
+  // BSM-UX-002: "linear" → "Kademeli Artış (Linear)" (Türkçe + parantezli).
   expect(/linear/i.test(linear.summary), "'linear' içermeli").toBe(true);
+  expect(/Kademeli Artış/i.test(linear.summary), `'Kademeli Artış' Türkçe terim (gerçek: "${linear.summary}")`).toBe(true);
   expect(/Hafta\s*3\s*\/\s*8/i.test(linear.summary), `"Hafta 3 / 8" içermeli (gerçek: "${linear.summary}")`).toBe(true);
   expect(/1[.,]05/.test(linear.summary), `"1.05" yoğunluk içermeli (gerçek: "${linear.summary}")`).toBe(true);
   expect(/Hafta\s*4/i.test(linear.summary), `Sıradaki deload "Hafta 4" içermeli (gerçek: "${linear.summary}")`).toBe(true);

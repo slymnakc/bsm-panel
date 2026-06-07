@@ -23686,3 +23686,14 @@ body.is-video-modal-open {
     width: 100%;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   BSM-UX-002: Periyodizasyon terminolojisi — parantezli İngilizce
+   terim sönük/küçük gösterim (radio kart başlıklarında).
+   ═══════════════════════════════════════════════════════════════ */
+.bsm-term-en {
+  font-weight: 500;
+  font-size: 0.82em;
+  color: var(--muted, #6c757d);
+  opacity: 0.85;
+}

@@ -92,7 +92,9 @@ test("Macrocycle cover band — read-only display + state weeks integration", as
 
   expect(eightWeekLinear.hidden, "8 hafta program → band visible").toBe(false);
   expect(/8\s*Haftalık/i.test(eightWeekLinear.title), `Title "8 Haftalık" içermeli (gerçek: "${eightWeekLinear.title}")`).toBe(true);
+  // BSM-UX-002: "Linear" → "Kademeli Artış (Linear)" (Türkçe + parantezli İngilizce).
   expect(/Linear/i.test(eightWeekLinear.title), "Title 'Linear' içermeli").toBe(true);
+  expect(/Kademeli Artış/i.test(eightWeekLinear.title), `Title 'Kademeli Artış' Türkçe terim içermeli (gerçek: "${eightWeekLinear.title}")`).toBe(true);
   expect(/Hafta\s*1\s*\/\s*8/i.test(eightWeekLinear.current), `"Hafta 1 / 8" gösterilmeli (gerçek: "${eightWeekLinear.current}")`).toBe(true);
   // Progress: 1/8 → %12.5 (~12 veya 12.5)
   const widthMatch = eightWeekLinear.progressStyleWidth.match(/([\d.]+)/);
@@ -123,7 +125,7 @@ test("Macrocycle cover band — read-only display + state weeks integration", as
 
   expect(noDeload.nextDeloadHidden, "deloadCadence=0 ise Next deload satırı hidden").toBe(true);
 
-  // ─── DOĞRULAMA 6: Manual model → "Manual" label ───────────────────────
+  // ─── DOĞRULAMA 6: Manual model → "Manuel Planlama" label (BSM-UX-002) ──
   const manualMode = await page.evaluate((program) => {
     window.BSMOutputRenderers.renderProgramCover(program);
     return {
@@ -134,7 +136,8 @@ test("Macrocycle cover band — read-only display + state weeks integration", as
   }, mockProgramFactory({ totalWeeks: 6, model: "manual", deloadCadence: 4, currentWeekIndex: 2 }));
 
   expect(manualMode.hidden, "6 hafta Manual → band visible").toBe(false);
-  expect(/Manual/i.test(manualMode.title), `Title "Manual" içermeli (gerçek: "${manualMode.title}")`).toBe(true);
+  // BSM-UX-002: "Manual" → "Manuel Planlama" (parantezsiz Türkçe).
+  expect(/Manuel/i.test(manualMode.title), `Title "Manuel" içermeli (gerçek: "${manualMode.title}")`).toBe(true);
   expect(manualMode.nextDeloadHidden, "Manual'de Next deload hidden (deloadCadence ignore)").toBe(true);
 
   // ─── DOĞRULAMA 7: Current week sonraki deload'dan SONRA ise sıradaki bulunur ──

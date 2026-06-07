@@ -112,7 +112,9 @@ test("Periodization wizard — Seçenek B görünürlük + form state + preview"
     text: (document.querySelector("[data-period-summary]")?.textContent || "").trim(),
   }));
   expect(/8\s*hafta/i.test(badge.text), `Rozet "8 hafta" içerir (gerçek: "${badge.text}")`).toBe(true);
+  // BSM-UX-002: "Linear" → "Kademeli Artış (Linear)".
   expect(/linear/i.test(badge.text), `Rozet "Linear" içerir (gerçek: "${badge.text}")`).toBe(true);
+  expect(/Kademeli Artış/i.test(badge.text), `Rozet "Kademeli Artış" Türkçe terim (gerçek: "${badge.text}")`).toBe(true);
 
   // "Düzenle" → Adım 5'e gider + panel görünür
   await page.evaluate(() => document.querySelector("[data-period-summary-edit]")?.click());

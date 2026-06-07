@@ -4244,7 +4244,8 @@ function computeWeekPreviewRows() {
     weekIndex: row.weekIndex,
     isDeload: row.isDeload,
     intensityFactor: row.intensityFactor,
-    label: row.isDeload ? "🌙 Deload" : (row.weekIndex === 1 ? "Standart" : "Yoğun"),
+    // BSM-UX-002: "Deload" → "Hafifletme" (preview chip dar; "Hafta N" sütunu zaten var).
+    label: row.isDeload ? "🌙 Hafifletme" : (row.weekIndex === 1 ? "Standart" : "Yoğun"),
   }));
 
   return { model, totalWeeks, rows, manualNote: null };
@@ -4256,8 +4257,17 @@ function syncPeriodSummaryBadge(totalWeeks, model) {
   const badge = document.querySelector("[data-period-summary]");
   if (!badge) return;
   const weeks = Number(totalWeeks) >= 1 ? Math.floor(Number(totalWeeks)) : 8;
-  const modelLabel = model === "manual" ? "Manuel" : "Linear";
+  // BSM-UX-002: Merkezi label map SOT. Defansif fallback (map yoksa eski kısa label).
+  const modelLabel = periodModelLabel(model);
   badge.textContent = `${weeks} haftalık ${modelLabel} program`;
+}
+
+// BSM-UX-002: Periyodizasyon model label resolver (merkezi map'ten).
+// Tüm tüketiciler aynı kaynaktan okur → drift yok. Defansif: map yoksa fallback.
+function periodModelLabel(model) {
+  const map = window.BSMLabelData?.labelMaps?.periodModel;
+  if (map && map[model]) return map[model];
+  return model === "manual" ? "Manuel Planlama" : "Kademeli Artış (Linear)";
 }
 
 // renderPeriodizationPreview: mini (#periodPreviewList) + büyük (#bigPeriodPreviewList)
