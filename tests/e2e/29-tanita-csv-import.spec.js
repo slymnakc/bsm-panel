@@ -57,6 +57,33 @@ const CSV_BSM_ROUNDTRIP = [
   '"2026-01-01","80.0","18.0","60.0","","6","1800","30","Tanita CSV"',
 ].join("\n");
 
+// BSM-TANITA-002 Faz 2: Anonim sentetik BC-418 segmental rapor CSV'si.
+// Gerçek Tanita BC-418 PDF yapısından türetildi (gerçek PDF/CSV repoya EKLENMEDİ).
+// Kişisel veri YOK: isim "Test Üye", sabit tarih 01.01.2026, jenerik değerler.
+// parseTanitaCsv'nin Yol A'sını (parseBc418SegmentalReport) tetikler:
+//   - Detection: "BC 418" + "Segmental Vücut Kompozisyonu Analizi"
+//   - Top summary: Adi Soyadi/Cinsiyet/Yaş/Boy/Kilo/BMI/Yağ label + değer satırı
+//   - Segmental tablo: Sağ Bacak/Sol Bacak/Sağ Kol/Sol Kol/Gövde + Empedans/Yağ(kg)/Kas(kg)
+//   - Labeled values: Metabolizma Yaşı / İç Yağlanma / BMR / Kemik / Yağ Ağırlığı / Sıvı Oranı
+//   - History row: Ölçüm Tarihi + Kas kg header + tarih satırı
+const CSV_BC418_SEGMENTAL = [
+  "BC 418 Segmental Vücut Kompozisyonu Analizi",
+  "Adi Soyadi,Cinsiyet,Yaş,Boy,Kilo,BMI,Yağ",
+  "Test Üye,Kadın,30,165,70.0,25.7,28.0",
+  ",,Sağ Bacak,Sol Bacak,Sağ Kol,Sol Kol,Gövde",
+  "Empedans,,300,302,290,292,260",
+  "Yağ (kg),,3.5,3.4,0.5,0.5,6.0",
+  "Kas (kg),,9.0,8.8,2.8,2.7,28.0",
+  "Metabolizma Yaşı,32",
+  "İç Yağlanma,7",
+  "BMR,1500",
+  "Kemik Mineralleri Ağırlığı (kg),2.5",
+  "Yağ Ağırlığı (kg),19.6",
+  "Sıvı Oranı,37.0",
+  "Ölçüm Tarihi,Kilo,Yağ kg,Kas kg",
+  "01.01.2026 10:00,70.0,19.6,28.0",
+].join("\n");
+
 test("Tanita CSV servis katmanı — parse + alias + selectBest + buildMeasurement", async ({ page }) => {
   const { errors } = await setupPage(page);
 
@@ -221,6 +248,96 @@ test("Tanita CSV servis katmanı — parse + alias + selectBest + buildMeasureme
     `'Metabolik Yaş' → metabolicAge dolu (gerçek: ${roundTrip.metabolicAge})`).toBe(true);
   expect(Number(roundTrip.metabolicAge), "round-trip metabolicAge=30").toBeCloseTo(30, 0);
 
-  // ─── DOĞRULAMA 11: console / page / network error 0 ──────────────────
+  // ─── DOĞRULAMA 11: BC-418 Segmental Yol A (BSM-TANITA-002 Faz 2) ──────
+  // Anonim sentetik BC-418 rapor → parseBc418SegmentalReport tetiklenir.
+  const bc418 = await page.evaluate((csv) => {
+    const s = window.BSMTanitaCsvService;
+    const parsed = s.parseTanitaCsv(csv);
+    const rec = parsed.records?.[0] || null;
+    const m = rec ? s.buildTanitaMeasurement(rec, {}) : null;
+    return {
+      recordCount: parsed.records?.length,
+      warnings: parsed.warnings || [],
+      // Yol A kanıtı: parseBc418SegmentalReport rawPayload.format set eder
+      format: rec?.rawPayload?.format || "",
+      // Top summary (record seviyesi)
+      memberName: rec?.memberName, gender: rec?.gender, age: rec?.age,
+      height: rec?.height, weight: rec?.weight, bmi: rec?.bmi,
+      bodyFatPercentage: rec?.bodyFatPercentage,
+      // Segmental kas (record)
+      rightLegMuscle: rec?.rightLegMuscle, leftLegMuscle: rec?.leftLegMuscle,
+      rightArmMuscle: rec?.rightArmMuscle, leftArmMuscle: rec?.leftArmMuscle,
+      trunkMuscle: rec?.trunkMuscle,
+      // Segmental yağ (record)
+      rightLegFat: rec?.rightLegFat, leftLegFat: rec?.leftLegFat,
+      rightArmFat: rec?.rightArmFat, leftArmFat: rec?.leftArmFat, trunkFat: rec?.trunkFat,
+      // Resistance/impedance (record)
+      impedanceRightLeg: rec?.impedanceRightLeg, impedanceLeftLeg: rec?.impedanceLeftLeg,
+      impedanceRightArm: rec?.impedanceRightArm, impedanceLeftArm: rec?.impedanceLeftArm,
+      impedanceTrunk: rec?.impedanceTrunk,
+      // Labeled values (record)
+      metabolicAge: rec?.metabolicAge, visceralFat: rec?.visceralFat, bmr: rec?.bmr,
+      boneMass: rec?.boneMass, fatMass: rec?.fatMass, bodyWater: rec?.bodyWater,
+      // measurement çıktısı
+      mSegFilled: m ? Object.values(m.segments || {}).filter((v) => v !== "" && v != null).length : 0,
+      mResFilled: m ? Object.values(m.resistance || {}).filter((v) => v !== "" && v != null).length : 0,
+      mWeight: m?.weight, mFat: m?.fat, mBmr: m?.bmr, mVisceralFat: m?.visceralFat,
+    };
+  }, CSV_BC418_SEGMENTAL);
+
+  // Hedef 1+2: Yol A seçildi (detection çalıştı)
+  expect(bc418.format, "Yol A: rawPayload.format = tanita_bc418_segmental_report").toBe("tanita_bc418_segmental_report");
+  expect(bc418.recordCount, "BC-418 → 1 kayıt").toBe(1);
+
+  // Hedef 3: Top summary alanları
+  expect(bc418.memberName, "memberName = 'Test Üye' (anonim)").toBe("Test Üye");
+  expect(bc418.gender, "gender dolu").toBeTruthy();
+  expect(Number(bc418.age), "age=30").toBeCloseTo(30, 0);
+  expect(Number(bc418.height), "height=165").toBeCloseTo(165, 0);
+  expect(Number(bc418.weight), "weight=70").toBeCloseTo(70, 1);
+  expect(Number(bc418.bmi), "bmi=25.7").toBeCloseTo(25.7, 1);
+  expect(Number(bc418.bodyFatPercentage), "bodyFatPercentage=28").toBeCloseTo(28, 1);
+
+  // Hedef 4: Segmental kas (5)
+  expect(Number(bc418.rightLegMuscle), "rightLegMuscle=9").toBeCloseTo(9, 1);
+  expect(Number(bc418.leftLegMuscle), "leftLegMuscle=8.8").toBeCloseTo(8.8, 1);
+  expect(Number(bc418.rightArmMuscle), "rightArmMuscle=2.8").toBeCloseTo(2.8, 1);
+  expect(Number(bc418.leftArmMuscle), "leftArmMuscle=2.7").toBeCloseTo(2.7, 1);
+  expect(Number(bc418.trunkMuscle), "trunkMuscle=28").toBeCloseTo(28, 1);
+
+  // Hedef 5: Segmental yağ (5)
+  expect(Number(bc418.rightLegFat), "rightLegFat=3.5").toBeCloseTo(3.5, 1);
+  expect(Number(bc418.leftLegFat), "leftLegFat=3.4").toBeCloseTo(3.4, 1);
+  expect(Number(bc418.rightArmFat), "rightArmFat=0.5").toBeCloseTo(0.5, 1);
+  expect(Number(bc418.leftArmFat), "leftArmFat=0.5").toBeCloseTo(0.5, 1);
+  expect(Number(bc418.trunkFat), "trunkFat=6").toBeCloseTo(6, 1);
+
+  // Hedef 6: Resistance/impedance (5)
+  expect(Number(bc418.impedanceRightLeg), "impedanceRightLeg=300").toBeCloseTo(300, 0);
+  expect(Number(bc418.impedanceLeftLeg), "impedanceLeftLeg=302").toBeCloseTo(302, 0);
+  expect(Number(bc418.impedanceRightArm), "impedanceRightArm=290").toBeCloseTo(290, 0);
+  expect(Number(bc418.impedanceLeftArm), "impedanceLeftArm=292").toBeCloseTo(292, 0);
+  expect(Number(bc418.impedanceTrunk), "impedanceTrunk=260").toBeCloseTo(260, 0);
+
+  // Hedef 7: Labeled values (6)
+  expect(Number(bc418.metabolicAge), "metabolicAge=32").toBeCloseTo(32, 0);
+  expect(Number(bc418.visceralFat), "visceralFat=7").toBeCloseTo(7, 0);
+  expect(Number(bc418.bmr), "bmr=1500").toBeCloseTo(1500, 0);
+  expect(Number(bc418.boneMass), "boneMass=2.5").toBeCloseTo(2.5, 1);
+  expect(Number(bc418.fatMass), "fatMass=19.6").toBeCloseTo(19.6, 1);
+  expect(Number(bc418.bodyWater), "bodyWater=37").toBeCloseTo(37, 1);
+
+  // Hedef 8: buildTanitaMeasurement — segments + resistance dolu, ana alanlar korunur
+  expect(bc418.mSegFilled, "measurement.segments 10 alan dolu").toBe(10);
+  expect(bc418.mResFilled, "measurement.resistance 5 alan dolu").toBe(5);
+  expect(Number(bc418.mWeight), "measurement.weight=70").toBeCloseTo(70, 1);
+  expect(Number(bc418.mFat), "measurement.fat=28").toBeCloseTo(28, 1);
+  expect(Number(bc418.mBmr), "measurement.bmr=1500").toBeCloseTo(1500, 0);
+  expect(Number(bc418.mVisceralFat), "measurement.visceralFat=7").toBeCloseTo(7, 0);
+
+  // Hedef 9: Warnings — BC-418 başarılı parse → warning yok
+  expect(bc418.warnings.length, "BC-418 başarılı parse → 0 warning").toBe(0);
+
+  // ─── DOĞRULAMA 12: console / page / network error 0 ──────────────────
   assertNoErrors(errors);
 });
