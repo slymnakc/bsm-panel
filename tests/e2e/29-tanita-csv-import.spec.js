@@ -48,6 +48,15 @@ const CSV_IRRELEVANT = [
   "kirmizi,acme,x100",
 ].join("\n");
 
+// BSM-TANITA-003: BSM Panel'in kendi "ölçüm geçmişi export" round-trip CSV'si.
+// Header'lar BSM export formatı ("Visceral Yağ", "Metabolik Yaş"). Anonim, sabit
+// test tarihi, jenerik değerler (gerçek kişisel veri YOK). Round-trip alias kaybı
+// regresyonunu kilitler — visceralFat + metabolicAge dolu olmalı.
+const CSV_BSM_ROUNDTRIP = [
+  '"Tarih","Kilo","Yağ Oranı","Kas Kütlesi","Bel","Visceral Yağ","BMR","Metabolik Yaş","Kaynak"',
+  '"2026-01-01","80.0","18.0","60.0","","6","1800","30","Tanita CSV"',
+].join("\n");
+
 test("Tanita CSV servis katmanı — parse + alias + selectBest + buildMeasurement", async ({ page }) => {
   const { errors } = await setupPage(page);
 
@@ -185,6 +194,33 @@ test("Tanita CSV servis katmanı — parse + alias + selectBest + buildMeasureme
   // Alakasız header → eşleşme yok → warning
   expect(errorCases.irrelevantWarnings, "Alakasız CSV → warning üretir").toBeGreaterThan(0);
 
-  // ─── DOĞRULAMA 10: console / page / network error 0 ──────────────────
+  // ─── DOĞRULAMA 10: BSM export round-trip (BSM-TANITA-003) ─────────────
+  // BSM kendi export'unu geri import edince "Visceral Yağ" + "Metabolik Yaş"
+  // sütunları alias listesinde olmadığı için KAYBOLUYORDU (gerçek veri kaybı).
+  // Bu blok visceralFat + metabolicAge'in dolduğunu kilitler.
+  const roundTrip = await page.evaluate((csv) => {
+    const r = window.BSMTanitaCsvService.parseTanitaCsv(csv);
+    const best = window.BSMTanitaCsvService.selectBestRecord(r.records);
+    const m = window.BSMTanitaCsvService.buildTanitaMeasurement(best, {});
+    return {
+      recordCount: r.records?.length,
+      weight: m.weight, fat: m.fat, muscleMass: m.muscleMass, bmr: m.bmr,
+      visceralFat: m.visceralFat, metabolicAge: m.metabolicAge,
+    };
+  }, CSV_BSM_ROUNDTRIP);
+  // Önceden de eşleşen alanlar
+  expect(Number(roundTrip.weight), "round-trip weight=80.0").toBeCloseTo(80.0, 1);
+  expect(Number(roundTrip.fat), "round-trip fat (Yağ Oranı)=18.0").toBeCloseTo(18.0, 1);
+  expect(Number(roundTrip.muscleMass), "round-trip muscleMass (Kas Kütlesi)=60.0").toBeCloseTo(60.0, 1);
+  expect(Number(roundTrip.bmr), "round-trip bmr=1800").toBeCloseTo(1800, 0);
+  // BSM-TANITA-003 fix hedefi — önceden BOŞ idi (alias kaybı):
+  expect(roundTrip.visceralFat !== "" && roundTrip.visceralFat != null,
+    `'Visceral Yağ' → visceralFat dolu (gerçek: ${roundTrip.visceralFat})`).toBe(true);
+  expect(Number(roundTrip.visceralFat), "round-trip visceralFat=6").toBeCloseTo(6, 0);
+  expect(roundTrip.metabolicAge !== "" && roundTrip.metabolicAge != null,
+    `'Metabolik Yaş' → metabolicAge dolu (gerçek: ${roundTrip.metabolicAge})`).toBe(true);
+  expect(Number(roundTrip.metabolicAge), "round-trip metabolicAge=30").toBeCloseTo(30, 0);
+
+  // ─── DOĞRULAMA 11: console / page / network error 0 ──────────────────
   assertNoErrors(errors);
 });
