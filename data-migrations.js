@@ -96,6 +96,50 @@
     "leftLegResistance",
   ];
 
+  // BSM-TANITA-005: Profile measurement summary alanları. mergeMeasurementIntoProfile
+  // (app.js) fieldMap'i ile birebir uyumlu — Tanita import sonrası bu alanlar
+  // profile'a yazılır ama normalizeFormData whitelist'i form-only olduğu için
+  // persist sırasında siliniyordu. preserveMeasurementSummary ile geri yazılır.
+  const PROFILE_MEASUREMENT_NUMERIC_KEYS = [
+    "weight", "height", "age",
+    "birthDay", "birthMonth", "birthYear",
+    "bodyFatPercentage", "fat", "fatMass",
+    "muscleMass", "fatFreeMass", "bodyWater",
+    "bmi", "bmr", "metabolicAge",
+    "visceralFat", "boneMass",
+    "proteinPercent", "intracellularWater",
+    "waist", "hip", "chest",
+    "armCircumference", "thighCircumference", "calfCircumference",
+  ];
+
+  const PROFILE_MEASUREMENT_STRING_KEYS = ["birthDate"];
+
+  function isFilledMeasurementValue(value) {
+    return value !== "" && value !== undefined && value !== null;
+  }
+
+  function hasFilledObjectValues(obj) {
+    return obj && typeof obj === "object"
+      && Object.values(obj).some(isFilledMeasurementValue);
+  }
+
+  function preserveMeasurementSummary(target, source) {
+    if (!source || typeof source !== "object") return target;
+    PROFILE_MEASUREMENT_NUMERIC_KEYS.forEach((key) => {
+      if (isFilledMeasurementValue(source[key])) target[key] = source[key];
+    });
+    PROFILE_MEASUREMENT_STRING_KEYS.forEach((key) => {
+      if (isFilledMeasurementValue(source[key])) target[key] = source[key];
+    });
+    if (hasFilledObjectValues(source.segments)) {
+      target.segments = { ...source.segments };
+    }
+    if (hasFilledObjectValues(source.resistance)) {
+      target.resistance = { ...source.resistance };
+    }
+    return target;
+  }
+
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
   }
@@ -349,6 +393,10 @@
       trainerName: member.trainerName || member.trainer_name || sourceProfile.trainerName,
       goal: member.goal || member.program || sourceProfile.goal,
     });
+    // BSM-TANITA-005: mergeMeasurementIntoProfile (app.js) profile'a measurement
+    // özetini yazar; normalizeFormData form-only whitelist olduğu için bu alanlar
+    // persist sırasında siliniyordu. Burada sourceProfile'dan geri yazılır.
+    preserveMeasurementSummary(profile, sourceProfile);
     const createdAt = normalizeIsoDate(member.createdAt) || new Date().toISOString();
     const measurements = Array.isArray(member.measurements)
       ? member.measurements.map((item) => normalizeMeasurement(item)).sort((a, b) => compareDates(b.date, a.date))

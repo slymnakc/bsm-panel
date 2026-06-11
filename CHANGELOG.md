@@ -7,6 +7,53 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.2 — "Tanita Profile Persist Fix"
+
+**Yayın tarihi:** 2026-06-11
+**Önceki sürüm:** 1.5.1
+
+## Highlights
+
+Tanita CSV import → kaydet akışında üye `profile` ölçüm özetinin (weight,
+bmi, visceralFat, muscle/fat alanları, segments) localStorage'da kaybolduğu
+**kritik veri kaybı bug'ını** kapatır. Sadece persist katmanı düzeltmesi —
+yeni özellik yok, UI değişmedi.
+
+## Bug fixes
+
+### Tanita Profile Persist Fix (BSM-TANITA-005)
+- `normalizeFormData` whitelist'i form alanları için tasarlandığından
+  `mergeMeasurementIntoProfile`'ın `profile`'a yazdığı ölçüm özeti
+  (weight, height, bmi, visceralFat, fat, muscleMass, bmr, metabolicAge,
+  segments, resistance, vb.) persist sırasında siliniyordu
+- `normalizeMember` artık `preserveMeasurementSummary` ile
+  `mergeMeasurementIntoProfile` fieldMap'iyle birebir aynı alanları
+  `sourceProfile`'dan geri yazıyor → form-only whitelist semantiği korunur,
+  ölçüm özeti kaybolmaz
+- Etki: Tanita ölçümü kaydedildikten sonra üye kartı profil özeti boş
+  kalmıyor, sayfa yenileme/reload sonrası özet alanlar yerinde
+
+## Tests
+
+### BSM-TANITA-004 — DOM + Persist e2e
+- `tests/e2e/30-tanita-dom-persist.spec.js` (1 test) eklendi
+- Hook'suz akış: `setInputFiles` + change event + button click +
+  `localStorage` doğrulaması
+- CSV import → form doldurma → save → `member.measurements[0]` +
+  `member.profile.{weight,bmi,visceralFat,segments}` zincirini bütün olarak
+  kapsar
+- Bilinen sınırları da kilitler: `#measurementFatFree` input'u yok +
+  `profile.fatFreeMass` undefined
+
+## Internal
+
+- Tüm e2e: 49/49 PASS (~7.9 dk)
+- Mevcut Tanita test coverage (TANITA-001/002/003) yeşil — regresyon yok
+- Versiyon: `package.json`, `app.js BSM_BUILD_VERSION`, `index.html` 41×
+  `?v=` cache-bust 1.5.1 → 1.5.2
+
+---
+
 # BSM Panel v1.5.1 — "Periodization UX Refinements + Tanita Test Coverage"
 
 **Yayın tarihi:** 2026-06-07
