@@ -7,7 +7,7 @@
 //   - Anonim Generic CSV → #tanitaCsvInput.setInputFiles → handleTanitaCsvSelected
 //   - DOM doldurma: weight/fat/muscleMass/bmr + 5 segment kas
 //   - Save → localStorage member.measurements[0] + member.profile
-//   - Bilinen sınır kilidi: #measurementFatFree yok + profile.fatFreeMass undefined
+//   - v1.5.3: fatFreeMass tam zincir (form + measurement + profile)
 //   - console/page/network error 0
 
 const { test, expect } = require("@playwright/test");
@@ -19,9 +19,10 @@ const MEMBERS_KEY = "formaplan-studio-members";
 const ACTIVE_ID_KEY = "formaplan-studio-active-member-id";
 
 // Anonim Generic CSV (BC-418 string YOK → Yol B). Kişisel veri YOK.
+// v1.5.3: fat free mass kolonu eklendi (alias: services/tanita-csv-service.js:18).
 const CSV_GENERIC = [
-  "date,weight,body fat %,muscle mass,visceral fat,bmr,bmi,right arm muscle,left arm muscle,trunk muscle,right leg muscle,left leg muscle,right arm fat,left arm fat,trunk fat,right leg fat,left leg fat",
-  "2026-01-01,72.0,24.0,30.0,7,1500,26.5,2.5,2.4,25.0,8.0,7.9,0.4,0.4,5.5,1.2,1.1",
+  "date,weight,body fat %,muscle mass,fat free mass,visceral fat,bmr,bmi,right arm muscle,left arm muscle,trunk muscle,right leg muscle,left leg muscle,right arm fat,left arm fat,trunk fat,right leg fat,left leg fat",
+  "2026-01-01,72.0,24.0,30.0,52.0,7,1500,26.5,2.5,2.4,25.0,8.0,7.9,0.4,0.4,5.5,1.2,1.1",
 ].join("\n");
 
 test("Tanita CSV → form → save → persist (DOM + localStorage, hook'suz)", async ({ page }) => {
@@ -132,13 +133,17 @@ test("Tanita CSV → form → save → persist (DOM + localStorage, hook'suz)", 
   expect(persisted.profile.segRightArmMuscle != null && persisted.profile.segRightArmMuscle !== "",
     `profile.segments.rightArmMuscle dolu (gerçek: ${persisted.profile.segRightArmMuscle})`).toBe(true);
 
-  // ─── 14: Bilinen sınır — #measurementFatFree formda YOK ───────────────
-  const fatFreeInput = await page.evaluate(() => !!document.querySelector("#measurementFatFree"));
-  expect(fatFreeInput, "Bilinen sınır: #measurementFatFree form input'u YOK").toBe(false);
+  // ─── 14: v1.5.3 fatFreeMass — #measurementFatFree formda VAR ──────────
+  const fatFreeInput = await page.evaluate(() => ({
+    exists: !!document.querySelector("#measurementFatFree"),
+    value: (document.querySelector("#measurementFatFree")?.value || "").trim(),
+  }));
+  expect(fatFreeInput.exists, "#measurementFatFree input mevcut").toBe(true);
+  expect(fatFreeInput.value, "#measurementFatFree dolu (CSV → form)").not.toBe("");
 
-  // ─── 15: Bilinen sınır — profile.fatFreeMass undefined ────────────────
-  expect(persisted.profile.fatFreeMass === undefined,
-    `Bilinen sınır: profile.fatFreeMass undefined (gerçek: ${persisted.profile.fatFreeMass})`).toBe(true);
+  // ─── 15: v1.5.3 fatFreeMass — profile.fatFreeMass dolu ────────────────
+  expect(persisted.profile.fatFreeMass !== "" && persisted.profile.fatFreeMass != null,
+    `profile.fatFreeMass dolu (gerçek: ${persisted.profile.fatFreeMass})`).toBe(true);
 
   // ─── 16-18: console / page / network error 0 ─────────────────────────
   assertNoErrors(errors);

@@ -17,7 +17,7 @@
 // Tek kaynak: tüm cache busting (?v=) ve console banner buradan turetilir.
 // Bumping: ozellik eklemelerinde minor, kucuk duzeltmelerde patch artirilir.
 // duzeltmelerde, major (1.x -> 2.0) breaking change'lerde.
-const BSM_BUILD_VERSION = "1.5.2";
+const BSM_BUILD_VERSION = "1.5.3";
 
 console.log("APP VERSION: v" + BSM_BUILD_VERSION);
 console.log("UI/UX SIMPLIFICATION VERSION: v" + BSM_BUILD_VERSION);
@@ -1012,6 +1012,7 @@ const measurementBirthYear = document.querySelector("#measurementBirthYear");
 const measurementFat = document.querySelector("#measurementFat");
 const measurementMuscleMass = document.querySelector("#measurementMuscleMass");
 const measurementFatMass = document.querySelector("#measurementFatMass");
+const measurementFatFree = document.querySelector("#measurementFatFree");
 const measurementBodyWater = document.querySelector("#measurementBodyWater");
 const measurementVisceralFat = document.querySelector("#measurementVisceralFat");
 const measurementBmr = document.querySelector("#measurementBmr");
@@ -1853,6 +1854,7 @@ function prepareMeasurementFormSections(workspace) {
       selectors: [
         "#measurementFat",
         "#measurementFatMass",
+        "#measurementFatFree",
         "#measurementMuscleMass",
         "#measurementBodyWater",
         "#measurementVisceralFat",
@@ -2000,6 +2002,7 @@ function decorateMeasurementManualUnits(root) {
     measurementHeight: "cm",
     measurementFat: "%",
     measurementFatMass: "kg",
+    measurementFatFree: "kg",
     measurementMuscleMass: "kg",
     measurementBodyWater: "%",
     measurementBmr: "kcal",
@@ -6802,6 +6805,7 @@ function readMeasurementForm() {
     fat: numberOrEmpty(measurementFat.value),
     muscleMass: numberOrEmpty(measurementMuscleMass.value),
     fatMass: numberOrEmpty(measurementFatMass.value),
+    fatFreeMass: numberOrEmpty(measurementFatFree.value),
     bodyWater: numberOrEmpty(measurementBodyWater.value),
     visceralFat: numberOrEmpty(measurementVisceralFat.value),
     bmr: numberOrEmpty(measurementBmr.value),
@@ -6887,6 +6891,7 @@ function clearMeasurementInputs() {
   measurementFat.value = "";
   measurementMuscleMass.value = "";
   measurementFatMass.value = "";
+  if (measurementFatFree) measurementFatFree.value = "";
   measurementBodyWater.value = "";
   measurementVisceralFat.value = "";
   measurementBmr.value = "";
@@ -6926,6 +6931,7 @@ function applyTanitaMeasurementToForm(measurement, options = {}) {
   setInputValue(measurementFat, source.fat);
   setInputValue(measurementMuscleMass, source.muscleMass);
   setInputValue(measurementFatMass, source.fatMass);
+  setInputValue(measurementFatFree, source.fatFreeMass);
   setInputValue(measurementBodyWater, source.bodyWater);
   setInputValue(measurementVisceralFat, source.visceralFat);
   setInputValue(measurementBmr, source.bmr);
@@ -7688,6 +7694,7 @@ function mergeMeasurementIntoProfile(profile, measurement) {
     bodyFatPercentage,
     fat: bodyFatPercentage,
     fatMass: measurement.fatMass,
+    fatFreeMass: measurement.fatFreeMass,
     muscleMass: measurement.muscleMass,
     bodyWater: measurement.bodyWater,
     bmi: measurement.bmi,
@@ -7754,6 +7761,7 @@ function dispatchMeasurementInputEvents() {
     measurementFat,
     measurementMuscleMass,
     measurementFatMass,
+    measurementFatFree,
     measurementBodyWater,
     measurementVisceralFat,
     measurementBmr,

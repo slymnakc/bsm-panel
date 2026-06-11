@@ -7,6 +7,48 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.3 — "fatFreeMass Full Roundtrip"
+
+**Yayın tarihi:** 2026-06-11
+**Önceki sürüm:** 1.5.2
+
+## Highlights
+
+Tanita CSV'deki "yağsız kütle" (fat free mass / FFM) değeri artık form → save →
+profile zincirini eksiksiz kat ediyor. v1.5.2'de bilinen sınır olarak işaretlenmiş
+**ikincil çift kayıp** (input yok + fieldMap'te yok) kapatıldı.
+
+## Improvements
+
+### fatFreeMass Form + Persist Roundtrip
+- Vücut Kompozisyonu paneline `#measurementFatFree` (Yağsız kütle kg) input
+  eklendi — Yağ kütlesi (`measurementFatMass`) ile Vücut suyu arasında
+- `mergeMeasurementIntoProfile` fieldMap'ine `fatFreeMass` eklendi → ölçüm
+  kaydedildikten sonra `member.profile.fatFreeMass` da güncellenir
+- Tanita CSV parser zaten `fat free mass`/`ffm`/`yağsız kütle` alias'larıyla
+  okuyordu; artık form & profile da bu değeri tutar → tam roundtrip
+- Wiring: DOM ref + dispatchMeasurementInputEvents + clearMeasurementInputs +
+  applyTanitaMeasurementToForm setInputValue + collectMeasurement reader +
+  decorateMeasurementManualUnits + Vücut Kompozisyonu selector listesi
+
+## Tests
+
+### BSM-TANITA-004 — 30-spec güncellendi
+- Test CSV'sine `fat free mass` kolonu eklendi (anonim değer: 52.0)
+- v1.5.2'deki "bilinen sınır" iki assertion (`#measurementFatFree` yok +
+  `profile.fatFreeMass` undefined) → "var ve dolu" pozitif kontrole çevrildi
+- DOM doldurma (CSV → form) + persist (form → profile) zinciri end-to-end yeşil
+
+## Internal
+
+- Full e2e: 49/49 PASS (~7.2 dk)
+- Versiyon: package.json + app.js BSM_BUILD_VERSION + index.html 41× ?v=
+  1.5.2 → 1.5.3
+- `data-migrations.js PROFILE_MEASUREMENT_NUMERIC_KEYS` zaten v1.5.2'de
+  `fatFreeMass` içeriyordu (defensive) → persist katmanı değişmeden çalıştı
+
+---
+
 # BSM Panel v1.5.2 — "Tanita Profile Persist Fix"
 
 **Yayın tarihi:** 2026-06-11
