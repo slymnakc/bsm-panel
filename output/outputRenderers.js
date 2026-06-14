@@ -111,7 +111,12 @@
 
     const summaryCard = programOverview?.closest(".result-card");
     const programCard = weeklyPlan?.closest(".result-card");
+    // BSM-UX-004a: trainingReportPanel ("Tanita Bağlantılı Program Zekâsı") de
+    // Detaylı Analiz altına alınır. domRefs'te yok (app.js inject etmiyor); app.js'e
+    // dokunmamak için grid scope'tan inline alınır. En üstte: teknik analiz ilk sırada.
+    const trainingCard = grid.querySelector("#trainingReportPanel");
     const detailTargets = [
+      trainingCard,
       _domRefs.coachNote,
       _domRefs.aiReportSummary,
       _domRefs.nextControlReport,
