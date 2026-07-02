@@ -307,11 +307,20 @@
             <p class="section-kicker">Üye Antrenman Planı</p>
             <h2>Üye ve Program Bilgileri</h2>
           </div>
+          <!-- BSM-UX-004c: Buton hiyerarşisi — birincil aksiyonlar görünür,
+               ikincil aksiyonlar native <details> "⋯ Diğer" menüsünde.
+               ID/class/handler/form= korunur; butonlar sadece yeniden gruplanır.
+               app.js:2709/3013 programatik .click() kapalı details'te de çalışır. -->
           <div class="panel-actions builder-top-actions">
             <p id="formStatus" class="status-message builder-top-status" aria-live="polite"></p>
-            <button type="button" class="secondary-button" id="fillExampleButton">Örnek Üye</button>
-            <button type="button" class="ghost-button" id="loadSavedButton">Son Kaydı Yükle</button>
-            <button type="button" class="ghost-button" id="newMemberButton">Yeni Üye</button>
+            <details class="builder-more-actions">
+              <summary>⋯ Diğer</summary>
+              <div class="builder-more-actions__menu">
+                <button type="button" class="secondary-button" id="fillExampleButton">Örnek Üye</button>
+                <button type="button" class="ghost-button" id="loadSavedButton">Son Kaydı Yükle</button>
+                <button type="button" class="ghost-button" id="newMemberButton">Yeni Üye</button>
+              </div>
+            </details>
             <button type="button" class="secondary-button" id="saveMemberButton">Üyeyi Kaydet</button>
             <button type="submit" class="primary-button builder-create-button" form="plannerForm">Üye Programını Oluştur</button>
           </div>

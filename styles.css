@@ -23765,3 +23765,60 @@ body.is-video-modal-open {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── BSM-UX-004c: Builder üst aksiyon hiyerarşisi ─────────────────────────
+   Birincil aksiyonlar (Program Oluştur + Üyeyi Kaydet) görünür; ikincil
+   aksiyonlar native <details> "⋯ Diğer" dropdown menüsünde. */
+.builder-more-actions {
+  position: relative;
+}
+
+.builder-more-actions > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 999px;
+  color: #475569;
+  background: transparent;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.builder-more-actions > summary::-webkit-details-marker {
+  display: none;
+}
+
+.builder-more-actions > summary:hover {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.builder-more-actions[open] > summary {
+  background: rgba(15, 23, 42, 0.07);
+}
+
+.builder-more-actions__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  display: grid;
+  gap: 6px;
+  min-width: 190px;
+  padding: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+}
+
+.builder-more-actions__menu > button {
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
+}
