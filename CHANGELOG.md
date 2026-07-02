@@ -7,6 +7,67 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.4 — "Progressive Disclosure + RBAC Coverage"
+
+**Yayın tarihi:** 2026-06-15
+**Önceki sürüm:** 1.5.3
+
+## Highlights
+
+Üç ana ekranda (Output, Ölçüm, Builder) progressive disclosure: kullanıcı ilk
+bakışta yalnızca ana operasyon öğelerini görür, detaylar tek tıkla açılır.
+Hiçbir özellik kaldırılmadı, hiçbir ID/mekanik değişmedi. Ek olarak mevcut
+client-side RBAC davranışı characterization testleriyle kilitlendi.
+
+## Improvements
+
+### Output Progressive Disclosure (BSM-UX-004a)
+- "Tanita Bağlantılı Program Zekâsı" (`#trainingReportPanel`) kartı da
+  Detaylı Analiz `<details>` altına alındı → ilk görünümde yalnızca 3 ana
+  kart: Program Özeti + Haftalık Plan + Beslenme
+- Yan fayda: kart önceden ekranda açık ama print'te gizliydi → artık tutarlı
+
+### Ölçüm Formu Progressive Disclosure (BSM-UX-004b)
+- Manuel Ölçüm sekmesinde katı-6 temel alan açık: Tarih, Boy, Kilo, BMI,
+  Yağ %, Kas Kütlesi
+- Kalan 23 alan "Detaylı Ölçümler" native `<details>` altında (4 alt bölüm:
+  kimlik/zaman, ileri kompozisyon, çevre ölçüleri, ek bilgiler)
+- **Auto-open:** CSV import, geçmiş ölçüm yükleme ve son ölçüm restore
+  dahil TÜM programatik doldurma yolları detay alanı doldurduysa bölüm
+  otomatik açılır — gizli veri riski yok; sadece açar, asla kapatmaz
+
+### Builder Üst Aksiyon Hiyerarşisi (BSM-UX-004c)
+- 6 eşit ağırlıklı aksiyon → 3 görünür öğe: Üye Programını Oluştur (primary)
+  + Üyeyi Kaydet + durum mesajı
+- İkincil aksiyonlar (Örnek Üye, Son Kaydı Yükle, Yeni Üye) "⋯ Diğer"
+  native `<details>` dropdown menüsünde
+- ID/class/handler/form davranışı aynen korundu; programatik `.click()`
+  akışları kapalı menüde de çalışır
+
+## Tests
+
+### BSM-AUTH-001 Faz 1 — RBAC Characterization
+- `tests/e2e/32-rbac-enforcement.spec.js` (4 test): BSMRbac API +
+  levelOf/hasPermission/getRole matrisleri + enforce(coach/admin) +
+  bsm:auth:ready event akışı + bypass + bilinmeyen rol
+- Güvenlik sertleştirme DEĞİL — mevcut client-side davranış kilidi
+  (sertleştirme BSM-AUTH-002 kapsamında ayrıca planlandı)
+
+### Yeni disclosure spec'leri
+- `31-output-progressive.spec.js` (1 test), `33-measurement-progressive.spec.js`
+  (3 test), `34-builder-actions.spec.js` (3 test) — hepsi test-first,
+  baseline FAIL doğrulamalı
+- Not: kapalı `<details>` içeriği modern Chrome'da `content-visibility` ile
+  gizlenir → görünürlük kontrolleri `checkVisibility()` ile
+
+## Internal
+
+- Full e2e: 60/60 PASS (49 → 60 test)
+- Versiyon: package.json + app.js `BSM_BUILD_VERSION` + index.html 41×
+  `?v=` cache-bust 1.5.3 → 1.5.4
+
+---
+
 # BSM Panel v1.5.3 — "fatFreeMass Full Roundtrip"
 
 **Yayın tarihi:** 2026-06-11
