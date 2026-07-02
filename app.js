@@ -1831,31 +1831,39 @@ function prepareMeasurementFormSections(workspace) {
 
   ensureMeasurementManualExtraFields(sourceGrid);
 
+  // BSM-UX-004b: Progressive disclosure — katı-6 temel alan açık, kalan TÜM
+  // alanlar "Detaylı Ölçümler" <details> altında (varsayılan kapalı).
+  // detail:true section'lar details gövdesine yerleşir. Hiçbir ID/input
+  // değişmez, sadece görünürlük/gruplama (UI-layout katmanı).
   const sections = [
     {
       badge: "A",
-      title: "Temel Bilgiler",
-      text: "Ölçüm zamanı, kimlik ve ana antropometrik değerler.",
+      title: "Temel Ölçüm",
+      text: "Günlük operasyon: tarih ve ana vücut değerleri.",
       selectors: [
         "#measurementDate",
-        "#measurementBirthDay",
         "#measurementHeight",
-        "#measurementAge",
         "#measurementWeight",
-        "#measurementGender",
         "#measurementBmi",
-        "#measurementTime",
+        "#measurementFat",
+        "#measurementMuscleMass",
       ],
     },
     {
       badge: "B",
+      title: "Kimlik ve Ölçüm Zamanı",
+      text: "Doğum tarihi, yaş, cinsiyet ve ölçüm saati.",
+      detail: true,
+      selectors: ["#measurementBirthDay", "#measurementAge", "#measurementGender", "#measurementTime"],
+    },
+    {
+      badge: "C",
       title: "Vücut Kompozisyonu",
-      text: "Tanita ve manuel vücut kompozisyon değerleri.",
+      text: "Tanita ve manuel ileri kompozisyon değerleri.",
+      detail: true,
       selectors: [
-        "#measurementFat",
         "#measurementFatMass",
         "#measurementFatFree",
-        "#measurementMuscleMass",
         "#measurementBodyWater",
         "#measurementVisceralFat",
         "#measurementBmr",
@@ -1866,9 +1874,10 @@ function prepareMeasurementFormSections(workspace) {
       ],
     },
     {
-      badge: "C",
+      badge: "D",
       title: "Çevre Ölçümleri",
       text: "Bölgesel çevre ölçümleri ve takip alanları.",
+      detail: true,
       selectors: [
         "#measurementWaist",
         "#measurementHip",
@@ -1879,14 +1888,28 @@ function prepareMeasurementFormSections(workspace) {
       ],
     },
     {
-      badge: "D",
+      badge: "E",
       title: "Ek Bilgiler",
       text: "Ölçüm yöntemi, cihaz, sorumlu kişi ve kısa not.",
+      detail: true,
       selectors: ["#measurementMethod", "#measurementDevice", "#measurementMeasuredBy", "#measurementNote"],
     },
   ];
   const wrapper = document.createElement("div");
   wrapper.className = "measurement-form-sections";
+
+  // BSM-UX-004b: Detaylı Ölçümler konteyneri (native details, default kapalı)
+  const detailPanel = document.createElement("details");
+  detailPanel.className = "measurement-detail-fields";
+  detailPanel.id = "measurementDetailFields";
+  detailPanel.innerHTML = `
+    <summary>
+      <span>Detaylı Ölçümler</span>
+      <small>Kimlik, kompozisyon detayları, çevre ölçüleri ve ek bilgiler</small>
+    </summary>
+    <div class="measurement-detail-fields__body"></div>
+  `;
+  const detailBody = detailPanel.querySelector(".measurement-detail-fields__body");
 
   sections.forEach((section) => {
     const sectionEl = document.createElement("section");
@@ -1912,9 +1935,10 @@ function prepareMeasurementFormSections(workspace) {
       }
     });
 
-    wrapper.appendChild(sectionEl);
+    (section.detail ? detailBody : wrapper).appendChild(sectionEl);
   });
 
+  wrapper.appendChild(detailPanel);
   sourceGrid.replaceWith(wrapper);
   decorateMeasurementManualUnits(wrapper);
 }
@@ -6958,7 +6982,32 @@ function applyTanitaMeasurementToForm(measurement, options = {}) {
   if (options.dispatch !== false) {
     dispatchMeasurementInputEvents();
   }
+  // BSM-UX-004b: TÜM programatik doldurma yolları (CSV import, geçmiş yükleme,
+  // son ölçüm restore) bu fonksiyondan geçer → auto-open tek hook'la garanti.
+  // dispatch opsiyonundan bağımsız çağrılır.
+  syncMeasurementDetailDisclosure();
   console.log("TANITA DATA APPLIED TO FORM");
+}
+
+// BSM-UX-004b: Detay alanlarından herhangi biri doluysa "Detaylı Ölçümler"
+// bölümünü aç — kullanıcı gizli veri olduğunu fark etmeme riski yaşamaz.
+// Sadece AÇAR, asla kapatmaz (kullanıcının kapatma tercihine saygı).
+// Select'ler kontrol dışı: measurementMethod'un varsayılanı boş değil
+// ("manual_entry") — dahil edilirse her zaman auto-open tetiklenirdi.
+function syncMeasurementDetailDisclosure() {
+  const detailPanel = document.querySelector("#measurementDetailFields");
+
+  if (!detailPanel || detailPanel.open) {
+    return;
+  }
+
+  const hasFilledDetailValue = Array.from(detailPanel.querySelectorAll("input, textarea")).some(
+    (el) => String(el.value || "").trim() !== "",
+  );
+
+  if (hasFilledDetailValue) {
+    detailPanel.open = true;
+  }
 }
 
 function applyMeasurementToAppState(measurement) {
