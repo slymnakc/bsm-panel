@@ -23969,3 +23969,45 @@ body.is-video-modal-open {
     padding: 10px;
   }
 }
+
+/* ── BSM-UX-004g: Builder adım şeridi kompaktlaştırma (A — satır yüksekliği) ──
+   .builder-steps span min-height küçültme + padding/font/daire.
+   Salt görsel: DOM/ID/class/data-builder-step-target/tıklanabilirlik korunur.
+   measurement-flow-steps zaten runtime'da retired/hidden → dokunulmadı.
+   grid-template-columns'a DOKUNULMADI (yatay tek-satır B seçeneği değil; mobil
+   overflow pre-existing minmax(132px) kaynaklı, 004g kapsamı dışı).
+   Etkin boyut #plannerForm.builder-wizard-active .builder-steps span (specificity
+   1,2,1) kurallarından geliyor → override aynı specificity + dosya sonu ile
+   tüm breakpoint'lerde kazanır. Base .builder-steps (wizard-active öncesi) fallback. */
+.builder-steps {
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.builder-steps span {
+  min-height: 40px;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+}
+
+.builder-steps b {
+  width: 20px;
+  height: 20px;
+  font-size: 0.78rem;
+}
+
+#plannerForm.builder-wizard-active .builder-steps {
+  gap: 6px;
+}
+
+#plannerForm.builder-wizard-active .builder-steps span {
+  min-height: 40px;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+}
+
+#plannerForm.builder-wizard-active .builder-steps span b {
+  width: 20px;
+  height: 20px;
+  font-size: 0.76rem;
+}
