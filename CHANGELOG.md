@@ -7,6 +7,64 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.5 — "Dashboard & Library Disclosure + Test Remediation"
+
+**Yayın tarihi:** 2026-07-04
+**Önceki sürüm:** 1.5.4
+
+## Highlights
+
+Progressive disclosure serisi Dashboard ve Library ekranlarıyla tamamlandı;
+ayrıca AUTH-002 2b-1 (RLS anon kapatma) sonrası e2e suite'i canlı Supabase'e
+bağlanmadan çalışacak şekilde test-mode izolasyonu sertleştirildi. Hiçbir
+özellik kaldırılmadı, hiçbir ID/mekanik değişmedi.
+
+## Improvements
+
+### Dashboard Progressive Disclosure (BSM-UX-004e)
+- KPI şeridi, Focus (`#dashboardFocusPanel`) ve Quick Action (`#coachQuickPanel`)
+  her zaman açık
+- Koç Uyarıları + Görevler (`.dashboard-command-grid`) native `<details>`
+  içinde, **default açık**
+- Son Aktivite (`#dashboardActivity`) native `<details>` içinde, **default kapalı**
+  (tarihsel log → en büyük görsel sadeleşme)
+- `.dashboard-hidden-metrics` mevcut hidden haliyle korundu
+- Dashboard için **ilk e2e coverage** eklendi
+
+### Library Progressive Disclosure (BSM-UX-004f)
+- Arama, filtreler, kas grubu sekmeleri ve egzersiz grid'i açık kalır
+- Alfabe şeridi (`#alphabetTabs`) native `<details class="library-alphabet-disclosure">`
+  içinde, **default kapalı** (A-Z nadir kullanılır, en çok yer kaplar)
+- "Bul" (`#findExerciseButton`) canlı arama nedeniyle görsel **ikincilleştirildi**
+  (`library-search-button--secondary`); DOM'dan çıkarılmadı, ID + handler korundu
+- Canlı arama davranışı (input listener her tuşta filtreler) e2e ile kilitlendi
+
+## Fixes
+
+### AUTH-002 2b-1 Test Remediation
+- AUTH-002 2b-1 (RLS anon → authenticated) sonrası e2e suite'in canlı Supabase'e
+  anon key ile giden sync/persist yolları 401 üretiyordu (8 spec assertNoErrors fail)
+- Kök neden: `supabase-sync-service` + `member-service` yalnızca `client?.from`
+  guard'ına güveniyordu; test modunda inline client kurulu olduğu için çağrı
+  canlıya gidiyordu
+- Fix: `isTestMode()` true iken `window.supabaseClient`/`BSMSupabaseClient` null'lanır
+  → tüm `client?.from` guard'ları tripler → sıfır Supabase network
+- **Production-safe:** `isTestMode()` üretimde false → canlı client'a dokunulmaz.
+  RLS/policy/auth-flow/console-filter değişmedi
+
+## Tests
+
+- Yeni: `35-dashboard-progressive.spec.js` (4 test) + `36-library-progressive.spec.js`
+  (4 test) — hepsi test-first, baseline FAIL doğrulamalı
+- Full e2e: 64 → **68/68 PASS** — flaky/timeout/401 yok
+
+## Internal
+
+- Versiyon: package.json + app.js `BSM_BUILD_VERSION` + index.html 41× `?v=`
+  cache-bust 1.5.4 → 1.5.5
+
+---
+
 # BSM Panel v1.5.4 — "Progressive Disclosure + RBAC Coverage"
 
 **Yayın tarihi:** 2026-06-15
