@@ -178,6 +178,19 @@ function isTestMode() {
   return false;
 }
 
+// AUTH-002 2b-1 remediation: Test modunda canlı Supabase client'ını devre dışı
+// bırak. index.html inline script client'ı hardcoded key ile kurar; RLS artık
+// authenticated-only olduğundan e2e (anon) sync/persist yolları 401 üretir.
+// Tüm .from() çağıranlar `if (!client?.from) return` guard'lı olduğundan client'ı
+// null'lamak hepsini merkezi olarak no-op yapar → sıfır network, console 401 yok.
+// PRODUCTION-SAFE: isTestMode() üretimde false → client dokunulmaz.
+// memberSupabaseSync zaten isTestMode-guard'lı; bu ek katman diğer servisleri
+// (supabase-sync-service, member-service — yalnızca client?.from guard'lı) kapsar.
+if (isTestMode()) {
+  window.supabaseClient = null;
+  window.BSMSupabaseClient = null;
+}
+
 // v1.4.4: Test/debug API — window.BSMTestApi
 // Sadece state observable; setter yok (production davranisi degismez).
 // Test izolasyonu icin _helpers.js ve diagnostic scriptler bunu kullanir.
