@@ -58,6 +58,15 @@
             <span>Ayarlar</span>
           </button>
         </nav>
+        <!-- BSM-UX-004h: Global görünüm yoğunluğu toggle (Basit / Profesyonel).
+             Herkes görür (settings admin-gated olduğu için sidebar'da). -->
+        <div class="view-density-toggle" role="group" aria-label="Görünüm yoğunluğu">
+          <span class="view-density-toggle__label">Görünüm</span>
+          <div class="view-density-toggle__control">
+            <button type="button" class="view-density-toggle__button is-active" data-density="simple" aria-pressed="true">Basit</button>
+            <button type="button" class="view-density-toggle__button" data-density="pro" aria-pressed="false">Profesyonel</button>
+          </div>
+        </div>
         <div class="app-sidebar__brand" aria-hidden="true">
           <img
             src="./assets/img/bsm-logo.png"
@@ -1856,6 +1865,9 @@
     <!-- ── Auth (app.js'den sonra — session kontrolü için) ──── -->
     <script src="./auth/auth.js?v=1.5.5"></script>
     <script src="./auth/rbac.js"></script>
+
+    <!-- ── BSM-UX-004h: Görünüm yoğunluğu (app.js sonrası — details bootstrap'ta hazır) ── -->
+    <script src="./core/view-density.js?v=1.5.5"></script>
     <script>
       if (window.BSMAuth) {
         window.BSMAuth.init();

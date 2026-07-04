@@ -24011,3 +24011,68 @@ body.is-video-modal-open {
   height: 20px;
   font-size: 0.76rem;
 }
+
+/* ── BSM-UX-004h: Görünüm yoğunluğu toggle (Basit / Profesyonel) ───────────
+   Sidebar footer'da global segmented control. Settings admin-gated olduğu için
+   burada; herkes görür. Pro yalnızca whitelist içerik-disclosure'ı açar. */
+.view-density-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 8px 4px;
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.view-density-toggle__label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.view-density-toggle__control {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(8, 43, 53, 0.35);
+}
+
+.view-density-toggle__button {
+  min-height: 30px;
+  padding: 5px 6px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.view-density-toggle__button:hover {
+  color: #ffffff;
+}
+
+.view-density-toggle__button.is-active {
+  background: linear-gradient(135deg, var(--teal-deep, #0f6a65), var(--teal, #1d6b74));
+  color: #fffaf3;
+  box-shadow: 0 6px 16px rgba(8, 43, 53, 0.25);
+}
+
+@media (max-width: 760px) {
+  .view-density-toggle {
+    margin: 8px 6px 2px;
+    padding: 6px;
+  }
+  .view-density-toggle__button {
+    font-size: 0.7rem;
+    padding: 5px 4px;
+  }
+}
