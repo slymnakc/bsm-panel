@@ -268,36 +268,47 @@
 
       <article class="dashboard-insight dashboard-insight--quick dashboard-command-actions" id="coachQuickPanel"></article>
 
-      <div class="dashboard-command-grid">
-        <article class="dashboard-insight dashboard-insight--alerts">
-          <div class="dashboard-section-title">
-            <div>
-              <p class="section-kicker">Koç Uyarıları</p>
-              <h3>Bugün Öncelikli Takip</h3>
+      <!-- BSM-UX-004e: Koç Uyarıları + Görevler katlanabilir (default AÇIK).
+           command-grid + içindeki render hedefleri (#coachAlertsPanel /
+           #coachTaskPanel) aynen korunur; sadece <details> ile sarılır. -->
+      <details class="dashboard-disclosure dashboard-disclosure--commands" open>
+        <summary class="dashboard-disclosure__summary">
+          <span>Koç Uyarıları &amp; Görevler</span>
+          <small>Bugünün öncelikli takibi ve aksiyon listesi</small>
+        </summary>
+        <div class="dashboard-command-grid">
+          <article class="dashboard-insight dashboard-insight--alerts">
+            <div class="dashboard-section-title">
+              <div>
+                <p class="section-kicker">Koç Uyarıları</p>
+                <h3>Bugün Öncelikli Takip</h3>
+              </div>
             </div>
-          </div>
-          <div id="coachAlertsPanel" class="coach-alert-list"></div>
-        </article>
-        <article class="dashboard-insight dashboard-insight--tasks">
-          <div class="dashboard-section-title">
-            <div>
-              <p class="section-kicker">Bugünün Görevleri</p>
-              <h3>Koç Aksiyon Listesi</h3>
+            <div id="coachAlertsPanel" class="coach-alert-list"></div>
+          </article>
+          <article class="dashboard-insight dashboard-insight--tasks">
+            <div class="dashboard-section-title">
+              <div>
+                <p class="section-kicker">Bugünün Görevleri</p>
+                <h3>Koç Aksiyon Listesi</h3>
+              </div>
             </div>
-          </div>
-          <div id="coachTaskPanel" class="coach-task-list"></div>
-        </article>
-      </div>
-
-      <article class="dashboard-insight dashboard-insight--activity">
-        <div class="dashboard-section-title">
-          <div>
-            <p class="section-kicker">Son Aktivite</p>
-            <h3>Kompakt Salon Akışı</h3>
-          </div>
+            <div id="coachTaskPanel" class="coach-task-list"></div>
+          </article>
         </div>
-        <div id="dashboardActivity" class="activity-list"></div>
-      </article>
+      </details>
+
+      <!-- BSM-UX-004e: Son Aktivite katlanabilir (default KAPALI — en büyük
+           sadeleşme kazancı; tarihsel log, aksiyona en az dönük). -->
+      <details class="dashboard-disclosure dashboard-disclosure--activity">
+        <summary class="dashboard-disclosure__summary">
+          <span>Son Aktivite</span>
+          <small>Kompakt salon akışı</small>
+        </summary>
+        <article class="dashboard-insight dashboard-insight--activity">
+          <div id="dashboardActivity" class="activity-list"></div>
+        </article>
+      </details>
     </section>
 
     <main class="app-shell screen-panel is-hidden" data-screen="builder">
