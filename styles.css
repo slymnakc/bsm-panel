@@ -23893,3 +23893,79 @@ body.is-video-modal-open {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── BSM-UX-004f: Library progressive disclosure ──────────────────────────
+   Alfabe şeridi katlanabilir (default kapalı); "Bul" butonu görsel ikincil
+   (arama canlı). UX-004e disclosure deseniyle uyumlu. */
+.library-alphabet-disclosure {
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.94);
+  overflow: hidden;
+  margin: 4px 0 2px;
+}
+
+.library-alphabet-disclosure__summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.library-alphabet-disclosure__summary::-webkit-details-marker {
+  display: none;
+}
+
+.library-alphabet-disclosure__summary > span {
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.library-alphabet-disclosure__summary > small {
+  flex: 1;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.library-alphabet-disclosure__summary::after {
+  content: "\25B8";
+  color: #64748b;
+  font-size: 0.9rem;
+  transition: transform 0.15s ease;
+}
+
+.library-alphabet-disclosure[open] > .library-alphabet-disclosure__summary {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.library-alphabet-disclosure[open] > .library-alphabet-disclosure__summary::after {
+  transform: rotate(90deg);
+}
+
+.library-alphabet-disclosure .alphabet-tabs {
+  padding: 12px 14px;
+}
+
+/* "Bul" görsel ikincilleştirme — canlı arama nedeniyle birincil değil.
+   Temizle net kullanılabilir kalır. */
+.library-search-button--secondary {
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  opacity: 0.75;
+  box-shadow: none;
+}
+
+.library-search-button--secondary:hover {
+  opacity: 1;
+}
+
+@media (max-width: 860px) {
+  .library-alphabet-disclosure .alphabet-tabs {
+    padding: 10px;
+  }
+}

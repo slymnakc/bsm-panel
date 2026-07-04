@@ -1378,8 +1378,11 @@
           </select>
         </label>
       </div>
+      <!-- BSM-UX-004f: Arama canlı (exerciseSearch input listener her tuşta
+           filtreler) → "Bul" fonksiyonel olarak gereksiz; görsel ikincilleştirildi.
+           DOM'dan çıkarılmaz — ID + handler korunur (app.js:935 ref). -->
       <div class="library-search-actions">
-        <button type="button" class="secondary-button" id="findExerciseButton">Bul</button>
+        <button type="button" class="secondary-button library-search-button--secondary" id="findExerciseButton">Bul</button>
         <button type="button" class="ghost-button" id="clearExerciseSearchButton">Temizle</button>
       </div>
 
@@ -1441,7 +1444,16 @@
       </details>
 
       <div class="muscle-tabs" id="muscleGroupTabs" aria-label="Kas grubu hızlı filtreleri"></div>
-      <div class="alphabet-tabs" id="alphabetTabs" aria-label="Alfabetik hareket sekmeleri"></div>
+      <!-- BSM-UX-004f: Alfabe şeridi katlanabilir (default KAPALI — A-Z nadir
+           kullanılır, en çok yer kaplar). #alphabetTabs render hedefi korunur;
+           kapalı details içinde de innerHTML render + syncLibraryTabs çalışır. -->
+      <details class="library-alphabet-disclosure">
+        <summary class="library-alphabet-disclosure__summary">
+          <span>Alfabetik Filtre</span>
+          <small>A-Z harfe göre hızlı erişim</small>
+        </summary>
+        <div class="alphabet-tabs" id="alphabetTabs" aria-label="Alfabetik hareket sekmeleri"></div>
+      </details>
       <div class="library-grid" id="exerciseLibrary"></div>
     </section>
 
