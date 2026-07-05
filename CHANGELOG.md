@@ -7,6 +7,45 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.7 — "Program Set Template Generation Fix"
+
+**Yayın tarihi:** 2026-07-05
+**Önceki sürüm:** 1.5.6
+
+## Fixes
+
+### BUG-SET-001 — Program generation seçilen set/tekrar template'ini korur
+- Program oluştururken kullanıcının seçtiği `repetitionTemplate` (piramit preset
+  vb.) artık generation aşamasında **korunur**; goal/kind bazlı fallback ezmez
+- Kök neden: `services/session-exercise-service.js` `buildPrescription` form'un
+  `data.repetitionTemplate`'ini okumuyordu → her strength egzersizine goal/kind
+  bazlı hard-coded reçete atıyordu
+- Örnek: kullanıcı `15-12-10-8` seçerse `15-12-10-8`, `12-10-8-6` seçerse
+  `12-10-8-6` korunur; sabit canonical pattern zorlanmaz
+- Pattern üç katmanda doğrulandı: **activeProgram** · **preview/output** ·
+  **PDF payload**
+- Cardio/conditioning/mobility/core erken return davranışı korundu; template
+  yoksa veya `custom` ise eski goal/kind fallback bit-identical korunur
+- Saf sayı desenleri tire ile (`15-12-10-8`), aralık desenleri `•` ile yazılır
+- **app.js dokunulmadı** (form template zaten exact preset'i taşıyor;
+  `selectSuggestedRepetitionPreset` yalnız edit-time yolunda). PDF server/layout
+  **değişmedi.** Bağımsız BUG-PDF-001 (layout/boş PDF/Türkçe/taşma) bu release
+  kapsamında **değildir**
+
+## Tests
+
+- Yeni: `tests/e2e/38-program-set-system.spec.js` (5 test) — test-first, baseline
+  FAIL doğrulamalı: 15-12-10-8 korunması, 12-10-8-6 korunması + 15-12-10-8
+  zorlanmaması, PDF payload, goal-bağımsızlık, fallback
+- Full e2e: 73 → **78/78 PASS** — flaky/timeout/401 yok
+
+## Internal
+
+- Versiyon: package.json + app.js `BSM_BUILD_VERSION` + index.html 42× `?v=`
+  cache-bust 1.5.6 → 1.5.7
+
+---
+
 # BSM Panel v1.5.6 — "Builder Compact Steps + View Density Toggle"
 
 **Yayın tarihi:** 2026-07-04
