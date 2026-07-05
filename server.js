@@ -1360,38 +1360,44 @@ function buildPremiumProgramPdfPages(model) {
     y = 612;
   }
 
+  // BUG-PDF-002 Faz 1: Tek kolon akış + dinamik yükseklik page-break.
+  // Gün başlığı sayfa sonunda tek kalmasın: başlık + ilk kart sığmıyorsa yeni sayfa.
   for (const session of model.sessions) {
     const exercises = Array.isArray(session.exercises) ? session.exercises : [];
+    const firstCardHeight = exercises.length ? measureExerciseCardHeight(exercises[0]) : 40;
 
-    if (y < 150) {
+    if (y - 44 - firstCardHeight < 80) {
       finishPage();
       startPage();
     }
 
     drawSessionHeader(commands, session, y);
-    y -= 42;
+    y -= 44;
 
     exercises.forEach((exercise, index) => {
-      const column = index % 2;
-      const needsNewRow = column === 0 && index > 0;
+      const cardHeight = measureExerciseCardHeight(exercise);
 
-      if (needsNewRow) {
-        y -= 64;
-      }
-
-      if (y < 92) {
+      // Kart kalan alana sığmıyorsa yeni sayfa (overflow yok).
+      if (y - cardHeight < 76) {
         finishPage();
         startPage();
-        drawSessionHeader(commands, session, y);
-        y -= 42;
       }
 
-      drawExerciseCard(commands, exercise, 42 + column * 256, y, 244, 54, index + 1);
+      drawExerciseCard(commands, exercise, 42, y, 511, index + 1);
+      y -= cardHeight + 8;
     });
 
-    y -= exercises.length % 2 === 0 ? 76 : 140;
-    drawSupportNotes(commands, session, y + 52);
-    y -= 22;
+    const hasSupportNotes = session.warmup || session.cardioBlock || session.cooldown;
+    if (hasSupportNotes) {
+      if (y - 26 < 76) {
+        finishPage();
+        startPage();
+      }
+      drawSupportNotes(commands, session, y);
+      y -= 30;
+    } else {
+      y -= 8;
+    }
   }
 
   if (y < 142) {
@@ -1463,25 +1469,72 @@ function drawSessionHeader(commands, session, y) {
   addText(commands, 420, y + 10, session.duration || "", 8, "#d8ad63", 18);
 }
 
-function drawExerciseCard(commands, exercise, x, y, width, height, order = "") {
+// BUG-PDF-002 Faz 1: Üye antrenman PDF'i tek kolon + dinamik kart yüksekliği.
+// Teknik model bilgisi ("Model: Fixed") gizli; İngilizce "Sets" yerine Türkçe
+// "Set/Tekrar"; her metrik ayrı satır; not wrap eder; kart içeriğe göre büyür.
+const PDF_CARD_ROW_H = 12;
+
+// Egzersiz kartı satırlarını üretir (Set/Tekrar Türkçe, Model gizli).
+function buildExerciseCardRows(exercise) {
+  const repPattern =
+    Array.isArray(exercise?.repPattern) && exercise.repPattern.length
+      ? exercise.repPattern.join("-")
+      : String(exercise?.reps || "-").replace(/\s*•\s*/g, "-").trim();
+  const setCount = exercise?.sets || "-";
+  const rows = [{ label: "Set/Tekrar", value: `${setCount} set x ${repPattern} tekrar` }];
+  if (exercise?.rest && exercise.rest !== "-") rows.push({ label: "Dinlenme", value: String(exercise.rest) });
+  if (exercise?.tempo && exercise.tempo !== "-") rows.push({ label: "Tempo", value: String(exercise.tempo) });
+  const note = exercise?.cue || exercise?.note;
+  if (note) rows.push({ label: "Not", value: String(note), wrap: true });
+  return rows;
+}
+
+// Kartın dinamik yüksekliğini içerik satır sayısına göre hesaplar (overflow'u önler).
+function measureExerciseCardHeight(exercise) {
+  const rows = buildExerciseCardRows(exercise);
+  const metricLines = rows.reduce(
+    (n, r) => n + (r.wrap ? Math.max(1, wrapTextByChars(`${r.label}: ${r.value}`, 100).length) : 1),
+    0,
+  );
+  // 16 (üst pad→isim) + 14 (isim) + ROW_H (kas grubu) + metrikler + 12 (alt pad)
+  return 16 + 14 + PDF_CARD_ROW_H + metricLines * PDF_CARD_ROW_H + 12;
+}
+
+// Tek kolon, dinamik yükseklikli egzersiz kartı. yTop = kartın üst kenarı.
+// Çizilen yüksekliği döndürür (çağıran y'yi ona göre azaltır).
+function drawExerciseCard(commands, exercise, x, yTop, width, order = "") {
   const name = exercise?.name || "Hareket";
   const group = exercise?.groupLabel || exercise?.group || "Kas grubu";
-  drawRect(commands, x, y - height + 10, width, height, "#ffffff", "#d9e5e3");
-  drawRect(commands, x, y - height + 10, 6, height, "#d8ad63");
-  drawRect(commands, x + 12, y - 31, 34, 34, "#eef7f5", "#b9d3ce");
-  addText(commands, x + 22, y - 12, String(order || ""), 9, "#1d6b74");
-  addText(commands, x + 54, y - 6, name, 9.4, "#082b35", 31);
-  addText(commands, x + 54, y - 20, group, 7.3, "#1d6b74", 31);
+  const rows = buildExerciseCardRows(exercise);
+  const height = measureExerciseCardHeight(exercise);
 
-  const repPattern = Array.isArray(exercise?.repPattern) && exercise.repPattern.length ? exercise.repPattern.join(" • ") : exercise?.reps || "-";
-  const metrics = [
-    `${exercise?.sets || "-"} Sets: ${repPattern}`,
-    `Model: ${formatRepModelLabel(exercise?.repModel)}`,
-    `Dinlenme: ${exercise?.rest || "-"}`,
-    `Tempo: ${exercise?.tempo || "-"}`,
-  ];
-  addText(commands, x + 54, y - 34, metrics.join("  |  "), 6.8, "#384d55", 42);
-  addText(commands, x + 54, y - 46, exercise?.cue || exercise?.note || "Kontrollü formda uygula.", 6.5, "#5c6c72", 42);
+  drawRect(commands, x, yTop - height, width, height, "#ffffff", "#d9e5e3");
+  drawRect(commands, x, yTop - height, 6, height, "#d8ad63");
+  drawRect(commands, x + 12, yTop - 30, 26, 22, "#eef7f5", "#b9d3ce");
+  addText(commands, x + 20, yTop - 22, String(order || ""), 9, "#1d6b74");
+
+  const textX = x + 48;
+  let cy = yTop - 16;
+  addText(commands, textX, cy, name, 10.5, "#082b35", 70);
+  cy -= 14;
+  addText(commands, textX, cy, `Kas grubu: ${group}`, 7.5, "#1d6b74", 92);
+  cy -= PDF_CARD_ROW_H;
+
+  rows.forEach((row) => {
+    const full = `${row.label}: ${row.value}`;
+    if (row.wrap) {
+      // Not: uzun metin wrap eder (her satır zaten <=100 char → addText re-wrap etmez).
+      wrapTextByChars(full, 100).forEach((line) => {
+        addText(commands, textX, cy, line, 7.2, "#5c6c72", 200);
+        cy -= PDF_CARD_ROW_H;
+      });
+    } else {
+      addText(commands, textX, cy, full, 8, "#2b3d44", 100);
+      cy -= PDF_CARD_ROW_H;
+    }
+  });
+
+  return height;
 }
 
 function formatRepModelLabel(value) {
