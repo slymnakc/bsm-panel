@@ -66,6 +66,25 @@
       return data.level === "advanced" ? "3-4 set x 12-18 tekrar veya 45 sn" : "3 set x 10-14 tekrar veya 30-40 sn";
     }
 
+    // BUG-SET-001: Kullanıcının seçtiği set/tekrar template'i (pyramid vb.) generation'da
+    // KORUNUR — goal/kind fallback ezmez. Cardio/conditioning/mobility/core yukarıda kendi
+    // reçetesini döndürdü; buraya yalnızca strength-tipi (compound/accessory) hareketler gelir.
+    // Template yoksa veya custom ise aşağıdaki goal/kind fallback aynen devreye girer.
+    const template = data.repetitionTemplate;
+    if (template && template.model !== "custom") {
+      const pattern = Array.isArray(template.repPattern)
+        ? template.repPattern.map((rep) => String(rep).trim()).filter(Boolean)
+        : [];
+      const templateSets = Number(template.sets) || pattern.length;
+      if (pattern.length && templateSets && pattern.length === templateSets) {
+        // Saf sayı desenleri (pyramid/fixed/strength/reverse) tire ile "15-12-10-8";
+        // aralık/metin desenleri (hypertrophy/endurance) mevcut " • " ayracıyla korunur.
+        const allNumeric = pattern.every((rep) => /^\d+$/.test(rep));
+        const repsText = allNumeric ? pattern.join("-") : pattern.join(" • ");
+        return `${templateSets} set x ${repsText} tekrar`;
+      }
+    }
+
     if (data.goal === "strength" && exercise.kind === "compound") {
       return index < 2 ? "4-5 set x 3-6 tekrar" : "3-4 set x 6-8 tekrar";
     }
