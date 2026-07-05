@@ -7,6 +7,49 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.8 — "Program PDF Layout Readability Fix"
+
+**Yayın tarihi:** 2026-07-05
+**Önceki sürüm:** 1.5.7
+
+## Fixes
+
+### BUG-PDF-002 Faz 1 — Program PDF okunabilirlik düzeltmesi
+- Üyeye verilen antrenman programı PDF'i **tek kolon layout**'a alındı
+- Sabit 54pt iki kolon egzersiz kartları kaldırıldı
+- Egzersiz kart yüksekliği **içerik satırlarına göre dinamik** hesaplanır →
+  kart içi metin overlap'i giderildi; not/açıklama metni wrap eder ve kart
+  dışına taşmaz
+- `Model: Fixed` gibi teknik model bilgileri üye çıktısından **gizlendi**
+- İngilizce `Sets` kaldırıldı → Türkçe **`Set/Tekrar`** formatı
+- Set/Tekrar, Dinlenme, Tempo ve Not **ayrı satırlara** ayrıldı (eski tek satır
+  `|` ile birleştirilmiş metrik düzeni kaldırıldı)
+- **Page-break** içerik yüksekliğine göre iyileştirildi: kart sığmıyorsa yeni
+  sayfa, gün başlığı sayfa sonunda tek bırakılmaz, support notes için kalan
+  alan kontrol edilir (eski odd/even y-hack kaldırıldı)
+- Yeni yardımcılar: `buildExerciseCardRows`, `measureExerciseCardHeight`
+  (program-PDF'e özel)
+
+### Kapsam dışı (Faz 2 / dokunulmadı)
+- **Türkçe TTF/font embedding YAPILMADI** — base-14 Helvetica korundu;
+  `ş/ı/ğ` glyph problemi BUG-PDF-002 Faz 2'ye bırakıldı
+- Generation logic, payload logic, Nutrition PDF, Auth/RLS: **değişmedi**
+- `formatRepModelLabel` korundu ama egzersiz kartında çağrılmıyor
+
+## Tests
+
+- Yeni: `tests/e2e/39-program-pdf-layout.spec.js` (4 test) — test-first, baseline
+  FAIL doğrulamalı: Model/Sets kaldırma, layout restructure (iki-kolon sabit kart
+  yok), Türkçe Set/Tekrar, endpoint smoke (200 + application/pdf)
+- Full e2e: 78 → **82/82 PASS** — flaky/timeout/401 yok
+
+## Internal
+
+- Versiyon: package.json + app.js `BSM_BUILD_VERSION` + index.html 42× `?v=`
+  cache-bust 1.5.7 → 1.5.8
+
+---
+
 # BSM Panel v1.5.7 — "Program Set Template Generation Fix"
 
 **Yayın tarihi:** 2026-07-05
