@@ -7,6 +7,60 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.6 — "Builder Compact Steps + View Density Toggle"
+
+**Yayın tarihi:** 2026-07-04
+**Önceki sürüm:** 1.5.5
+
+## Highlights
+
+Progressive disclosure serisinin son iki parçası: builder adım şeridi görsel
+olarak sadeleştirildi ve kullanıcıya global Basit/Profesyonel görünüm tercihi
+eklendi. Hiçbir özellik kaldırılmadı, hiçbir ID/mekanik değişmedi.
+
+## Improvements
+
+### Builder Adım Şeridi Kompaktlaştırma (BSM-UX-004g)
+- `.builder-steps` şeridi CSS-only kompaktlaştırıldı: span min-height 54→40px,
+  padding/font küçültüldü, numara balonu 26→20px (strip yüksekliği ~70→56px)
+- Etkin boyut `#plannerForm.builder-wizard-active .builder-steps span`
+  kurallarından geldiği için override aynı specificity ile yapıldı
+- Wizard step navigation + DOM/ID/class/data-builder-step-target/role/tabIndex
+  korundu; app.js ve builder-wizard.js değişmedi
+- `measurement-flow-steps` zaten runtime'da retired/hidden → dokunulmadı
+
+### Basit / Profesyonel Görünüm Toggle (BSM-UX-004h)
+- Sidebar footer'a global Basit/Profesyonel segmented toggle (settings
+  admin-gated olduğu için sidebar'da; herkes görür)
+- Tercih localStorage'da: `formaplan-studio-view-density` (`simple`|`pro`),
+  default `simple`, bilinmeyen değer → `simple`
+- **Pro modda yalnızca 4 içerik-disclosure açılır:** `.output-detail-panel`,
+  `.measurement-detail-fields`, `.dashboard-disclosure--activity`,
+  `.library-alphabet-disclosure`
+- **Exclude (asla yönetilmez):** builder ⋯ Diğer, library manager, nutrition
+  accordion, segmental, v3-ai-accordion, supplement-wizard, dashboard commands
+- Mod yalnızca yükleme + toggle değişiminde uygulanır; router navigasyonunda
+  re-apply yok → kullanıcının manuel aç/kapatması korunur; reload'da tekrar uygulanır
+- Yeni izole modül `core/view-density.js` self-init (app.js'ten sonra yüklenir;
+  initialize senkron olduğu için whitelist details bootstrap'ta hazır) →
+  **app.js'e dokunulmadı**
+
+## Tests
+
+- Yeni: `tests/e2e/37-view-density.spec.js` (5 test) — default simple, pro mode,
+  persistence, manuel davranış, exclude list; test-first baseline FAIL doğrulamalı
+- UX-004g için yeni spec yok (salt görsel; 21-periodization-wizard step
+  tıklanabilirliğini zaten kilitliyor)
+- Full e2e: 68 → **73/73 PASS** (test default simple → mevcut 68 test korundu),
+  flaky/timeout/401 yok
+
+## Internal
+
+- Versiyon: package.json + app.js `BSM_BUILD_VERSION` + index.html 42× `?v=`
+  cache-bust (yeni view-density.js script dahil) 1.5.5 → 1.5.6
+
+---
+
 # BSM Panel v1.5.5 — "Dashboard & Library Disclosure + Test Remediation"
 
 **Yayın tarihi:** 2026-07-04
