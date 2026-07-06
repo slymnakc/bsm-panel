@@ -7,6 +7,49 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.10 — "Library GIF Manifest Fallback"
+
+**Yayın tarihi:** 2026-07-06
+**Önceki sürüm:** 1.5.9
+
+## Fixes
+
+### BUG-LIBRARY-GIF-001 — Eksik egzersiz GIF'lerine manifest/allowlist fallback
+- Library ekranında eksik `assets/gifs/*.gif` dosyaları için artık **network
+  isteği yapılmaz** → canlıda 404 ve console error üretilmez (pre-existing bug;
+  v1.5.8/v1.5.9'da da aynı dosyalar eksikti)
+- Yeni **`data/gif-manifest.js`**: repo'da gerçekten var olan GIF slug'ları
+  allowlist olarak tutulur (assisted-dip, assisted-pull-up, back-extension,
+  band-assisted-dip, band-resisted-push-up, barbell-bench-press)
+- `buildExerciseMedia` slug ve alias adaylarını **manifest üzerinde çözer**;
+  manifest'te olmayan egzersizlerde `gifUrl` boş döner
+- Boş `gifUrl` → mevcut `renderMissingExerciseMedia` **video CTA fallback'i**
+  devreye girer; kırık görsel yerine "Video İzle" kartı görünür
+- Manifest'te olan gerçek GIF'ler `<img>` ile gösterilmeye devam eder
+- Explicit/custom/remote `gifUrl` davranışı korunur (manifest'ten muaf)
+- Library search/filter/grid ve Output/media regresyonları korunur
+
+### Kapsam dışı (dokunulmadı)
+- Gerçek GIF asset tamamlama **yapılmadı** (ayrı backlog; yeni GIF eklendiğinde
+  `data/gif-manifest.js` güncellenmelidir)
+- Auth/RLS, measurement report, program PDF, Tanita parser, server.js: **değişmedi**
+
+## Tests
+
+- Yeni: `tests/e2e/41-library-gif-fallback.spec.js` (5 test) — test-first,
+  baseline FAIL doğrulamalı: eksik GIF'te video CTA + sıfır network isteği,
+  mevcut GIF korunur, explicit muafiyet, library regresyon
+- Full e2e: 88 → **93/93 PASS** — flaky/timeout/401 yok
+
+## Internal
+
+- Versiyon: package.json + app.js `BSM_BUILD_VERSION` + index.html `?v=`
+  cache-bust 1.5.9 → 1.5.10
+- **index.html cache-bust sayısı 42 → 43** (yeni `data/gif-manifest.js?v=`
+  script tag'i eklendi; sonraki release'lerde beklenen adet 43)
+
+---
+
 # BSM Panel v1.5.9 — "Measurement Report Compact View + Print Fix"
 
 **Yayın tarihi:** 2026-07-06
