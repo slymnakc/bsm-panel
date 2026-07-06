@@ -8,21 +8,70 @@
     const name = String(source.name || "Hareket").trim();
     const explicitGifUrl = getExplicitMediaUrl(source);
     const slug = slugifyExerciseName(name);
-    const slugUrl = buildGifUrl(slug);
-    const gifUrl = explicitGifUrl || slugUrl;
-    const fallbackGifUrls = explicitGifUrl ? buildExplicitFallbackGifUrls(explicitGifUrl, slug) : buildFallbackGifUrls(source, slug);
-    const candidateGifUrls = uniqueValues([normalizeLocalGifPath(explicitGifUrl), gifUrl, ...fallbackGifUrls]);
+    // BUG-LIBRARY-GIF-001: yerel GIF yolları yalnız manifest'te (window.BSMGifManifest)
+    // var olan slug'lar için üretilir — eksik dosyaya network isteği hiç yapılmaz.
+    // Explicit/custom gifUrl manifest'ten MUAFTIR (mevcut davranış korunur).
+    const manifest = getGifManifestSet();
+
+    if (explicitGifUrl) {
+      const fallbackGifUrls = buildExplicitFallbackGifUrls(explicitGifUrl, slug)
+        .filter((url) => isLocalGifUrlInManifest(url, manifest));
+      const candidateGifUrls = uniqueValues([normalizeLocalGifPath(explicitGifUrl), explicitGifUrl, ...fallbackGifUrls]);
+
+      return {
+        gifUrl: explicitGifUrl,
+        fallbackGifUrl: fallbackGifUrls[0] || "",
+        fallbackGifUrls,
+        candidateGifUrls,
+        name,
+        slug,
+        groupLabel: groupLabel || source.group || "Kas grubu",
+        isExplicit: true,
+      };
+    }
+
+    // Slug tabanlı: alias zinciri network denemesi yerine manifest üzerinde çözülür.
+    const aliasSlugs = uniqueValues([
+      slug,
+      buildDoubleHyphenAlias(slug),
+      slugifyExerciseName(source?.id || ""),
+      stripCommonEquipmentPrefix(slug),
+    ]);
+    const resolvedSlugs = manifest ? aliasSlugs.filter((alias) => manifest.has(alias)) : aliasSlugs;
+    const resolvedUrls = resolvedSlugs.map(buildGifUrl);
 
     return {
-      gifUrl,
-      fallbackGifUrl: fallbackGifUrls[0] || "",
-      fallbackGifUrls,
-      candidateGifUrls,
+      gifUrl: resolvedUrls[0] || "",
+      fallbackGifUrl: resolvedUrls[1] || "",
+      fallbackGifUrls: resolvedUrls.slice(1),
+      candidateGifUrls: resolvedUrls,
       name,
       slug,
       groupLabel: groupLabel || source.group || "Kas grubu",
-      isExplicit: Boolean(explicitGifUrl),
+      isExplicit: false,
     };
+  }
+
+  // Manifest yoksa (script yüklenmemiş / eski sayfa) null döner → legacy optimistik davranış.
+  function getGifManifestSet() {
+    const list = typeof window !== "undefined" ? window.BSMGifManifest : null;
+    return Array.isArray(list) ? new Set(list) : null;
+  }
+
+  // Yerel assets/gifs URL'i manifest'e tabidir; remote/başka path'ler serbesttir.
+  function isLocalGifUrlInManifest(url, manifest) {
+    if (!manifest) {
+      return true;
+    }
+
+    const text = String(url || "");
+    const match = text.match(/assets\/gifs\/([a-z0-9-]+)\.gif$/i);
+
+    if (!match) {
+      return true;
+    }
+
+    return manifest.has(match[1]);
   }
 
   function getExplicitMediaUrl(source) {
