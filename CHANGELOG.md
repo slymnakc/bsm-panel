@@ -7,6 +7,59 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.9 — "Measurement Report Compact View + Print Fix"
+
+**Yayın tarihi:** 2026-07-06
+**Önceki sürüm:** 1.5.8
+
+## Changed
+
+### BSM-MEASURE-UX-001 Faz A — Ölçüm raporu sadeleştirme
+- Tek ölçümde `Trend ve Koç Aksiyon Planı` büyük trend article'ı **artık render
+  edilmez** (`trends.hasTrend === false` → trend sayfası DOM'a basılmaz)
+- Tek ölçümdeki büyük boş trend placeholder kaldırıldı → rapor 3 → **2 sayfa**
+- 2+ ölçümde trend korunur ve **`Gelişim Trendi`** olarak render edilir; sayfa
+  yalnız trend grafikleri + fark tablosuna odaklanır
+- Koç yorumu / aksiyon / takip bilgileri büyük trend sayfasından çıkarılıp
+  kompakt **`Koç Notu`** kartına taşındı (en fazla 3 madde: Antrenman /
+  Beslenme / Takip; boş data'da güvenli şekilde render edilmez)
+- Direnç / Empedans teknik verileri **`Detaylı Teknik Veriler`** adlı native
+  `<details>` altına alındı — web preview'da kapalı başlar, istenirse açılır
+
+## Fixes
+
+### Measurement print/PDF boş çıktı düzeltmesi (pre-existing)
+- Ölçüm raporu PDF'i (`window.print()`) **önceden beri boş çıkıyordu**:
+  nutrition print kuralı `body > *:not(#nutritionPrintRoot)` tüm body
+  çocuklarını (#appLayout dahil) gizliyordu
+- Kural **`body:has(#nutritionPrintRoot)`** ile koşullandırıldı → nutrition
+  print/PDF davranışı aynen korunur, ölçüm raporu print/PDF artık boş çıkmaz
+- `beforeprint` sırasında measurement tech details otomatik açılır,
+  `afterprint` sırasında eski open state geri yüklenir → empedans değerleri
+  PDF/print çıktısından düşmez
+
+### Korunanlar
+- Üye ve ölçüm bilgileri, genel skor / özet, vücut kompozisyonu, segmental
+  analiz, sağlık göstergeleri, skor kartları, 2+ ölçüm trend davranışı
+
+### Kapsam dışı (Faz B / dokunulmadı)
+- Skor strip redesign ve segmental redesign **yapılmadı**
+- Program PDF, server.js, Tanita parser, Auth/RLS: **değişmedi**
+
+## Tests
+
+- Yeni: `tests/e2e/40-measurement-report-compact.spec.js` (6 test) — test-first,
+  baseline FAIL doğrulamalı: tek ölçümde trend gizli, 2+ ölçümde trend korunur,
+  Koç Notu kompakt kart, empedans details kapalı, print reveal, çekirdek bölümler
+- Full e2e: 82 → **88/88 PASS** — flaky/timeout/401 yok
+
+## Internal
+
+- Versiyon: package.json + app.js `BSM_BUILD_VERSION` + index.html 42× `?v=`
+  cache-bust 1.5.8 → 1.5.9
+
+---
+
 # BSM Panel v1.5.8 — "Program PDF Layout Readability Fix"
 
 **Yayın tarihi:** 2026-07-05
