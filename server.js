@@ -1,6 +1,9 @@
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
+// BUG-PDF-002 Faz 2: program PDF'i için gömülü TrueType font verisi
+// (PT Sans, OFL 1.1 — build-time üretilir: node scripts/build-pdf-font.js)
+const PDF_EMBEDDED_FONT = require("./services/pdf-font-data");
 
 loadEnvFile();
 
@@ -552,13 +555,16 @@ function createPremiumProgramPdf({ title, memberName, programText, programData, 
   const objects = [];
   const pageIds = pages.map((_, index) => 4 + index * 2);
   const contentIds = pages.map((_, index) => 5 + index * 2);
+  // BUG-PDF-002 Faz 2: gömülü TrueType font yardımcı objeleri sayfa objelerinden
+  // sonra ARDIŞIK id alır (xref boşluksuz kalır). Encoding düzeni Faz 1'dekiyle
+  // birebir aynı — encodePdfWinAnsiText'in 128-133 mapping'i değişmeden çalışır.
+  const fontDescriptorId = 4 + pages.length * 2;
+  const fontFileId = fontDescriptorId + 1;
+  const toUnicodeId = fontDescriptorId + 2;
 
   objects.push([1, "<< /Type /Catalog /Pages 2 0 R >>"]);
   objects.push([2, `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`]);
-  objects.push([
-    3,
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [128 /gbreve /Gbreve /Idotaccent /dotlessi /scedilla /Scedilla] >> >>",
-  ]);
+  objects.push([3, buildEmbeddedPdfFontObject(fontDescriptorId, toUnicodeId)]);
 
   pages.forEach((content, index) => {
     objects.push([
@@ -567,6 +573,10 @@ function createPremiumProgramPdf({ title, memberName, programText, programData, 
     ]);
     objects.push([contentIds[index], `<< /Length ${Buffer.byteLength(content, "binary")} >>\nstream\n${content}\nendstream`]);
   });
+
+  objects.push([fontDescriptorId, buildEmbeddedPdfFontDescriptorObject(fontFileId)]);
+  objects.push([fontFileId, buildEmbeddedPdfFontFileObject()]);
+  objects.push([toUnicodeId, buildEmbeddedPdfToUnicodeObject()]);
 
   return buildPdf(objects);
 }
@@ -1639,6 +1649,76 @@ function wrapTextByChars(value, maxChars) {
   }
 
   return lines.length ? lines : [""];
+}
+
+// ── BUG-PDF-002 Faz 2: gömülü TrueType font objeleri ─────────────────────────
+// PT Sans (OFL 1.1) services/pdf-font-data.js'ten gelir (build-time üretim).
+// Simple /TrueType + WinAnsiEncoding + Differences(128-133 ğĞİışŞ) — Faz 1
+// encoding düzeni birebir korunur; FontFile2/Widths/ToUnicode ile Türkçe
+// glyph'ler viewer'da gerçek çizimlerle render olur (POC ile doğrulandı).
+
+let _pdfFontBinaryCache = null;
+
+// TTF byte'ları latin1 string olarak (buildPdf'in "binary" pipeline'ı byte'ları
+// birebir korur — POC roundtrip kanıtlı). Process ömrü boyunca tek decode.
+function getEmbeddedPdfFontBinary() {
+  if (_pdfFontBinaryCache === null) {
+    _pdfFontBinaryCache = Buffer.from(PDF_EMBEDDED_FONT.base64, "base64").toString("binary");
+  }
+  return _pdfFontBinaryCache;
+}
+
+function buildEmbeddedPdfFontObject(fontDescriptorId, toUnicodeId) {
+  return `<< /Type /Font /Subtype /TrueType /BaseFont /${PDF_EMBEDDED_FONT.fontName} ` +
+    `/FirstChar ${PDF_EMBEDDED_FONT.firstChar} /LastChar ${PDF_EMBEDDED_FONT.lastChar} ` +
+    `/Widths [${PDF_EMBEDDED_FONT.widths.join(" ")}] ` +
+    "/Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [128 /gbreve /Gbreve /Idotaccent /dotlessi /scedilla /Scedilla] >> " +
+    `/FontDescriptor ${fontDescriptorId} 0 R /ToUnicode ${toUnicodeId} 0 R >>`;
+}
+
+function buildEmbeddedPdfFontDescriptorObject(fontFileId) {
+  return `<< /Type /FontDescriptor /FontName /${PDF_EMBEDDED_FONT.fontName} ` +
+    `/Flags ${PDF_EMBEDDED_FONT.flags} /FontBBox [${PDF_EMBEDDED_FONT.bbox.join(" ")}] ` +
+    `/ItalicAngle ${PDF_EMBEDDED_FONT.italicAngle} /Ascent ${PDF_EMBEDDED_FONT.ascent} ` +
+    `/Descent ${PDF_EMBEDDED_FONT.descent} /CapHeight ${PDF_EMBEDDED_FONT.capHeight} ` +
+    `/StemV ${PDF_EMBEDDED_FONT.stemV} /FontFile2 ${fontFileId} 0 R >>`;
+}
+
+function buildEmbeddedPdfFontFileObject() {
+  const binary = getEmbeddedPdfFontBinary();
+  return `<< /Length ${binary.length} /Length1 ${binary.length} >>\nstream\n${binary}\nendstream`;
+}
+
+// Kopyala/yapıştır ve text extraction için 128-133 Türkçe bfchar + latin1 bfrange.
+const PDF_TO_UNICODE_CMAP = `/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def
+/CMapName /BSM-WinAnsi-TR def
+/CMapType 2 def
+1 begincodespacerange
+<00> <FF>
+endcodespacerange
+7 beginbfchar
+<80> <011F>
+<81> <011E>
+<82> <0130>
+<83> <0131>
+<84> <015F>
+<85> <015E>
+<95> <2022>
+endbfchar
+2 beginbfrange
+<20> <7E> <0020>
+<A0> <FF> <00A0>
+endbfrange
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end`;
+
+function buildEmbeddedPdfToUnicodeObject() {
+  return `<< /Length ${Buffer.byteLength(PDF_TO_UNICODE_CMAP, "binary")} >>\nstream\n${PDF_TO_UNICODE_CMAP}\nendstream`;
 }
 
 function encodePdfWinAnsiText(value) {
