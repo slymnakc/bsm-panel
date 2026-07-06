@@ -6752,6 +6752,64 @@ textarea:focus {
   line-height: 1.42;
 }
 
+/* BSM-MEASURE-UX-001 Faz A: kompakt Koç Notu kartı + empedans teknik details */
+.compact-coach-note {
+  margin-top: 12px;
+}
+
+.coach-note-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.compact-trend-panel--full {
+  min-width: 0;
+}
+
+.measurement-tech-details {
+  margin-top: 8px;
+  border: 1px solid rgba(25, 51, 66, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  overflow: hidden;
+}
+
+.measurement-tech-details > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 14px;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.measurement-tech-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.measurement-tech-details > summary::after {
+  content: "＋";
+  margin-left: auto;
+  font-weight: 400;
+  opacity: 0.55;
+}
+
+.measurement-tech-details[open] > summary::after {
+  content: "－";
+}
+
+.measurement-tech-details[open] > summary {
+  border-bottom: 1px solid rgba(25, 51, 66, 0.08);
+}
+
+.measurement-tech-details .premium-impedance-panel--compact {
+  padding: 12px 14px 14px;
+}
+
 .compact-final-checklist {
   margin-top: 0;
 }
@@ -19019,6 +19077,22 @@ body.bsm-photo-modal-open { overflow: hidden; }
   #measurementReportSection.bsm-report-skip--trend .measurement-report-page--trend {
     display: none !important;
   }
+
+  /* BSM-MEASURE-UX-001 Faz A: empedans teknik details PRINT/PDF'te GORUNUR kalir.
+     window.print() = olcum raporu PDF'i oldugundan kapali <details> yuzunden
+     empedans dusmemeli. Modern Chromium kapali details'i ::details-content
+     content-visibility ile gizler; asagidaki override her iki mekanizmayi acar. */
+  .measurement-tech-details > summary {
+    display: none !important;
+  }
+
+  .measurement-tech-details > *:not(summary) {
+    display: block !important;
+  }
+
+  .measurement-tech-details::details-content {
+    content-visibility: visible !important;
+  }
 }
 
 /* ═════════════════════════════════════════════════════════════════════
@@ -21925,8 +21999,13 @@ body.bsm-photo-modal-open { overflow: hidden; }
   }
 
   /* Dashboard / header / nav / sidebar / form / footer — TUMU hidden.
-     visibility:hidden yerine display:none — bos layout alani birakmasin. */
-  body > *:not(#nutritionPrintRoot) {
+     visibility:hidden yerine display:none — bos layout alani birakmasin.
+     BSM-MEASURE-UX-001 Faz A: bu global gizleme YALNIZCA nutrition PDF export
+     aktifken (#nutritionPrintRoot body'de varken) uygulanir. Aksi halde
+     olcum raporu window.print() bu kural yuzunden bos cikiyordu (pre-existing).
+     :has() ile kosullandirilinca nutrition PDF davranisi aynen korunur; olcum
+     raporu yazdirmasi kendi print blogu (yukarida) ile duzgun render olur. */
+  body:has(#nutritionPrintRoot) > *:not(#nutritionPrintRoot) {
     display: none !important;
   }
 

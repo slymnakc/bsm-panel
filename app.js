@@ -3451,6 +3451,27 @@ function handlePrintMeasurementReport() {
   window.setTimeout(() => window.print(), 50);
 }
 
+// BSM-MEASURE-UX-001 Faz A: yazdırma öncesi kapalı teknik details'leri aç
+// (empedans PDF'e düşmesin). data-print-opened işaretiyle yalnız otomatik
+// açılanlar afterprint'te geri kapatılır; kullanıcının elle açtığı korunur.
+function openMeasurementTechDetailsForPrint() {
+  document
+    .querySelectorAll("#measurementReportSection .measurement-tech-details:not([open])")
+    .forEach((details) => {
+      details.dataset.printOpened = "true";
+      details.open = true;
+    });
+}
+
+function restoreMeasurementTechDetailsAfterPrint() {
+  document
+    .querySelectorAll("#measurementReportSection .measurement-tech-details[data-print-opened]")
+    .forEach((details) => {
+      delete details.dataset.printOpened;
+      details.open = false;
+    });
+}
+
 function renderMeasurementReport() {
   if (window.BSMMeasurementReport) window.BSMMeasurementReport.render();
 }
@@ -3675,6 +3696,11 @@ measurementTabPdfButton?.addEventListener("click", handlePrintMeasurementReport)
 measurementReportBackButton?.addEventListener("click", handleMeasurementReportBack);
   measurementReportPdfButton?.addEventListener("click", handlePrintMeasurementReport);
   measurementReportPrintButton?.addEventListener("click", handlePrintMeasurementReport);
+  // BSM-MEASURE-UX-001 Faz A: ölçüm raporu PDF'i window.print() ile üretilir.
+  // Empedans "Detaylı Teknik Veriler" <details> web'de kapalı; yazdırma öncesi
+  // aç ki teknik veriler PDF'e düşsün, yazdırma sonrası eski haline döndür.
+  window.addEventListener("beforeprint", openMeasurementTechDetailsForPrint);
+  window.addEventListener("afterprint", restoreMeasurementTechDetailsAfterPrint);
   membersPanel?.addEventListener("click", handleMemberQuickAction);
   membersPanel?.addEventListener("click", (e) => {
     const target = e.target.closest("button[data-screen-target]");

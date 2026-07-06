@@ -987,8 +987,9 @@ function buildMeasurementReportHtml(model) {
   const reportHeader = buildPremiumReportHeader(memberName, reportDateText);
   const compactBodyValues = getCompactBodyCompositionValues(bodyValues);
   const compactIndicators = getCompactHealthIndicators(indicators);
-  const compactCoachPlan = getCompactCoachPlan(coachPlan);
-  const compactGoals = getCompactNextGoals(nextGoals);
+  // BSM-MEASURE-UX-001 Faz A: koç önerileri büyük 03 sayfasından çıkıp kompakt
+  // "Koç Notu" kartına taşındı (her koşulda, tek ölçümde dahi görünür).
+  const coachNote = getCoachNoteItems(coachPlan);
 
   return `
     <article class="report-page measurement-report-page measurement-report-page--executive measurement-report-page--compact measurement-report-page--ultra-cover">
@@ -1054,44 +1055,32 @@ function buildMeasurementReportHtml(model) {
             ${compactIndicators.map(buildIndicatorHtml).join("")}
           </div>
         </div>
-        <section class="premium-impedance-panel premium-impedance-panel--compact">
-          <div class="measurement-report-card__title">
-            <span>Ω</span>
-            <h2>Direnç / Empedans</h2>
-          </div>
-          <div class="measurement-impedance-table">
-            ${impedanceValues.map(([label, value]) => buildImpedanceRowHtml(label, value)).join("")}
-          </div>
-        </section>
+        <details class="measurement-tech-details">
+          <summary>Detaylı Teknik Veriler</summary>
+          <section class="premium-impedance-panel premium-impedance-panel--compact">
+            <div class="measurement-report-card__title">
+              <span>Ω</span>
+              <h2>Direnç / Empedans</h2>
+            </div>
+            <div class="measurement-impedance-table">
+              ${impedanceValues.map(([label, value]) => buildImpedanceRowHtml(label, value)).join("")}
+            </div>
+          </section>
+        </details>
       </section>
+      ${buildCoachNoteCardHtml(coachNote)}
       ${buildPremiumReportFooter("Segmental + Sağlık")}
     </article>
 
+    ${trends.hasTrend ? `
     <article class="report-page measurement-report-page measurement-report-page--trend measurement-report-page--compact">
-      ${buildPremiumSectionHeader("03", "Trend ve Koç Aksiyon Planı", trends.hasTrend ? "Kilo, yağ oranı ve kas kütlesi değişimi aksiyon planıyla birlikte gösterilir." : "Trend analizi ikinci ölçümden itibaren otomatik oluşur.")}
-      <section class="compact-trend-action-grid">
-        <div class="compact-trend-panel">
-          ${buildCompactTrendSection(trends)}
-        </div>
-        <aside class="compact-action-panel">
-          ${buildCompactActionPanel(profile, measurement)}
-        </aside>
+      ${buildPremiumSectionHeader("03", "Gelişim Trendi", "Kilo, yağ oranı ve kas kütlesi değişimi son ölçümlerle karşılaştırılır.")}
+      <section class="compact-trend-panel compact-trend-panel--full">
+        ${buildCompactTrendSection(trends)}
       </section>
-      <section class="compact-report-section">
-        <div class="compact-section-title">
-          <span>03A</span>
-          <div>
-            <strong>Koç yorumu</strong>
-            <small>Rapordan çıkan uygulanabilir kısa aksiyonlar.</small>
-          </div>
-        </div>
-        <div class="premium-coach-layout premium-coach-layout--compact">
-          ${compactCoachPlan.map(buildCoachInterpretationHtml).join("")}
-        </div>
-      </section>
-      ${buildCompactNextGoalsHtml(compactGoals)}
-      ${buildPremiumReportFooter("Trend + Aksiyon")}
+      ${buildPremiumReportFooter("Gelişim Trendi")}
     </article>
+    ` : ""}
   `;
 }
 
@@ -1241,13 +1230,6 @@ function buildCompactTrendSection(trends) {
   const differences = getCompactDifferenceRows(trends.differences);
 
   return `
-    <div class="compact-section-title">
-      <span>03</span>
-      <div>
-        <strong>Gelişim trendi</strong>
-        <small>Kilo, yağ oranı ve kas kütlesi değişimi.</small>
-      </div>
-    </div>
     <div class="measurement-trend-grid measurement-trend-grid--premium measurement-trend-grid--compact">
       ${charts.map(buildTrendChartHtml).join("")}
     </div>
@@ -1280,6 +1262,37 @@ function getCompactCoachPlan(coachPlan) {
     }));
 
   return compact.length ? compact : (coachPlan || []).slice(0, 4).map((item) => ({ ...item, text: shortenReportText(item.text, 150) }));
+}
+
+// BSM-MEASURE-UX-001 Faz A: kompakt "Koç Notu" için en fazla 3 madde
+// (Antrenman / Beslenme / Takip). Büyük 03 aksiyon planı mimarisi kullanılmaz.
+function getCoachNoteItems(coachPlan) {
+  const wantedTitles = ["Antrenman önerisi", "Beslenme önerisi", "Takip önerisi"];
+  return (coachPlan || [])
+    .filter((item) => wantedTitles.includes(item.title))
+    .map((item) => ({ ...item, text: shortenReportText(item.text, 150) }));
+}
+
+function buildCoachNoteCardHtml(items) {
+  // Güvenli fallback: koç planı datası yoksa kart hiç render edilmez (boş placeholder yok).
+  if (!items || !items.length) {
+    return "";
+  }
+
+  return `
+    <section class="compact-report-section compact-coach-note">
+      <div class="compact-section-title">
+        <span>Koç</span>
+        <div>
+          <strong>Koç Notu</strong>
+          <small>Antrenman, beslenme ve takip için kısa aksiyonlar.</small>
+        </div>
+      </div>
+      <div class="premium-coach-layout premium-coach-layout--compact coach-note-grid">
+        ${items.map(buildCoachInterpretationHtml).join("")}
+      </div>
+    </section>
+  `;
 }
 
 function buildCompactActionPanel(profile, measurement) {
