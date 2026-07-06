@@ -7,6 +7,43 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.11 — "Program PDF Türkçe Font Embedding"
+
+**Yayın tarihi:** 2026-07-07
+**Önceki sürüm:** 1.5.10
+
+## Fixes
+
+### BUG-PDF-002 Faz 2 — Program PDF Türkçe karakter düzeltmesi
+- Program PDF'inde `ş Ş ğ Ğ ı İ` karakterleri artık **doğru render edilir**
+  (base-14 Helvetica bu glyph'leri içermiyordu; ç/ö/ü zaten sağlamdı)
+- **PT Sans Regular** (SIL OFL 1.1) PDF'e **gömülü TrueType** font olarak eklendi:
+  `/FontFile2`, `/FontDescriptor`, `/Widths`, `/ToUnicode` objeleri üretilir
+- WinAnsiEncoding + Differences düzeni ve mevcut metin/layout motoru
+  (`encodePdfWinAnsiText`, kart/page-break) **değişmeden korunur**
+- `/ToUnicode` CMap ile kopyala/yapıştır ve text extraction doğru Türkçe verir
+- Yeni build-time üretici: `scripts/build-pdf-font.js` →
+  `services/pdf-font-data.js` (runtime'da TTF parse edilmez)
+- PDF boyutu font gömme nedeniyle ~21KB → ~440KB (2MB sınırının altında)
+
+### Kapsam dışı (dokunulmadı)
+- **Nutrition PDF ve diğer modüller etkilenmedi** (auth/RLS, measurement report,
+  GIF manifest, program generation, set/rep template — hepsi değişmedi)
+
+## Tests
+
+- Yeni: `tests/e2e/42-program-pdf-turkish-font.spec.js` (6 test) — test-first,
+  baseline FAIL doğrulamalı: byte mapping, embedding objeleri, ToUnicode,
+  sfnt stream, boyut bandı, Faz 1 layout regresyonu
+- Full e2e: 93 → **99/99 PASS** — flaky/timeout/401 yok
+
+## Internal
+
+- Versiyon: package.json + app.js `BSM_BUILD_VERSION` + index.html 43× `?v=`
+  cache-bust 1.5.10 → 1.5.11
+
+---
+
 # BSM Panel v1.5.10 — "Library GIF Manifest Fallback"
 
 **Yayın tarihi:** 2026-07-06
