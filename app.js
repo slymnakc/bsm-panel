@@ -3720,7 +3720,16 @@ measurementReportBackButton?.addEventListener("click", handleMeasurementReportBa
   membersPanel?.addEventListener("click", (e) => {
     const stepBtn = e.target.closest("button[data-wizard-step]");
     if (stepBtn) {
-      setActiveWizardStep(stepBtn.dataset.wizardStep);
+      // BUG-MEMBER-DETAIL-001: adım tıklaması üyeler ekranında KALIR ve içerik
+      // panelini günceller; ilgili ekrana geçiş içerikteki CTA ile yapılır.
+      // (Footer "Sonraki/Geri" ve utility "Oluştur" aksiyonları eskisi gibi navigate eder.)
+      setActiveWizardStep(stepBtn.dataset.wizardStep, { navigate: false });
+      return;
+    }
+    // BUG-MEMBER-DETAIL-001: özet kartlarındaki "Aç" CTA'ları ilgili ekrana götürür.
+    const ctaBtn = e.target.closest("button[data-wizard-cta]");
+    if (ctaBtn) {
+      setActiveScreen(ctaBtn.dataset.wizardCta, { userTriggered: true, silent: true });
       return;
     }
     const navBtn = e.target.closest("button[data-wizard-nav]");
@@ -4961,12 +4970,115 @@ function renderWizardContent() {
   const step = state.activeWizardStep || "olcum";
   switch (step) {
     case "olcum":     host.innerHTML = renderStepOlcumHtml(member); break;
-    case "program":   host.innerHTML = renderStepGenericHtml("Program", "Program oluşturma adımı sağ paneldeki <strong>Program Oluştur</strong> butonu veya yukarıdaki wizard adımı ile açılır.", "Program oluştur sekmesinde detaylı form vardır."); break;
-    case "beslenme":  host.innerHTML = renderStepGenericHtml("Beslenme Planı", "Beslenme planı sağ paneldeki <strong>Beslenme Planı</strong> butonu veya wizard adımı ile açılır.", "Beslenme sekmesinde üyeye özel plan oluşturulur."); break;
+    // BUG-MEMBER-DETAIL-001: kayıtlı içerik varsa özet + CTA gösterilir;
+    // yoksa mevcut oluşturma yönlendirmesi korunur.
+    case "program":   host.innerHTML = renderStepProgramHtml(member); break;
+    case "beslenme":  host.innerHTML = renderStepBeslenmeHtml(member); break;
     case "pdf":       host.innerHTML = renderStepGenericHtml("PDF Çıktısı", "PDF üretimi için önce program oluşturulmalı. Üye Çıktısı sekmesinde indirme seçenekleri yer alır.", "Çıktı sekmesinden PDF, HTML veya mail gönderimi yapılabilir."); break;
     case "mail":      host.innerHTML = renderStepGenericHtml("Mail Gönder", "Mail gönderimi için üyenin e-posta adresi ve hazır program gerekli.", "Çıktı sekmesinden mail butonu kullanılır."); break;
     default:          host.innerHTML = "";
   }
+}
+
+// BUG-MEMBER-DETAIL-001: kayıtlı son programın üyeler ekranı özeti.
+// Kayıt yoksa eski oluşturma yönlendirmesi aynen döner (boş üye davranışı korunur).
+function renderStepProgramHtml(member) {
+  const record = member?.programs?.[0];
+  const program = record?.program;
+
+  if (!program) {
+    return renderStepGenericHtml(
+      "Program",
+      "Program oluşturma adımı sağ paneldeki <strong>Program Oluştur</strong> butonu veya yukarıdaki wizard adımı ile açılır.",
+      "Program oluştur sekmesinde detaylı form vardır.",
+    );
+  }
+
+  const sessions = Array.isArray(program.sessions) ? program.sessions : [];
+  const exerciseCount = sessions.reduce((n, s) => n + (s.exercises?.length || 0), 0);
+  const historyCount = member.programs.length;
+  const savedText = record.savedAt || formatDashboardDate(record.savedAtIso) || "-";
+  const firstExercises = (sessions[0]?.exercises || []).slice(0, 3);
+
+  const exerciseRows = firstExercises
+    .map((ex) => {
+      // Generation çıktısı hazır "N set x P tekrar" prescription'ı taşır;
+      // seed/manuel kayıtlarda sets+repPattern alanlarından türetilir.
+      const pattern = Array.isArray(ex.repPattern) && ex.repPattern.length ? ex.repPattern.join("-") : String(ex.reps || "");
+      const prescription = String(ex.prescription || "").trim()
+        || (ex.sets && pattern ? `${ex.sets} set x ${pattern} tekrar` : "");
+      return `
+        <li>
+          <strong>${escapeHtml(ex.name || "Hareket")}</strong>
+          <span>Set/Tekrar: ${escapeHtml(prescription || "-")}</span>
+        </li>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="bsm-step-section">
+      <header class="bsm-step-section__head">
+        <div>
+          <h4>${escapeHtml(program.title || "Antrenman Programı")}</h4>
+          <small>Kayıt: ${escapeHtml(savedText)} • ${sessions.length} gün • ${exerciseCount} egzersiz • Geçmişte ${historyCount} program</small>
+        </div>
+        <span class="bsm-pill bsm-pill--success">Program kayıtlı</span>
+      </header>
+      <div class="bsm-step-section__body">
+        ${sessions[0] ? `<p class="bsm-step-summary-day"><strong>${escapeHtml(sessions[0].dayLabel || "1. Gün")}</strong> — ${escapeHtml(sessions[0].title || "")}</p>` : ""}
+        <ul class="bsm-summary-list">${exerciseRows}</ul>
+        <div class="bsm-step-cta-row">
+          <button type="button" class="bsm-action-btn bsm-action-btn--orange" data-wizard-cta="output">
+            <span>Programı Aç (Üye Çıktısı)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// BUG-MEMBER-DETAIL-001: kayıtlı beslenme planının üyeler ekranı özeti.
+function renderStepBeslenmeHtml(member) {
+  const plan = member?.nutritionPlan || member?.nutritionPlans?.[0];
+
+  if (!plan) {
+    return renderStepGenericHtml(
+      "Beslenme Planı",
+      "Beslenme planı sağ paneldeki <strong>Beslenme Planı</strong> butonu veya wizard adımı ile açılır.",
+      "Beslenme sekmesinde üyeye özel plan oluşturulur.",
+    );
+  }
+
+  const macros = plan.macros || {};
+  const mealCount = Array.isArray(plan.meals) ? plan.meals.length : 0;
+  const goalLabel = labelMaps.goal?.[plan.goal || member?.profile?.goal] || "Kişisel hedef";
+  const planDate = formatDashboardDate(plan.createdAtIso || plan.createdAt) || "-";
+  const kcalText = plan.calories ? `${plan.calories} kcal` : "Kalori bilgisi yok";
+
+  return `
+    <div class="bsm-step-section">
+      <header class="bsm-step-section__head">
+        <div>
+          <h4>Beslenme Planı</h4>
+          <small>Plan tarihi: ${escapeHtml(planDate)} • Hedef: ${escapeHtml(goalLabel)}</small>
+        </div>
+        <span class="bsm-pill bsm-pill--success">Plan kayıtlı</span>
+      </header>
+      <div class="bsm-step-section__body">
+        <ul class="bsm-summary-list">
+          <li><strong>Günlük kalori</strong><span>${escapeHtml(kcalText)}</span></li>
+          <li><strong>Makrolar</strong><span>Protein ${escapeHtml(String(macros.protein ?? "-"))} g • Karbonhidrat ${escapeHtml(String(macros.carbs ?? "-"))} g • Yağ ${escapeHtml(String(macros.fat ?? "-"))} g</span></li>
+          <li><strong>Öğün</strong><span>${mealCount ? `${mealCount} öğün planlandı` : "Öğün detayı beslenme sekmesinde"}</span></li>
+        </ul>
+        <div class="bsm-step-cta-row">
+          <button type="button" class="bsm-action-btn bsm-action-btn--green" data-wizard-cta="nutrition">
+            <span>Beslenme Planını Aç</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function renderStepGenericHtml(title, description, footnote) {
@@ -5295,6 +5407,9 @@ function setActiveWizardStep(stepId, options = {}) {
   state.activeWizardStep = stepId;
   renderWizardBar();
   renderWizardFooter();
+  // BUG-MEMBER-DETAIL-001: adım değişince içerik paneli de tazelenir
+  // (members'ta kalınan navigate:false yolunda kayıtlı özet görünsün).
+  renderWizardContent();
   if (options.navigate !== false && valid.screen) {
     setActiveScreen(valid.screen, { userTriggered: true, silent: true });
   }

@@ -12273,6 +12273,53 @@ body.app-sidebar-open .app-sidebar-backdrop {
   color: var(--bsm-text-on-light-soft);
 }
 
+/* BUG-MEMBER-DETAIL-001: kayıtlı program/beslenme özet satırları + CTA */
+.bsm-step-summary-day {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+}
+
+.bsm-summary-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.bsm-summary-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(25, 51, 66, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 0.82rem;
+  min-width: 0;
+}
+
+.bsm-summary-list li strong {
+  font-size: 0.84rem;
+}
+
+.bsm-summary-list li span {
+  color: var(--bsm-text-on-light-soft);
+  overflow-wrap: anywhere;
+}
+
+.bsm-step-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bsm-step-cta-row .bsm-action-btn {
+  width: auto;
+  padding-inline: 16px;
+}
+
 .bsm-metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
