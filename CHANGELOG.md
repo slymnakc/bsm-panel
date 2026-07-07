@@ -7,6 +7,45 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.13 — "Üye Detayında Kayıtlı İçerik Görünürlüğü"
+
+**Yayın tarihi:** 2026-07-07
+**Önceki sürüm:** 1.5.12
+
+## Fixes
+
+### BUG-MEMBER-DETAIL-001 — Üyeler ekranında kayıtlı içerikler artık görünüyor
+- Üyeler ekranında seçili üyenin **kayıtlı program özeti** gösteriliyor:
+  başlık, kayıt tarihi, gün/egzersiz sayısı, geçmiş program adedi ve ilk
+  egzersizlerin Set/Tekrar satırları
+- **Kayıtlı beslenme planı özeti** gösteriliyor: plan tarihi, hedef,
+  günlük kalori, makrolar (protein/karbonhidrat/yağ) ve öğün sayısı
+- Program/Beslenme wizard adımlarına tıklanınca kullanıcı artık
+  **üyeler ekranında kalıyor** (önceden Builder/Beslenme ekranına fırlıyordu)
+- İlgili ekranlara geçiş için özet içinde **CTA** eklendi:
+  "Programı Aç (Üye Çıktısı)" ve "Beslenme Planını Aç"
+- **Ölçüm görünürlüğü korundu** (metrik grid + geçmiş grafiği)
+- Status check ("tamamlandı" işaretleri) ile **gerçek içerik görünürlüğü
+  tutarlı** hale getirildi — tamamlanmış adım artık boş yönlendirme metni
+  yerine kayıtlı veriyi gösterir
+- Boş üyede oluşturma yönlendirmeleri korunur; "Aç" CTA'sı gösterilmez
+- Footer "Önceki/Sonraki Adım" ve sağ paneldeki "Oluştur" aksiyonlarının
+  ekran geçiş davranışı değişmedi
+
+## Tests
+
+- Yeni: `tests/e2e/44-member-detail-content.spec.js` (5 test) — test-first,
+  baseline FAIL doğrulamalı: ekranda kalma + program/beslenme özetleri,
+  ölçüm regresyonu, status↔içerik tutarlılığı, boş üye davranışı
+- Full e2e: **110 passed + 1 skipped (111 test)** — flaky/timeout/401 yok
+
+## Internal
+
+- Versiyon: package.json + app.js `BSM_BUILD_VERSION` + index.html 43× `?v=`
+  cache-bust 1.5.12 → 1.5.13
+
+---
+
 # BSM Panel v1.5.12 — "Supabase Sync Hata Bildirimi"
 
 **Yayın tarihi:** 2026-07-07
