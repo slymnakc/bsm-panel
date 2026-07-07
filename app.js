@@ -8088,6 +8088,35 @@ function persistMembers() {
   return window.BSMMemberState.persistMembers();
 }
 
+// BUG-SAVE-001: Supabase sync sonucu bildirimi (program/ölçüm/beslenme ortak yol).
+// localStorage-first korunur: kayıt butonu beklemez; sync sonucu SONRADAN gelir.
+// Başarısızsa kullanıcıya açık ikincil uyarı + dashboard supabaseStatus güncellenir.
+// skipped (Supabase kapalı/test modu/offline) member-service'te elenir, buraya gelmez.
+window.BSMSyncStatusNotifier = function (outcome) {
+  if (!outcome) {
+    return;
+  }
+
+  if (outcome.ok) {
+    // Önceki senkron hatası göstergesini temizle (yeni başarılı sync geldi).
+    if (/hata|başarısız/i.test(state.supabaseStatus || "")) {
+      state.supabaseStatus = state.supabaseRealtimeActive ? "Bağlı / Realtime aktif" : "Bağlı";
+      renderDashboard();
+    }
+    return;
+  }
+
+  const hint =
+    outcome.kind === "auth"
+      ? "Oturumunuzu yenileyip tekrar deneyin."
+      : outcome.kind === "network"
+        ? "İnternet bağlantınızı kontrol edin."
+        : "Daha sonra otomatik tekrar denenecek.";
+  showStatus(`Yerel kayıt tamamlandı, ancak bulut senkronizasyonu başarısız oldu. ${hint}`, "error");
+  state.supabaseStatus = "Senkron hatası";
+  renderDashboard();
+};
+
 function updateActiveMemberProfile(profile) {
   return window.BSMMemberState.updateActiveMemberProfile(profile);
 }

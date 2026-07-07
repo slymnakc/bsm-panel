@@ -83,7 +83,17 @@
 
   function saveMeasurementToSupabase(member, measurement) {
     if (window.BSMSupabaseSyncService?.persistMeasurement) {
-      return window.BSMSupabaseSyncService.persistMeasurement(member, measurement);
+      return window.BSMSupabaseSyncService.persistMeasurement(member, measurement).then((result) => {
+        // BUG-SAVE-001: null = Supabase kapalı (lokal mod, sessiz);
+        // { ok:false } = gerçek yazma hatası → kullanıcıya bildirilir.
+        if (result && result.ok === false) {
+          notifySyncOutcome({ ok: false, kind: result.errorKind || "sync", source: "measurement" });
+        } else if (result) {
+          notifySyncOutcome({ ok: true, source: "measurement" });
+        }
+
+        return result;
+      });
     }
 
     const supabaseClient = getSupabaseClient();
@@ -127,6 +137,18 @@
     return persistMembers(normalizedMembers, activeMemberId);
   }
 
+  // BUG-SAVE-001: sync sonucunu merkezi notifier'a iletir (app.js kaydeder).
+  // skipped (Supabase kapalı/offline) bildirilmez — lokal mod hata değildir.
+  function notifySyncOutcome(outcome) {
+    if (!outcome || outcome.skipped) {
+      return;
+    }
+
+    if (typeof window.BSMSyncStatusNotifier === "function") {
+      window.BSMSyncStatusNotifier(outcome);
+    }
+  }
+
   function syncMembersToSupabase(members) {
     if (window.BSMSupabaseSyncService?.persistMembers) {
       window.BSMSupabaseSyncService
@@ -135,10 +157,18 @@
           if (!result?.ok) {
             syncMembersToLegacySupabase(members);
           }
+
+          notifySyncOutcome({
+            ok: Boolean(result?.ok),
+            skipped: Boolean(result?.skipped),
+            kind: result?.errorKind || "sync",
+            source: "members",
+          });
         })
         .catch((error) => {
           console.warn("Supabase production sync error", error);
           syncMembersToLegacySupabase(members);
+          notifySyncOutcome({ ok: false, kind: "network", source: "members" });
         });
       return;
     }

@@ -88,15 +88,41 @@
     const normalizedMembers = normalizeMembersPayload(members);
 
     if (!client?.from || !normalizedMembers.length) {
-      return Promise.resolve({ ok: false, reason: "Supabase kapalı veya üye yok." });
+      // BUG-SAVE-001: skipped=true → Supabase kapalı/offline lokal mod; HATA DEĞİL,
+      // kullanıcı uyarısı tetiklenmez (test modu dahil).
+      return Promise.resolve({ ok: false, skipped: true, reason: "Supabase kapalı veya üye yok." });
     }
 
-    return upsertMembers(client, normalizedMembers).then((membersSynced) =>
+    return upsertMembers(client, normalizedMembers).then((memberError) =>
       Promise.all([
         upsertPrograms(client, normalizedMembers),
         upsertNutritionPlans(client, normalizedMembers),
-      ]).then(() => ({ ok: Boolean(membersSynced), syncedAt: new Date().toISOString() })),
+      ]).then(([programError, nutritionError]) => {
+        const errors = [memberError, programError, nutritionError].filter(Boolean);
+        return {
+          ok: errors.length === 0,
+          errors,
+          errorKind: errors.length ? normalizeSyncErrorKind(errors[0].error) : "",
+          syncedAt: new Date().toISOString(),
+        };
+      }),
     );
+  }
+
+  // BUG-SAVE-001: hata sebebini kullanıcı-yönlendirmesi için normalize eder.
+  function normalizeSyncErrorKind(error) {
+    const code = String(error?.code || "");
+    const message = String(error?.message || error || "").toLowerCase();
+
+    if (code === "42501" || code === "PGRST301" || /jwt|auth|permission|row-level security|401|403/.test(message)) {
+      return "auth";
+    }
+
+    if (/fetch|network|timeout|abort|offline/.test(message)) {
+      return "network";
+    }
+
+    return "sync";
   }
 
   function persistMeasurement(member, measurement) {
@@ -118,14 +144,15 @@
       .then(({ error }) => {
         if (error) {
           console.error("Supabase measurement upsert error", error);
-          return null;
+          // BUG-SAVE-001: hata artık ayırt edilebilir (null = client kapalı/atlandı)
+          return { ok: false, error, errorKind: normalizeSyncErrorKind(error) };
         }
 
         return row;
       })
       .catch((error) => {
         console.error("Supabase measurement upsert error", error);
-        return null;
+        return { ok: false, error, errorKind: normalizeSyncErrorKind(error) };
       });
   }
 
@@ -208,6 +235,8 @@
     return channel;
   }
 
+  // BUG-SAVE-001: upsert'ler başarıda null, hatada { table, error } döndürür —
+  // persistMembers sonuçları toplayıp çağırana iletir (hata artık yutulmaz).
   function upsertMembers(client, members) {
     const rows = members.map(buildMemberRow).filter((row) => row.app_member_id && row.name);
 
@@ -221,14 +250,14 @@
       .then(({ error }) => {
         if (error) {
           console.warn("Supabase members upsert error", error);
-          return false;
+          return { table: TABLES.members, error };
         }
 
-        return true;
+        return null;
       })
       .catch((error) => {
         console.warn("Supabase members upsert error", error);
-        return false;
+        return { table: TABLES.members, error };
       });
   }
 
@@ -245,9 +274,15 @@
       .then(({ error }) => {
         if (error) {
           console.warn("Supabase programs upsert error", error);
+          return { table: TABLES.programs, error };
         }
+
+        return null;
       })
-      .catch((error) => console.warn("Supabase programs upsert error", error));
+      .catch((error) => {
+        console.warn("Supabase programs upsert error", error);
+        return { table: TABLES.programs, error };
+      });
   }
 
   function upsertNutritionPlans(client, members) {
@@ -263,9 +298,15 @@
       .then(({ error }) => {
         if (error) {
           console.warn("Supabase nutrition upsert error", error);
+          return { table: TABLES.nutritionPlans, error };
         }
+
+        return null;
       })
-      .catch((error) => console.warn("Supabase nutrition upsert error", error));
+      .catch((error) => {
+        console.warn("Supabase nutrition upsert error", error);
+        return { table: TABLES.nutritionPlans, error };
+      });
   }
 
   function buildMemberRow(member) {
@@ -605,6 +646,7 @@
   window.BSMSupabaseSyncService = {
     version: SYNC_VERSION,
     isEnabled,
+    normalizeSyncErrorKind,
     loadMembers,
     persistMembers,
     persistMeasurement,
