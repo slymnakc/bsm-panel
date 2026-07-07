@@ -7,6 +7,49 @@ prensibini izler.
 
 ---
 
+# BSM Panel v1.5.12 — "Supabase Sync Hata Bildirimi"
+
+**Yayın tarihi:** 2026-07-07
+**Önceki sürüm:** 1.5.11
+
+## Fixes
+
+### BUG-SAVE-001 — Supabase senkron hatası artık kullanıcıya bildiriliyor
+- Supabase/cloud sync hataları **görünür uyarıyla** bildiriliyor; önceden yalnız
+  `console.warn`'a gidiyor, kullanıcı her koşulda "kaydedildi" görüyordu
+- Uyarı metni hata türüne göre yönlendirme içerir: *"Yerel kayıt tamamlandı,
+  ancak bulut senkronizasyonu başarısız oldu."* + oturum yenileme (auth) /
+  bağlantı kontrolü (network) / otomatik tekrar deneme (diğer)
+- **localStorage-first kayıt mimarisi korundu** — kaydet butonu beklemez,
+  yerel kayıt her koşulda tamamlanır; uyarı sync sonucu geldiğinde gösterilir
+- **Program, Tanita/ölçüm ve beslenme** kayıtları ortak hata bildirim
+  davranışını kullanır (merkezi `BSMSyncStatusNotifier`)
+- Dashboard `supabaseStatus` alanında **"Senkron hatası"** durumu gösterilir;
+  başarılı sync sonrası hata göstergesi otomatik temizlenir
+- Supabase kapalı/offline/test modunda uyarı çıkmaz (lokal mod hata değildir)
+- Hata sebebi normalize edilir: RLS/auth/session (42501, PGRST301, JWT),
+  network, generic sync
+
+### Kapsam dışı (dokunulmadı)
+- **BUG-SAVE-002** (aktif üye yokken sessiz yeni üye oluşturma) ayrı iş olarak
+  bırakıldı — 43-spec'te `test.fixme` placeholder ile işaretli
+- BUG-PDF-002 dosyaları, PDF'ler, program generation, set-template,
+  measurement report, GIF manifest, auth/RLS, şema: **değişmedi**
+
+## Tests
+
+- Yeni: `tests/e2e/43-save-persistence.spec.js` (6 test + 1 fixme) — test-first,
+  baseline FAIL doğrulamalı: üç akışta kalıcılık (kaydet→reload), Supabase upsert
+  payload/onConflict sözleşmesi, hata bildirimi, başarı davranışı korunumu
+- Full e2e: 99 → **105 passed + 1 skipped (106 test)** — flaky/timeout/401 yok
+
+## Internal
+
+- Versiyon: package.json + app.js `BSM_BUILD_VERSION` + index.html 43× `?v=`
+  cache-bust 1.5.11 → 1.5.12
+
+---
+
 # BSM Panel v1.5.11 — "Program PDF Türkçe Font Embedding"
 
 **Yayın tarihi:** 2026-07-07
